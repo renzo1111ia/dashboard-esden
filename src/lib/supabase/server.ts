@@ -2,10 +2,14 @@ import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import type { Database } from "@/types/database";
 
+const PLACEHOLDER_URL = "https://placeholder.supabase.co";
+const PLACEHOLDER_KEY = "placeholder";
+
 /**
  * Server-side Supabase client.
  * Dynamically uses tenant credentials from cookies if available.
  * Falls back to environment variables (central project).
+ * Never throws — returns a placeholder client so SSR never crashes.
  */
 export async function getSupabaseServerClient() {
     try {
@@ -17,16 +21,13 @@ export async function getSupabaseServerClient() {
         const key = tenantKey || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
         if (!url || !key) {
-            console.error("SUPABASE SERVER CLIENT ERROR: Missing credentials.");
-            // Return a dummy client or handle appropriately to avoid crashing
-            // Note: This might still cause errors in downstream actions, but
-            // prevents the whole app from returning a 500 on boot.
-            return createClient<Database>("https://placeholder.supabase.co", "placeholder");
+            console.error("SUPABASE SERVER CLIENT: Missing credentials — using placeholder.");
+            return createClient<Database>(PLACEHOLDER_URL, PLACEHOLDER_KEY);
         }
 
         return createClient<Database>(url, key);
     } catch (error) {
-        console.error("SERVER CLIENT INSTANTIATION ERROR:", error);
-        throw error;
+        console.error("SUPABASE SERVER CLIENT EXCEPTION:", error);
+        return createClient<Database>(PLACEHOLDER_URL, PLACEHOLDER_KEY);
     }
 }

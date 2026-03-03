@@ -26,39 +26,47 @@ export async function fetchCalls({
     fromDate,
     toDate,
 }: FetchCallsParams): Promise<FetchCallsResult> {
+    const emptyResult: FetchCallsResult = { data: [], count: 0, totalPages: 0 };
+    try {
+        const supabase = await getSupabaseServerClient();
+        const from = (page - 1) * pageSize;
+        const to = from + pageSize - 1;
 
-    const supabase = await getSupabaseServerClient();
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
+        let query = supabase
+            .from("post_call_analisis")
+            .select("*", { count: "exact" })
+            .order("created_at", { ascending: false })
+            .range(from, to);
 
-    let query = supabase
-        .from("post_call_analisis")
-        .select("*", { count: "exact" })
-        .order("created_at", { ascending: false })
-        .range(from, to);
+        if (search) {
+            query = query.or(
+                `lead_id.ilike.%${search}%,phone_number.ilike.%${search}%`
+            );
+        }
 
-    if (search) {
-        query = query.or(
-            `lead_id.ilike.%${search}%,phone_number.ilike.%${search}%`
-        );
+        if (callStatus && callStatus !== "ALL") {
+            query = query.eq("call_status", callStatus);
+        }
+
+        if (fromDate) query = query.gte("created_at", fromDate);
+        if (toDate) query = query.lte("created_at", toDate);
+
+        const { data, error, count } = await query;
+
+        if (error) {
+            console.error("fetchCalls ERROR:", error.message);
+            return emptyResult;
+        }
+
+        return {
+            data: (data as PostCallAnalisis[]) ?? [],
+            count: count ?? 0,
+            totalPages: Math.ceil((count ?? 0) / pageSize),
+        };
+    } catch (e) {
+        console.error("fetchCalls EXCEPTION:", e);
+        return emptyResult;
     }
-
-    if (callStatus && callStatus !== "ALL") {
-        query = query.eq("call_status", callStatus);
-    }
-
-    if (fromDate) query = query.gte("created_at", fromDate);
-    if (toDate) query = query.lte("created_at", toDate);
-
-    const { data, error, count } = await query;
-
-    if (error) throw new Error(error.message);
-
-    return {
-        data: (data as PostCallAnalisis[]) ?? [],
-        count: count ?? 0,
-        totalPages: Math.ceil((count ?? 0) / pageSize),
-    };
 }
 
 export async function upsertExtraField(
