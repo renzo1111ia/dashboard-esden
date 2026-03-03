@@ -328,7 +328,6 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
             {/* Dynamic field dialog */}
             {isNewFieldDialogOpen && (
                 <NewFieldDialog
-                    records={result.data}
                     onClose={() => setIsNewFieldDialogOpen(false)}
                     onSaved={() => load(page, search, statusFilter)}
                 />

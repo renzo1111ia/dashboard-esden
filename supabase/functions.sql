@@ -20,6 +20,23 @@ BEGIN
 END;
 $$;
 
+-- ── 1b. Add column header to ALL records ────────
+-- Creates a new key in extra_data for every row (empty string by default).
+-- This is called when the user clicks "Agregar Cabezal" in the UI.
+CREATE OR REPLACE FUNCTION add_column_header_to_all(
+  p_key TEXT
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  UPDATE public.post_call_analisis
+  SET extra_data = extra_data || jsonb_build_object(p_key, '')
+  WHERE (extra_data -> p_key) IS NULL;
+END;
+$$;
+
 -- ── 2. KPI Totals (Extended for Dashboard) ────────────────────
 CREATE OR REPLACE FUNCTION get_kpi_totals(
   p_from TIMESTAMPTZ,

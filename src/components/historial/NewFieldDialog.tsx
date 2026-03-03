@@ -1,35 +1,30 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { PostCallAnalisis } from "@/types/database";
-import { upsertExtraField } from "@/lib/actions/calls";
+import { addColumnHeader } from "@/lib/actions/calls";
 
 interface Props {
-    records: PostCallAnalisis[];
     onClose: () => void;
     onSaved: () => void;
 }
 
-export function NewFieldDialog({ records, onClose, onSaved }: Props) {
-    const [selectedRecordId, setSelectedRecordId] = useState<string>("");
-    const [key, setKey] = useState("");
-    const [value, setValue] = useState("");
+export function NewFieldDialog({ onClose, onSaved }: Props) {
+    const [name, setName] = useState("");
     const [isPending, startTransition] = useTransition();
     const [error, setError] = useState<string | null>(null);
 
+    // Preview how the name will be saved in Supabase (sanitized)
+    const preview = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_");
+
     function handleSave() {
-        if (!selectedRecordId) {
-            setError("Debes seleccionar a qué registro quieres agregarle el campo.");
-            return;
-        }
-        if (!key.trim()) {
-            setError("El nombre del campo (cabecera) es obligatorio.");
+        if (!name.trim()) {
+            setError("El nombre del cabezal es obligatorio.");
             return;
         }
         setError(null);
         startTransition(async () => {
             try {
-                await upsertExtraField(selectedRecordId, key.trim(), value.trim());
+                await addColumnHeader(name);
                 onSaved();
                 onClose();
             } catch (e: unknown) {
@@ -40,65 +35,32 @@ export function NewFieldDialog({ records, onClose, onSaved }: Props) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#0d1220] p-6 shadow-2xl">
-                <h3 className="text-base font-semibold text-white">Nuevo Campo Dinámico</h3>
+            <div className="w-full max-w-sm rounded-xl border border-white/10 bg-[#0d1220] p-6 shadow-2xl">
+                <h3 className="text-base font-semibold text-white">Agregar Cabezal</h3>
                 <p className="mt-1 text-xs text-white/40">
-                    El valor se guardará en la base de datos (<code className="text-indigo-400">extra_data</code>) y se reflejará como una nueva columna global.
+                    El cabezal se creará como nueva columna en Supabase.
                 </p>
 
-                <div className="mt-5 space-y-4">
-                    {/* Record selector */}
-                    <div>
-                        <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
-                            Registro a Modificar
-                        </label>
-                        <select
-                            value={selectedRecordId}
-                            onChange={(e) => setSelectedRecordId(e.target.value)}
-                            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
-                        >
-                            <option value="" className="bg-[#0d1220] text-white">— Seleccionar registro —</option>
-                            {records.map((r) => (
-                                <option key={r.id} value={r.id} className="bg-[#0d1220] text-white">
-                                    {r.lead_id ? `LEAD ID: ${r.lead_id}` : (r.phone_number ? `Tel: ${r.phone_number}` : `ID: ${r.id}`)}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Field name - free text input */}
-                    <div>
-                        <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
-                            Nombre del campo (Cabecera)
-                        </label>
-                        <input
-                            type="text"
-                            placeholder="ej. campaña_retargeting, master_interes..."
-                            value={key}
-                            onChange={(e) => setKey(e.target.value)}
-                            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/20 focus:border-indigo-500 focus:outline-none"
-                        />
-                        <p className="mt-1 text-xs text-white/30">
-                            Si el campo no existe, se creará automáticamente en Supabase.
+                <div className="mt-5">
+                    <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
+                        Nombre del Cabezal
+                    </label>
+                    <input
+                        type="text"
+                        autoFocus
+                        placeholder="ej. master_interes, campaña..."
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleSave()}
+                        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/30"
+                    />
+                    {name.trim() && (
+                        <p className="mt-1.5 text-xs text-white/30">
+                            Se guardará como: <span className="text-indigo-400 font-mono">{preview}</span>
                         </p>
-                    </div>
-
-                    {/* Value */}
-                    <div>
-                        <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
-                            Valor (Opcional)
-                        </label>
-                        <input
-                            type="text"
-                            placeholder="Dejar en blanco para auto-rellenar por Supabase..."
-                            value={value}
-                            onChange={(e) => setValue(e.target.value)}
-                            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/20 focus:border-indigo-500 focus:outline-none"
-                        />
-                    </div>
-
+                    )}
                     {error && (
-                        <p className="text-xs text-red-400">{error}</p>
+                        <p className="mt-2 text-xs text-red-400">{error}</p>
                     )}
                 </div>
 

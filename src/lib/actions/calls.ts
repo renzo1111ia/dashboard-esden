@@ -76,6 +76,24 @@ export async function upsertExtraField(
     if (error) throw new Error((error as { message: string }).message);
 }
 
+/**
+ * Adds a new column header to ALL records in post_call_analisis.
+ * Sets the key with an empty string so it appears as a column in the table.
+ */
+export async function addColumnHeader(key: string) {
+    // Sanitize key: lowercase, only letters, numbers and underscores
+    const sanitized = key.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_");
+    if (!sanitized) throw new Error("Nombre de campo inválido.");
+
+    const supabase = await getSupabaseServerClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any).rpc("add_column_header_to_all", {
+        p_key: sanitized,
+    });
+    if (error) throw new Error((error as { message: string }).message);
+    return sanitized;
+}
+
 export async function getCallsByPhone(phone: string): Promise<PostCallAnalisis[]> {
     const supabase = await getSupabaseServerClient();
     const { data, error } = await supabase
