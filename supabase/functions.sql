@@ -105,7 +105,7 @@ BEGIN
   WHERE created_at BETWEEN p_from AND p_to AND agendado_con_asesor IS NOT NULL AND agendado_con_asesor != 'NO';
 
   -- Minutos y duración media
-  SELECT SUM(duration_seconds::NUMERIC), AVG(duration_seconds::NUMERIC) INTO v_total_seconds, v_avg_duration 
+  SELECT SUM(NULLIF(duration_seconds, '')::NUMERIC), AVG(NULLIF(duration_seconds, '')::NUMERIC) INTO v_total_seconds, v_avg_duration 
   FROM public.post_call_analisis WHERE created_at BETWEEN p_from AND p_to;
 
   RETURN json_build_object(
@@ -228,8 +228,8 @@ SECURITY DEFINER
 AS $$
   SELECT
     to_char(created_at, 'Mon DD') AS date,
-    ROUND(SUM(duration_seconds::NUMERIC) / 60, 2) AS totales,
-    ROUND(SUM(CASE WHEN duration_seconds::NUMERIC > 0 THEN duration_seconds::NUMERIC ELSE 0 END) / 60, 2) AS facturados
+    ROUND(SUM(NULLIF(duration_seconds, '')::NUMERIC) / 60, 2) AS totales,
+    ROUND(SUM(CASE WHEN NULLIF(duration_seconds, '')::NUMERIC > 0 THEN NULLIF(duration_seconds, '')::NUMERIC ELSE 0 END) / 60, 2) AS facturados
   FROM public.post_call_analisis
   WHERE created_at BETWEEN p_from AND p_to
   GROUP BY date_trunc('day', created_at), date
