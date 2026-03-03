@@ -8,12 +8,25 @@ import type { Database } from "@/types/database";
  * Falls back to environment variables (central project).
  */
 export async function getSupabaseServerClient() {
-    const cookieStore = await cookies();
-    const tenantUrl = cookieStore.get("esden-tenant-url")?.value;
-    const tenantKey = cookieStore.get("esden-tenant-key")?.value;
+    try {
+        const cookieStore = await cookies();
+        const tenantUrl = cookieStore.get("esden-tenant-url")?.value;
+        const tenantKey = cookieStore.get("esden-tenant-key")?.value;
 
-    const url = tenantUrl || process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const key = tenantKey || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+        const url = tenantUrl || process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const key = tenantKey || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    return createClient<Database>(url, key);
+        if (!url || !key) {
+            console.error("SUPABASE SERVER CLIENT ERROR: Missing credentials.");
+            // Return a dummy client or handle appropriately to avoid crashing
+            // Note: This might still cause errors in downstream actions, but
+            // prevents the whole app from returning a 500 on boot.
+            return createClient<Database>("https://placeholder.supabase.co", "placeholder");
+        }
+
+        return createClient<Database>(url, key);
+    } catch (error) {
+        console.error("SERVER CLIENT INSTANTIATION ERROR:", error);
+        throw error;
+    }
 }
