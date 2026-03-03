@@ -288,12 +288,15 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
                                                 )} />
                                             </td>
                                         );
-                                        // Recording URLs → audio player
+                                        // Extract URL with regex (handles formats like "file.wav (https://...)")
                                         const strVal = val !== null ? String(val) : null;
-                                        if (strVal && (strVal.startsWith('http://') || strVal.startsWith('https://')) && (k.includes('record') || k.includes('audio') || k.includes('url'))) {
+                                        const urlMatch = strVal ? strVal.match(/https?:\/\/[^\s)]+/) : null;
+                                        const extractedUrl = urlMatch ? urlMatch[0] : null;
+                                        // Audio recording → player
+                                        if (extractedUrl && (extractedUrl.includes('.wav') || extractedUrl.includes('.mp3') || extractedUrl.includes('.ogg') || extractedUrl.includes('record') || extractedUrl.includes('audio'))) {
                                             return (
                                                 <td key={k} className="px-3 py-1.5">
-                                                    <audio controls src={strVal} className="h-7 max-w-[160px] rounded" preload="none" />
+                                                    <audio controls src={extractedUrl} className="h-7 max-w-[180px] rounded" preload="none" />
                                                 </td>
                                             );
                                         }
@@ -316,11 +319,14 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
 
                                     {visibleDynamic.map((k) => {
                                         const dynVal = String(row.extra_data?.[k] ?? "—");
-                                        // Recording URLs in dynamic columns
-                                        if (dynVal !== "—" && (dynVal.startsWith('http://') || dynVal.startsWith('https://'))) {
+                                        // Extract URL with regex (handles 'file.wav (https://...)')
+                                        const dynUrlMatch = dynVal !== "—" ? dynVal.match(/https?:\/\/[^\s)]+/) : null;
+                                        const dynExtractedUrl = dynUrlMatch ? dynUrlMatch[0] : null;
+                                        // Audio recording in dynamic column → player
+                                        if (dynExtractedUrl && (dynExtractedUrl.includes('.wav') || dynExtractedUrl.includes('.mp3') || dynExtractedUrl.includes('.ogg') || dynExtractedUrl.includes('record') || dynExtractedUrl.includes('audio'))) {
                                             return (
                                                 <td key={k} className="px-3 py-1.5">
-                                                    <audio controls src={dynVal} className="h-7 max-w-[160px] rounded" preload="none" />
+                                                    <audio controls src={dynExtractedUrl} className="h-7 max-w-[180px] rounded" preload="none" />
                                                 </td>
                                             );
                                         }
