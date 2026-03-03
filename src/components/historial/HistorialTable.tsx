@@ -43,6 +43,7 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
     const [isNewFieldDialogOpen, setIsNewFieldDialogOpen] = useState(false);
     const [dupPhone, setDupPhone] = useState<string | null>(null);
     const [isPending, startTransition] = useTransition();
+    const [popoverText, setPopoverText] = useState<string | null>(null);
 
     const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false);
     const [isNewHeaderOpen, setIsNewHeaderOpen] = useState(false);
@@ -178,22 +179,41 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
                 </span>
             </div>
 
+            {/* Text popover */}
+            {popoverText && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+                    onClick={() => setPopoverText(null)}
+                >
+                    <div
+                        className="max-w-lg w-full mx-4 rounded-xl border border-white/10 bg-[#0d1220] p-5 shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-xs font-medium uppercase tracking-wider text-white/40">Contenido</span>
+                            <button onClick={() => setPopoverText(null)} className="text-white/30 hover:text-white/70 transition text-lg leading-none">✕</button>
+                        </div>
+                        <p className="text-sm text-white/80 leading-relaxed whitespace-pre-wrap">{popoverText}</p>
+                    </div>
+                </div>
+            )}
+
             {/* Table */}
             <div className="overflow-x-auto rounded-xl border border-white/[0.07]">
                 <table className="w-full text-sm">
                     <thead>
                         <tr className="border-b border-white/[0.06] bg-white/[0.02]">
                             {apiCols.map((k) => (
-                                <th key={k} className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-white/40 whitespace-nowrap">
+                                <th key={k} className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-white/40 whitespace-nowrap">
                                     {COL_DICT[k] || k.replace(/_/g, ' ')}
                                 </th>
                             ))}
                             {visibleDynamic.map((k) => (
-                                <th key={k} className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-indigo-400/70 whitespace-nowrap">
+                                <th key={k} className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-indigo-400/70 whitespace-nowrap">
                                     ⚡ {k}
                                 </th>
                             ))}
-                            <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-white/40 whitespace-nowrap overflow-visible">
+                            <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wider text-white/40 whitespace-nowrap overflow-visible">
                                 <div className="relative inline-block text-left w-full" ref={headerMenuRef}>
                                     <button
                                         type="button"
@@ -232,10 +252,10 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
                                 <tr key={row.id} className="hover:bg-white/[0.02] transition-colors">
                                     {apiCols.map((k) => {
                                         const val = row[k as keyof PostCallAnalisis];
-                                        if (k === 'created_at') return <td key={k} className="px-4 py-3 text-white/50 whitespace-nowrap text-xs">{formatDate(val as string)}</td>;
+                                        if (k === 'created_at') return <td key={k} className="px-3 py-1.5 text-white/50 whitespace-nowrap text-xs">{formatDate(val as string)}</td>;
                                         if (k === 'lead_id') return (
                                             <td key={k}
-                                                className="px-4 py-3 font-mono text-xs text-indigo-400 hover:text-indigo-300 cursor-pointer hover:underline underline-offset-2 transition-colors"
+                                                className="px-3 py-1.5 font-mono text-xs text-indigo-400 hover:text-indigo-300 cursor-pointer hover:underline underline-offset-2 transition-colors"
                                                 onClick={() => { if (row.phone_number) setDupPhone(row.phone_number); }}
                                             >
                                                 {val as string ?? "—"}
@@ -243,14 +263,14 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
                                         );
                                         if (k === 'phone_number') return (
                                             <td key={k}
-                                                className="px-4 py-3 font-mono text-xs text-indigo-400 hover:text-indigo-300 whitespace-nowrap cursor-pointer hover:underline underline-offset-2 transition-colors"
+                                                className="px-3 py-1.5 font-mono text-xs text-indigo-400 hover:text-indigo-300 whitespace-nowrap cursor-pointer hover:underline underline-offset-2 transition-colors"
                                                 onClick={() => { if (row.phone_number) setDupPhone(row.phone_number); }}
                                             >
                                                 {val as string ?? "—"}
                                             </td>
                                         );
                                         if (k === 'call_status') return (
-                                            <td key={k} className="px-4 py-3 whitespace-nowrap">
+                                            <td key={k} className="px-3 py-1.5 whitespace-nowrap">
                                                 <span className={cn(
                                                     "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
                                                     STATUS_COLORS[val as string] ?? "bg-white/5 text-white/40 border-white/10"
@@ -259,24 +279,66 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
                                                 </span>
                                             </td>
                                         );
-                                        if (k === 'duration_seconds') return <td key={k} className="px-4 py-3 text-white/50 whitespace-nowrap text-xs">{val !== null ? formatDuration(val as number) : "—"}</td>;
+                                        if (k === 'duration_seconds') return <td key={k} className="px-3 py-1.5 text-white/50 whitespace-nowrap text-xs">{val !== null ? formatDuration(val as number) : "—"}</td>;
                                         if (k === 'is_qualified') return (
-                                            <td key={k} className="px-4 py-3">
+                                            <td key={k} className="px-3 py-1.5">
                                                 <span className={cn(
                                                     "inline-block h-2 w-2 rounded-full",
                                                     val ? "bg-emerald-400" : "bg-white/20"
                                                 )} />
                                             </td>
                                         );
-                                        return <td key={k} className="px-4 py-3 text-white/50 text-xs whitespace-nowrap">{val !== null ? String(val) : "—"}</td>;
+                                        // Recording URLs → audio player
+                                        const strVal = val !== null ? String(val) : null;
+                                        if (strVal && (strVal.startsWith('http://') || strVal.startsWith('https://')) && (k.includes('record') || k.includes('audio') || k.includes('url'))) {
+                                            return (
+                                                <td key={k} className="px-3 py-1.5">
+                                                    <audio controls src={strVal} className="h-7 max-w-[160px] rounded" preload="none" />
+                                                </td>
+                                            );
+                                        }
+                                        // Long text → truncate + click to expand
+                                        if (strVal && strVal.length > 40) {
+                                            return (
+                                                <td key={k} className="px-3 py-1.5">
+                                                    <button
+                                                        onClick={() => setPopoverText(strVal)}
+                                                        className="max-w-[160px] truncate text-left text-xs text-white/50 hover:text-indigo-400 hover:underline transition block"
+                                                        title="Clic para ver completo"
+                                                    >
+                                                        {strVal}
+                                                    </button>
+                                                </td>
+                                            );
+                                        }
+                                        return <td key={k} className="px-3 py-1.5 text-white/50 text-xs whitespace-nowrap">{strVal ?? "—"}</td>;
                                     })}
 
-                                    {visibleDynamic.map((k) => (
-                                        <td key={k} className="px-4 py-3 text-xs text-indigo-300/80">
-                                            {String(row.extra_data?.[k] ?? "—")}
-                                        </td>
-                                    ))}
-                                    <td className="px-4 py-3 text-right">
+                                    {visibleDynamic.map((k) => {
+                                        const dynVal = String(row.extra_data?.[k] ?? "—");
+                                        // Recording URLs in dynamic columns
+                                        if (dynVal !== "—" && (dynVal.startsWith('http://') || dynVal.startsWith('https://'))) {
+                                            return (
+                                                <td key={k} className="px-3 py-1.5">
+                                                    <audio controls src={dynVal} className="h-7 max-w-[160px] rounded" preload="none" />
+                                                </td>
+                                            );
+                                        }
+                                        if (dynVal.length > 40) {
+                                            return (
+                                                <td key={k} className="px-3 py-1.5">
+                                                    <button
+                                                        onClick={() => setPopoverText(dynVal)}
+                                                        className="max-w-[160px] truncate text-left text-xs text-indigo-300/80 hover:text-indigo-400 hover:underline transition block"
+                                                    >
+                                                        {dynVal}
+                                                    </button>
+                                                </td>
+                                            );
+                                        }
+                                        return <td key={k} className="px-3 py-1.5 text-xs text-indigo-300/80 whitespace-nowrap">{dynVal}</td>;
+                                    })}
+                                    <td className="px-3 py-1.5 text-right">
                                     </td>
                                 </tr>
                             ))
