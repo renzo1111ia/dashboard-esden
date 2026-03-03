@@ -4,9 +4,23 @@ import { useState, useCallback, useTransition, useEffect, useRef } from "react";
 import { fetchCalls, type FetchCallsResult } from "@/lib/actions/calls";
 import { NewFieldDialog } from "@/components/historial/NewFieldDialog";
 import { DuplicateLeadDialog } from "@/components/historial/DuplicateLeadDialog";
+import { AudioPlayer } from "@/components/historial/AudioPlayer";
 import { formatDuration, formatDate, cn } from "@/lib/utils";
 import type { PostCallAnalisis } from "@/types/database";
 import { ChevronDown } from "lucide-react";
+
+const AUDIO_EXTENSIONS = ['.wav', '.mp3', '.ogg', '.m4a', '.aac', '.flac'];
+
+/** Returns extracted URL if the text looks like an audio file reference */
+function extractAudioUrl(text: string | null): string | null {
+    if (!text) return null;
+    // Check if the full text (e.g. filename) contains an audio extension
+    const hasAudioExt = AUDIO_EXTENSIONS.some((ext) => text.toLowerCase().includes(ext));
+    if (!hasAudioExt) return null;
+    // Extract URL via regex
+    const match = text.match(/https?:\/\/[^\s)]+/);
+    return match ? match[0] : null;
+}
 
 const STATUS_COLORS: Record<string, string> = {
     CONTACTED: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
@@ -290,13 +304,12 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
                                         );
                                         // Extract URL with regex (handles formats like "file.wav (https://...)")
                                         const strVal = val !== null ? String(val) : null;
-                                        const urlMatch = strVal ? strVal.match(/https?:\/\/[^\s)]+/) : null;
-                                        const extractedUrl = urlMatch ? urlMatch[0] : null;
-                                        // Audio recording → player
-                                        if (extractedUrl && (extractedUrl.includes('.wav') || extractedUrl.includes('.mp3') || extractedUrl.includes('.ogg') || extractedUrl.includes('record') || extractedUrl.includes('audio'))) {
+                                        const audioUrl = extractAudioUrl(strVal);
+                                        // Audio recording → custom player
+                                        if (audioUrl) {
                                             return (
-                                                <td key={k} className="px-3 py-1.5">
-                                                    <audio controls src={extractedUrl} className="h-7 max-w-[180px] rounded" preload="none" />
+                                                <td key={k} className="px-3 py-1">
+                                                    <AudioPlayer src={audioUrl} />
                                                 </td>
                                             );
                                         }
@@ -319,14 +332,12 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
 
                                     {visibleDynamic.map((k) => {
                                         const dynVal = String(row.extra_data?.[k] ?? "—");
-                                        // Extract URL with regex (handles 'file.wav (https://...)')
-                                        const dynUrlMatch = dynVal !== "—" ? dynVal.match(/https?:\/\/[^\s)]+/) : null;
-                                        const dynExtractedUrl = dynUrlMatch ? dynUrlMatch[0] : null;
-                                        // Audio recording in dynamic column → player
-                                        if (dynExtractedUrl && (dynExtractedUrl.includes('.wav') || dynExtractedUrl.includes('.mp3') || dynExtractedUrl.includes('.ogg') || dynExtractedUrl.includes('record') || dynExtractedUrl.includes('audio'))) {
+                                        // Extract audio URL (detects by extension in full text)
+                                        const dynAudioUrl = extractAudioUrl(dynVal !== "—" ? dynVal : null);
+                                        if (dynAudioUrl) {
                                             return (
-                                                <td key={k} className="px-3 py-1.5">
-                                                    <audio controls src={dynExtractedUrl} className="h-7 max-w-[180px] rounded" preload="none" />
+                                                <td key={k} className="px-3 py-1">
+                                                    <AudioPlayer src={dynAudioUrl} />
                                                 </td>
                                             );
                                         }
