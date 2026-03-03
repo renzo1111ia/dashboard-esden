@@ -1,7 +1,7 @@
 ﻿"use server";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import type { PostCallAnalisis } from "@/types/database";
+import type { PostCallAnalisis, Reintento } from "@/types/database";
 
 export interface FetchCallsParams {
     page: number;
@@ -112,4 +112,29 @@ export async function getCallsByPhone(phone: string): Promise<PostCallAnalisis[]
 
     if (error) throw new Error(error.message);
     return (data as PostCallAnalisis[]) ?? [];
+}
+
+export async function fetchReintentosByPhone(phone: string): Promise<Reintento[]> {
+    const supabase = await getSupabaseServerClient();
+    // Try filtering by telefono OR phone_number columns (both may be used)
+    const { data, error } = await supabase
+        .from("reintentos")
+        .select("*")
+        .or(`telefono.eq.${phone},phone_number.eq.${phone}`)
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        // If phone_number column doesn't exist, fall back to telefono only
+        const { data: data2, error: error2 } = await supabase
+            .from("reintentos")
+            .select("*")
+            .eq("telefono", phone)
+            .order("created_at", { ascending: false });
+        if (error2) {
+            console.error("fetchReintentosByPhone ERROR:", error2.message);
+            return [];
+        }
+        return (data2 as Reintento[]) ?? [];
+    }
+    return (data as Reintento[]) ?? [];
 }

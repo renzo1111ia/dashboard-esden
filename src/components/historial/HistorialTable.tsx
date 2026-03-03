@@ -43,6 +43,25 @@ interface Props {
     toDate: string;
 }
 
+/** Group rows by phone_number, keeping the most-recent as the representative row */
+function deduplicateByPhone(data: PostCallAnalisis[]): { row: PostCallAnalisis; count: number }[] {
+    const map = new Map<string, { row: PostCallAnalisis; count: number }>();
+    for (const item of data) {
+        const key = item.phone_number ?? `__no_phone_${item.id}`;
+        const existing = map.get(key);
+        if (!existing) {
+            map.set(key, { row: item, count: 1 });
+        } else {
+            existing.count++;
+            // Keep the most-recent row as representative
+            if (item.created_at > existing.row.created_at) {
+                existing.row = item;
+            }
+        }
+    }
+    return Array.from(map.values());
+}
+
 export function HistorialTable({ initialData, fromDate, toDate }: Props) {
     const [result, setResult] = useState<FetchCallsResult>(initialData);
     const [page, setPage] = useState(1);
@@ -262,7 +281,7 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
                                 </td>
                             </tr>
                         ) : (
-                            result.data.map((row) => (
+                            deduplicateByPhone(result.data).map(({ row, count }) => (
                                 <tr key={row.id} className="hover:bg-white/[0.02] transition-colors">
                                     {apiCols.map((k) => {
                                         const val = row[k as keyof PostCallAnalisis];
@@ -277,10 +296,17 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
                                         );
                                         if (k === 'phone_number') return (
                                             <td key={k}
-                                                className="px-3 py-1.5 font-mono text-xs text-indigo-400 hover:text-indigo-300 whitespace-nowrap cursor-pointer hover:underline underline-offset-2 transition-colors"
+                                                className="px-3 py-1.5 whitespace-nowrap cursor-pointer"
                                                 onClick={() => { if (row.phone_number) setDupPhone(row.phone_number); }}
                                             >
-                                                {val as string ?? "—"}
+                                                <span className="font-mono text-xs text-indigo-400 hover:text-indigo-300 hover:underline underline-offset-2 transition-colors">
+                                                    {val as string ?? "—"}
+                                                </span>
+                                                {count > 1 && (
+                                                    <span className="ml-1.5 inline-flex items-center rounded-full bg-indigo-500/20 border border-indigo-500/30 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-300">
+                                                        +{count - 1}
+                                                    </span>
+                                                )}
                                             </td>
                                         );
                                         if (k === 'call_status') return (
