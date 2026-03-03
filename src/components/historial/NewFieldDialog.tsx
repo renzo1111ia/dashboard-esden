@@ -6,34 +6,30 @@ import { upsertExtraField } from "@/lib/actions/calls";
 
 interface Props {
     records: PostCallAnalisis[];
-    dynamicKeys: string[];
     onClose: () => void;
     onSaved: () => void;
 }
 
-export function NewFieldDialog({ records, dynamicKeys, onClose, onSaved }: Props) {
+export function NewFieldDialog({ records, onClose, onSaved }: Props) {
     const [selectedRecordId, setSelectedRecordId] = useState<string>("");
     const [key, setKey] = useState("");
     const [value, setValue] = useState("");
-    const [customKey, setCustomKey] = useState("");
     const [isPending, startTransition] = useTransition();
     const [error, setError] = useState<string | null>(null);
-
-    const finalKey = key === "__custom__" ? customKey : key;
 
     function handleSave() {
         if (!selectedRecordId) {
             setError("Debes seleccionar a qué registro quieres agregarle el campo.");
             return;
         }
-        if (!finalKey.trim()) {
-            setError("El nombre del campo es obligatorio.");
+        if (!key.trim()) {
+            setError("El nombre del campo (cabecera) es obligatorio.");
             return;
         }
         setError(null);
         startTransition(async () => {
             try {
-                await upsertExtraField(selectedRecordId, finalKey.trim(), value.trim());
+                await upsertExtraField(selectedRecordId, key.trim(), value.trim());
                 onSaved();
                 onClose();
             } catch (e: unknown) {
@@ -70,38 +66,22 @@ export function NewFieldDialog({ records, dynamicKeys, onClose, onSaved }: Props
                         </select>
                     </div>
 
-                    {/* Field key selector */}
+                    {/* Field name - free text input */}
                     <div>
                         <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
                             Nombre del campo (Cabecera)
                         </label>
-                        <select
+                        <input
+                            type="text"
+                            placeholder="ej. campaña_retargeting, master_interes..."
                             value={key}
                             onChange={(e) => setKey(e.target.value)}
-                            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
-                        >
-                            <option value="" className="bg-[#0d1220] text-white">— Seleccionar —</option>
-                            {dynamicKeys.map((k) => (
-                                <option key={k} value={k} className="bg-[#0d1220] text-white">{k}</option>
-                            ))}
-                            <option value="__custom__" className="bg-[#0d1220] text-white text-indigo-400 font-medium">+ Crear nuevo campo...</option>
-                        </select>
+                            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/20 focus:border-indigo-500 focus:outline-none"
+                        />
+                        <p className="mt-1 text-xs text-white/30">
+                            Si el campo no existe, se creará automáticamente en Supabase.
+                        </p>
                     </div>
-
-                    {key === "__custom__" && (
-                        <div>
-                            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/50">
-                                Nombre personalizado
-                            </label>
-                            <input
-                                type="text"
-                                placeholder="ej. campaña_retargeting"
-                                value={customKey}
-                                onChange={(e) => setCustomKey(e.target.value)}
-                                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/20 focus:border-indigo-500 focus:outline-none"
-                            />
-                        </div>
-                    )}
 
                     {/* Value */}
                     <div>
