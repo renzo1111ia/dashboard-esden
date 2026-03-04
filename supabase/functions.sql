@@ -64,48 +64,74 @@ BEGIN
   -- Total llamados
   SELECT COUNT(*) INTO v_total FROM public.post_call_analisis WHERE created_at BETWEEN p_from AND p_to;
   
-  -- Atendidas
+  -- Atendidas: llamadas con Total Mins > 0.15
   SELECT COUNT(*) INTO v_contacted FROM public.post_call_analisis 
-  WHERE created_at BETWEEN p_from AND p_to AND call_status IN ('CONTACTED', 'TRANSFERRED_TO_HUMAN');
+  WHERE created_at BETWEEN p_from AND p_to AND NULLIF("Total Mins", '')::NUMERIC > 0.15;
   
-  -- Fallidas (BUSY, INVALID_NUMBER, LATENCY_DROP, etc)
+  -- Fallidas: llamadas con Total Mins <= 0.15
   SELECT COUNT(*) INTO v_failed FROM public.post_call_analisis 
-  WHERE created_at BETWEEN p_from AND p_to AND call_status NOT IN ('CONTACTED', 'TRANSFERRED_TO_HUMAN', 'VOICEMAIL', 'NO_CONTACT');
+  WHERE created_at BETWEEN p_from AND p_to AND (NULLIF("Total Mins", '')::NUMERIC <= 0.15 OR "Total Mins" IS NULL OR "Total Mins" = '');
 
-  -- Leads alcanzados (distinct lead_id contacted)
+  -- Leads alcanzados: leads únicos con Lead ID no vacío
   SELECT COUNT(DISTINCT lead_id) INTO v_leads_alcanzados FROM public.post_call_analisis 
-  WHERE created_at BETWEEN p_from AND p_to AND call_status IN ('CONTACTED', 'TRANSFERRED_TO_HUMAN');
+  WHERE created_at BETWEEN p_from AND p_to AND lead_id IS NOT NULL AND lead_id != '';
 
-  -- Ilocalizables totales
-  SELECT COUNT(*) INTO v_ilocalizables FROM public.post_call_analisis 
-  WHERE created_at BETWEEN p_from AND p_to AND call_status IN ('NO_CONTACT', 'VOICEMAIL', 'INVALID_NUMBER');
+  -- Ilocalizables totales: leads únicos donde Motivo = 'Ilocalizable'
+  SELECT COUNT(DISTINCT lead_id) INTO v_ilocalizables FROM public.post_call_analisis 
+  WHERE created_at BETWEEN p_from AND p_to AND "Motivo" = 'Ilocalizable';
 
-  -- Teléfono erróneo
+  -- Teléfono erróneo: End Reason en valores de número inválido
   SELECT COUNT(*) INTO v_tel_erroneo FROM public.post_call_analisis 
-  WHERE created_at BETWEEN p_from AND p_to AND call_status = 'INVALID_NUMBER';
+  WHERE created_at BETWEEN p_from AND p_to 
+    AND "End Reason" IN ('invalid_destination', 'unallocated_number', 'teléfono falso')
+       OR ("End Reason" LIKE 'telephony_provider%' AND created_at BETWEEN p_from AND p_to);
 
-  -- Buzón de voz
+  -- Buzón de voz: End Reason = voicemail_reached AND Motivo contiene 'Ilocalizable'
   SELECT COUNT(*) INTO v_buzon FROM public.post_call_analisis 
-  WHERE created_at BETWEEN p_from AND p_to AND call_status = 'VOICEMAIL';
+  WHERE created_at BETWEEN p_from AND p_to 
+    AND "End Reason" = 'voicemail_reached' 
+    AND "Motivo" ILIKE '%Ilocalizable%';
 
-  -- No cumplen requisitos (basado en is_qualified = false y motivo_anulacion)
-  SELECT COUNT(*) INTO v_no_requisitos FROM public.post_call_analisis 
-  WHERE created_at BETWEEN p_from AND p_to AND motivo_anulacion ILIKE '%requisito%';
+  -- No cumplen requisitos: leads únicos donde Cualificacion = 'no cualificado'
+  SELECT COUNT(DISTINCT lead_id) INTO v_no_requisitos FROM public.post_call_analisis 
+  WHERE created_at BETWEEN p_from AND p_to AND "Cualificacion" = 'no cualificado';
 
-  -- No interesados
-  SELECT COUNT(*) INTO v_no_interesados FROM public.post_call_analisis 
-  WHERE created_at BETWEEN p_from AND p_to AND motivo_anulacion ILIKE '%interesa%';
+  -- No interesados: leads únicos con Motivo en lista o End Reason = invalid_destination
+  SELECT COUNT(DISTINCT lead_id) INTO v_no_interesados FROM public.post_call_analisis 
+  WHERE created_at BETWEEN p_from AND p_to AND (
+    "Motivo" IN (
+      'No válido',
+      'Duplicado',
+      'Solo quiere Oficial',
+      'Anulado sin fase',
+      'Se matricula en la competencia',   -- TODO: confirmar valor exacto
+      'No interesado, no invierten más',  -- TODO: confirmar valor exacto
+      'No interesado por precio',         -- TODO: confirmar valor exacto
+      'Solo busca información',           -- TODO: confirmar valor exacto
+      'No ha pedido información',         -- TODO: confirmar valor exacto
+      'La modalidad/ horario no le conviene', -- TODO: confirmar valor exacto
+      'No se ajustan las mallas',         -- TODO: confirmar valor exacto
+      'Interés próxima convocatoria',     -- TODO: confirmar valor exacto
+      'Informado, no se volvió a comunicar', -- TODO: confirmar valor exacto
+      'Contactado, no se volvió a comunicar', -- TODO: confirmar valor exacto
+      'No le interesa la titulación'      -- TODO: confirmar valor exacto
+    )
+    OR "End Reason" = 'invalid_destination'
+  );
 
-  -- Leads cualificados
-  SELECT COUNT(*) INTO v_qualified FROM public.post_call_analisis 
-  WHERE created_at BETWEEN p_from AND p_to AND is_qualified = TRUE;
+  -- Leads cualificados: leads únicos donde Cualificacion = 'cualificado'
+  SELECT COUNT(DISTINCT lead_id) INTO v_qualified FROM public.post_call_analisis 
+  WHERE created_at BETWEEN p_from AND p_to AND "Cualificacion" = 'cualificado';
 
-  -- Total agendas
-  SELECT COUNT(*) INTO v_agendas FROM public.post_call_analisis 
-  WHERE created_at BETWEEN p_from AND p_to AND agendado_con_asesor IS NOT NULL AND agendado_con_asesor != 'NO';
+  -- Total agendas: leads únicos donde Agendado = 'si'
+  SELECT COUNT(DISTINCT lead_id) INTO v_agendas FROM public.post_call_analisis 
+  WHERE created_at BETWEEN p_from AND p_to AND "Agendado" = 'si';
 
-  -- Minutos y duración media
-  SELECT SUM(NULLIF(duration_seconds, '')::NUMERIC), AVG(NULLIF(duration_seconds, '')::NUMERIC) INTO v_total_seconds, v_avg_duration 
+  -- Minutos y duración media — usando columna "Total Mins" (tipo text, valores en minutos)
+  SELECT 
+    SUM(NULLIF("Total Mins", '')::NUMERIC),
+    AVG(NULLIF("Total Mins", '')::NUMERIC)
+  INTO v_total_seconds, v_avg_duration 
   FROM public.post_call_analisis WHERE created_at BETWEEN p_from AND p_to;
 
   RETURN json_build_object(
@@ -120,8 +146,8 @@ BEGIN
     'no_interesados_gen', v_no_interesados,
     'leads_cualificados_gen', v_qualified,
     'total_agendas_gen', v_agendas,
-    'duracion_media', ROUND(COALESCE(v_avg_duration, 0) / 60, 2),
-    'total_minutos_gen', ROUND(COALESCE(v_total_seconds, 0) / 60, 2)
+    'duracion_media', ROUND(COALESCE(v_avg_duration, 0), 2),
+    'total_minutos_gen', ROUND(COALESCE(v_total_seconds, 0), 2)
   );
 END;
 $$;
@@ -228,8 +254,8 @@ SECURITY DEFINER
 AS $$
   SELECT
     to_char(created_at, 'Mon DD') AS date,
-    ROUND(SUM(NULLIF(duration_seconds, '')::NUMERIC) / 60, 2) AS totales,
-    ROUND(SUM(CASE WHEN NULLIF(duration_seconds, '')::NUMERIC > 0 THEN NULLIF(duration_seconds, '')::NUMERIC ELSE 0 END) / 60, 2) AS facturados
+    ROUND(SUM(NULLIF("Total Mins", '')::NUMERIC), 2) AS totales,
+    ROUND(SUM(CASE WHEN NULLIF("Total Mins", '')::NUMERIC > 0 THEN NULLIF("Total Mins", '')::NUMERIC ELSE 0 END), 2) AS facturados
   FROM public.post_call_analisis
   WHERE created_at BETWEEN p_from AND p_to
   GROUP BY date_trunc('day', created_at), date
