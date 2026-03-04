@@ -20,6 +20,7 @@ import {
     ChartSkeleton,
     KpiSkeleton,
 } from "@/components/charts/DashboardCharts";
+import { TenantSetupBanner } from "@/components/layout/TenantSetupBanner";
 import {
     Phone, PhoneCall, PhoneMissed, Users, UserX, PhoneOff, Voicemail,
     UserMinus, ThumbsDown, Star, Calendar, Clock, TrendingUp
@@ -129,6 +130,7 @@ export default async function DashboardPage() {
 
     return (
         <div className="space-y-6">
+            <TenantSetupBanner />
             <Suspense
                 fallback={
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 mb-8">

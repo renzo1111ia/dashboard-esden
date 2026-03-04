@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useTenantStore } from "@/store/tenant";
 
 import { LayoutDashboard, Megaphone, MessageCircle, Clock, History, Settings } from "lucide-react";
 
@@ -43,6 +44,7 @@ const NAV_ITEMS = [
 export function Sidebar() {
     const pathname = usePathname();
     const [collapsed, setCollapsed] = useState(false);
+    const isConfigured = useTenantStore((s) => s.isConfigured);
 
     return (
         <aside
@@ -78,7 +80,15 @@ export function Sidebar() {
                                     : "text-white/50 hover:bg-white/[0.05] hover:text-white/80"
                             )}
                         >
-                            <span className="flex-shrink-0">{item.icon}</span>
+                            <span className="relative flex-shrink-0">
+                                {item.icon}
+                                {item.href === "/dashboard/settings" && !isConfigured && (
+                                    <span className="absolute -right-1 -top-1 flex h-2.5 w-2.5">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
+                                    </span>
+                                )}
+                            </span>
                             {!collapsed && <span>{item.label}</span>}
                             {active && !collapsed && (
                                 <span className="ml-auto h-1.5 w-1.5 rounded-full bg-indigo-400" />
