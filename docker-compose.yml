@@ -12,10 +12,9 @@ services:
     restart: always
     ports:
       - "3000:3000"
-    env_file:
-      - .env.local
     environment:
       - NODE_ENV=production
       - PORT=3000
       - NEXT_PUBLIC_SUPABASE_URL=http://interno-supabase-a201be-46-62-193-169.traefik.me
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NzI0OTEyMjksImV4cCI6MTg5MzQ1NjAwMCwicm9sZSI6ImFub24iLCJpc3MiOiJzdXBhYmFzZSJ9.v5lTSxmgC2pHuB19YxNQUgq4A-tAya678gI53V7DBkk
+      - SUPABASE_SERVICE_ROLE_KEY=thZ1pM2oHpVNhwe5XT_LJIEU09cIbW05iwavTgcRylb8xYEB-lfwvH0V9vsiF5ix0VAJXabW5ITY9TRPOcDA9A
