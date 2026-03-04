@@ -100,21 +100,21 @@ BEGIN
   SELECT COUNT(DISTINCT lead_id) INTO v_no_interesados FROM public.post_call_analisis 
   WHERE created_at BETWEEN p_from AND p_to AND (
     "Motivo" IN (
-      'No válido',
-      'Duplicado',
-      'Solo quiere Oficial',
       'Anulado sin fase',
-      'Se matricula en la competencia',   -- TODO: confirmar valor exacto
-      'No interesado, no invierten más',  -- TODO: confirmar valor exacto
-      'No interesado por precio',         -- TODO: confirmar valor exacto
-      'Solo busca información',           -- TODO: confirmar valor exacto
-      'No ha pedido información',         -- TODO: confirmar valor exacto
-      'La modalidad/ horario no le conviene', -- TODO: confirmar valor exacto
-      'No se ajustan las mallas',         -- TODO: confirmar valor exacto
-      'Interés próxima convocatoria',     -- TODO: confirmar valor exacto
-      'Informado, no se volvió a comunicar', -- TODO: confirmar valor exacto
-      'Contactado, no se volvió a comunicar', -- TODO: confirmar valor exacto
-      'No le interesa la titulación'      -- TODO: confirmar valor exacto
+      'No le interesa la titulación ofertada',
+      'Solo quiere Oficial',
+      'Contactado, no se vuelve a contactar',
+      'Informado, no se vuelve a contactar',
+      'Duplicado',
+      'Interés próxima convocatoria',
+      'No se ajustan las modalidades de pago',
+      'La modalidad/ horario/ ubicación no le encaja',
+      'No válido',
+      'No ha pedido información',
+      'Solo busca información',
+      'No interesado por precio',
+      'No interesado, no indica motivo',
+      'Se matricula en la competencia'
     )
     OR "End Reason" = 'invalid_destination'
   );
