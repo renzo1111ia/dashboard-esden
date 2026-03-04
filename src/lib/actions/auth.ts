@@ -2,18 +2,12 @@
 
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { AUTH_SUPABASE_URL, AUTH_SUPABASE_ANON_KEY } from "@/lib/auth-config";
 
 export async function loginAction(email: string, password: string) {
     const cookieStore = await cookies();
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-        return { error: "Configuración del servidor incompleta. Contactá al administrador." };
-    }
-
-    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    const supabase = createServerClient(AUTH_SUPABASE_URL, AUTH_SUPABASE_ANON_KEY, {
         cookies: {
             getAll() {
                 return cookieStore.getAll();
@@ -29,7 +23,8 @@ export async function loginAction(email: string, password: string) {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-        return { error: "Credenciales incorrectas o error de conexión." };
+        console.error("LOGIN ERROR:", error.message);
+        return { error: "Credenciales incorrectas. Verificá tu email y contraseña." };
     }
 
     return { success: true };

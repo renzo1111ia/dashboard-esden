@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { AUTH_SUPABASE_URL, AUTH_SUPABASE_ANON_KEY } from "@/lib/auth-config";
 
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
@@ -8,20 +9,10 @@ export async function middleware(request: NextRequest) {
     const isPublic = isAuthRoute || pathname === "/";
     const isProtected = pathname.startsWith("/dashboard");
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseUrl = AUTH_SUPABASE_URL;
+    const supabaseAnonKey = AUTH_SUPABASE_ANON_KEY;
 
-    // Si faltan las variables de entorno y la ruta es protegida → login
-    if (!supabaseUrl || !supabaseAnonKey) {
-        console.error("MIDDLEWARE ERROR: Missing Supabase environment variables.");
-        if (isProtected) {
-            const url = request.nextUrl.clone();
-            url.pathname = "/login";
-            return NextResponse.redirect(url);
-        }
-        return NextResponse.next({ request });
-    }
-
+    // Nunca faltarán las vars (auth-config tiene fallback hardcodeado)
     let supabaseResponse = NextResponse.next({ request });
 
     const supabase = createServerClient(
