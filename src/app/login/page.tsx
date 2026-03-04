@@ -1,14 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
+import { loginAction } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function LoginPage() {
-    const router = useRouter();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
@@ -19,19 +17,16 @@ export default function LoginPage() {
         setLoading(true);
         setError(null);
 
-        const supabase = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        );
+        // Server Action: la llamada a Supabase ocurre en el servidor,
+        // que sí puede alcanzar la URL interna. El browser no puede.
+        const result = await loginAction(email, password);
 
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-
-        if (error) {
-            setError("Credenciales incorrectas o error de conexión.");
+        if (result.error) {
+            setError(result.error);
             setLoading(false);
         } else {
-            router.push("/dashboard");
-            router.refresh();
+            // Hard redirect para que el middleware re-evalúe la sesión con cookies frescas
+            window.location.href = "/dashboard";
         }
     }
 
@@ -42,7 +37,6 @@ export default function LoginPage() {
                 <div className="absolute -top-40 left-1/2 -translate-x-1/2 h-[600px] w-[600px] rounded-full bg-indigo-600/20 blur-[120px]" />
                 <div className="absolute bottom-0 left-0 h-[400px] w-[400px] rounded-full bg-violet-700/15 blur-[100px]" />
                 <div className="absolute bottom-0 right-0 h-[400px] w-[400px] rounded-full bg-blue-700/10 blur-[100px]" />
-                {/* Grid overlay */}
                 <div
                     className="absolute inset-0 opacity-[0.04]"
                     style={{
