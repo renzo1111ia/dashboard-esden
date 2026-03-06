@@ -6,9 +6,7 @@ export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
     const isAuthRoute = pathname.startsWith("/login");
-    const isAdminDashboard = pathname.startsWith("/dashboardadmin");
-    const isUserDashboard = pathname.startsWith("/dashboard") && !isAdminDashboard;
-    const isProtected = isAdminDashboard || isUserDashboard;
+    const isProtected = pathname.startsWith("/dashboard");
 
     const supabaseUrl = AUTH_SUPABASE_URL;
     const supabaseAnonKey = AUTH_SUPABASE_ANON_KEY;
@@ -59,20 +57,9 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(url);
     }
 
-    // Restriction: Only admins can access /dashboardadmin and /dashboard/settings
-    const isAdmin = user?.user_metadata?.is_admin === true;
-
-    if (isAdminDashboard && !isAdmin) {
-        const url = request.nextUrl.clone();
-        url.pathname = pathname.replace("/dashboardadmin", "/dashboard");
-        return NextResponse.redirect(url);
-    }
-
-    if (isUserDashboard && isAdmin) {
-        const url = request.nextUrl.clone();
-        url.pathname = "/dashboardadmin" + pathname.substring(10); // replace "/dashboard" with "/dashboardadmin"
-        return NextResponse.redirect(url);
-    }
+    // Restriction: Only admins can access /dashboard/settings
+    // Sometimes the Supabase UI saves this as a string "true" depending on how it's inputted
+    const isAdmin = user?.user_metadata?.is_admin === true || user?.user_metadata?.is_admin === "true" || user?.app_metadata?.is_admin === true || user?.app_metadata?.is_admin === "true";
 
     if (user && pathname.includes("/settings")) {
         if (!isAdmin) {
@@ -82,10 +69,10 @@ export async function middleware(request: NextRequest) {
         }
     }
 
-    // Con sesión en página de login → redirect based on role
+    // Con sesión en página de login → redirect al dashboard
     if (user && isAuthRoute) {
         const url = request.nextUrl.clone();
-        url.pathname = isAdmin ? "/dashboardadmin" : "/dashboard";
+        url.pathname = "/dashboard";
         return NextResponse.redirect(url);
     }
 

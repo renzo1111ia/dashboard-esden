@@ -50,13 +50,17 @@ export function Sidebar() {
     const [collapsed, setCollapsed] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
     const isConfigured = useTenantStore((s) => s.isConfigured);
-    const pathPrefix = pathname.startsWith("/dashboardadmin") ? "/dashboardadmin" : "/dashboard";
 
     useEffect(() => {
         async function checkAdmin() {
             const supabase = createBrowserClient(AUTH_SUPABASE_URL, AUTH_SUPABASE_ANON_KEY);
             const { data } = await supabase.auth.getUser();
-            setIsAdmin(data.user?.user_metadata?.is_admin === true);
+            const user = data.user;
+            const isAdm = user?.user_metadata?.is_admin === true ||
+                user?.user_metadata?.is_admin === "true" ||
+                user?.app_metadata?.is_admin === true ||
+                user?.app_metadata?.is_admin === "true";
+            setIsAdmin(isAdm);
         }
         checkAdmin();
     }, []);
@@ -97,8 +101,7 @@ export function Sidebar() {
             {/* Navigation */}
             <nav className="flex-1 overflow-y-auto p-3 space-y-1.5 mt-2">
                 {visibleNavItems.map((item) => {
-                    const cleanPath = item.href.replace("/dashboard", "");
-                    const targetHref = `${pathPrefix}${cleanPath}`;
+                    const targetHref = item.href;
                     const active = pathname === targetHref || pathname.startsWith(targetHref + "/");
 
                     return (

@@ -1,9 +1,11 @@
 "use client";
 
-import { createClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
+import { AUTH_SUPABASE_URL, AUTH_SUPABASE_ANON_KEY } from "@/lib/auth-config";
 import { useDateRangeStore, type DateRange } from "@/store/dateRange";
 import { useTenantStore } from "@/store/tenant";
 import { cn } from "@/lib/utils";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
 const DATE_RANGES: { label: string; value: DateRange }[] = [
     { label: "7 días", value: "7d" },
@@ -14,13 +16,13 @@ const DATE_RANGES: { label: string; value: DateRange }[] = [
 export function Topbar({ title }: { title: string }) {
     const { range, setRange } = useDateRangeStore();
     const { tenantName, config } = useTenantStore();
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
 
     async function handleLogout() {
         try {
-            const supabase = createClient(
-                process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-            );
+            const supabase = createBrowserClient(AUTH_SUPABASE_URL, AUTH_SUPABASE_ANON_KEY);
             await supabase.auth.signOut();
         } catch (e) {
             console.error("Logout error:", e);
@@ -48,20 +50,29 @@ export function Topbar({ title }: { title: string }) {
             <div className="flex items-center gap-4">
                 {/* Date range selector */}
                 <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1 border border-slate-200">
-                    {DATE_RANGES.map((opt) => (
-                        <button
-                            key={opt.value}
-                            onClick={() => setRange(opt.value)}
-                            className={cn(
-                                "rounded-lg px-4 py-1.5 text-xs font-bold transition-all",
-                                range === opt.value
-                                    ? "bg-white text-blue-600 shadow-sm"
-                                    : "text-slate-500 hover:text-slate-700"
-                            )}
-                        >
-                            {opt.label}
-                        </button>
-                    ))}
+                    {DATE_RANGES.map((opt) => {
+                        // Check if the current range in URL matches (or fallback to store)
+                        const currentRange = searchParams.get("range") || range;
+                        return (
+                            <button
+                                key={opt.value}
+                                onClick={() => {
+                                    setRange(opt.value);
+                                    const newParams = new URLSearchParams(searchParams.toString());
+                                    newParams.set("range", opt.value);
+                                    router.push(`${pathname}?${newParams.toString()}`);
+                                }}
+                                className={cn(
+                                    "rounded-lg px-4 py-1.5 text-xs font-bold transition-all",
+                                    currentRange === opt.value
+                                        ? "bg-white text-blue-600 shadow-sm"
+                                        : "text-slate-500 hover:text-slate-700"
+                                )}
+                            >
+                                {opt.label}
+                            </button>
+                        );
+                    })}
                 </div>
 
                 {/* Logout */}

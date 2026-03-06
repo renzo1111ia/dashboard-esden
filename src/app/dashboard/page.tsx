@@ -169,10 +169,18 @@ async function ChartsSection({ from, to }: { from: string; to: string }) {
     );
 }
 
-export default async function DashboardPage() {
+type PageProps = {
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
+
+export default async function DashboardPage(props: PageProps) {
+    const sp = await props.searchParams;
+    const rangeParam = sp?.range as string || "30d";
+    const days = rangeParam === "7d" ? 7 : rangeParam === "90d" ? 90 : 30;
+
     const now = () => Date.now();
     const to = new Date().toISOString();
-    const from = new Date(now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const from = new Date(now() - days * 24 * 60 * 60 * 1000).toISOString();
 
     return (
         <div className="space-y-6">

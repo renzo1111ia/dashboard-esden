@@ -20,12 +20,13 @@ export async function loginAction(email: string, password: string) {
         },
     });
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
         console.error("LOGIN ERROR:", error.message);
         return { error: "Credenciales incorrectas. Verificá tu email y contraseña." };
     }
 
-    return { success: true };
+    const isAdmin = data.user?.user_metadata?.is_admin === true || data.user?.user_metadata?.is_admin === "true";
+    return { success: true, isAdmin };
 }
