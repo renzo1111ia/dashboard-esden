@@ -1,11 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-
-interface TenantConfig {
-    supabaseUrl: string;
-    supabaseAnonKey: string;
-    tenantName: string;
-}
+import { TenantConfig } from "@/types/tenant";
 
 interface TenantState extends TenantConfig {
     isConfigured: boolean;
@@ -17,6 +12,7 @@ const DEFAULT_STATE: TenantConfig = {
     supabaseUrl: "",
     supabaseAnonKey: "",
     tenantName: "",
+    config: {},
 };
 
 /**

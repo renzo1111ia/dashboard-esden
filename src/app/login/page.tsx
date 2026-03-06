@@ -31,99 +31,93 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#060912]">
-            {/* Ambient glow background */}
-            <div className="pointer-events-none absolute inset-0">
-                <div className="absolute -top-40 left-1/2 -translate-x-1/2 h-[600px] w-[600px] rounded-full bg-indigo-600/20 blur-[120px]" />
-                <div className="absolute bottom-0 left-0 h-[400px] w-[400px] rounded-full bg-violet-700/15 blur-[100px]" />
-                <div className="absolute bottom-0 right-0 h-[400px] w-[400px] rounded-full bg-blue-700/10 blur-[100px]" />
-                <div
-                    className="absolute inset-0 opacity-[0.04]"
-                    style={{
-                        backgroundImage:
-                            "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
-                        backgroundSize: "40px 40px",
-                    }}
-                />
-            </div>
-
+        <div className="relative min-h-screen flex items-center justify-center bg-[#f8fafc]">
             {/* Card */}
-            <div className="relative z-10 w-full max-w-md px-4">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl backdrop-blur-xl">
-
-                    {/* Logo */}
-                    <div className="mb-8 text-center">
-                        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/30">
-                            <svg className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 9h6M9 13h4" />
-                            </svg>
-                        </div>
-                        <h1 className="text-2xl font-bold tracking-tight text-white">ESDEN Analytics</h1>
-                        <p className="mt-1 text-sm text-white/50">Plataforma de inteligencia de llamadas IA</p>
+            <div className="w-full max-w-[440px] px-6 py-12">
+                {/* Logo Area */}
+                <div className="mb-10 flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 shadow-lg shadow-blue-200">
+                        <svg viewBox="0 0 24 24" className="h-6 w-6 text-white" fill="currentColor">
+                            <path d="M12 3L1 9L12 15L21 10.09V17H23V9M5 13.18V17.18L12 21L19 17.18V13.18L12 17L5 13.18Z" />
+                        </svg>
                     </div>
+                    <span className="text-xl font-bold tracking-tight text-slate-900">Automatiza <span className="text-blue-600">Formación</span></span>
+                </div>
 
-                    {/* Form */}
-                    <form onSubmit={handleLogin} className="space-y-5">
-                        <div className="space-y-2">
-                            <Label htmlFor="email" className="text-white/70 text-xs font-medium uppercase tracking-wider">
-                                Correo electrónico
-                            </Label>
-                            <Input
-                                id="email"
-                                type="email"
-                                placeholder="usuario@empresa.com"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                required
-                                className="border-white/10 bg-white/5 text-white placeholder:text-white/25 focus:border-indigo-500 focus:ring-indigo-500/20"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="password" className="text-white/70 text-xs font-medium uppercase tracking-wider">
-                                Contraseña
-                            </Label>
-                            <Input
-                                id="password"
-                                type="password"
-                                placeholder="••••••••"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                required
-                                className="border-white/10 bg-white/5 text-white placeholder:text-white/25 focus:border-indigo-500 focus:ring-indigo-500/20"
-                            />
-                        </div>
-
-                        {error && (
-                            <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-                                {error}
-                            </div>
-                        )}
-
-                        <Button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/25 transition-all hover:from-indigo-500 hover:to-violet-500 hover:shadow-indigo-500/40 disabled:opacity-50"
-                        >
-                            {loading ? (
-                                <span className="flex items-center gap-2">
-                                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                                    </svg>
-                                    Iniciando sesión...
-                                </span>
-                            ) : (
-                                "Iniciar sesión"
-                            )}
-                        </Button>
-                    </form>
-
-                    <p className="mt-6 text-center text-xs text-white/25">
-                        © {new Date().getFullYear()} ESDEN · Powered by Supabase
+                <div className="mb-10">
+                    <h1 className="text-3xl font-black tracking-tight text-[#0f172a]">
+                        Bienvenido de nuevo
+                    </h1>
+                    <p className="mt-2 text-base text-slate-500 font-medium">
+                        Ingresa tus credenciales para acceder a tu cuenta
                     </p>
                 </div>
+
+                {/* Form */}
+                <form onSubmit={handleLogin} className="space-y-6">
+                    <div className="space-y-2">
+                        <Label htmlFor="email" className="text-slate-700 font-bold text-sm">
+                            Email
+                        </Label>
+                        <Input
+                            id="email"
+                            type="email"
+                            placeholder="nombre@ejemplo.com"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                            className="h-12 border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-100 transition-all rounded-xl"
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <Label htmlFor="password" className="text-slate-700 font-bold text-sm">
+                                Contraseña
+                            </Label>
+                            <button type="button" className="text-sm font-bold text-blue-500 hover:text-blue-600">
+                                ¿Olvidaste tu contraseña?
+                            </button>
+                        </div>
+                        <Input
+                            id="password"
+                            type="password"
+                            placeholder="••••••••"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                            className="h-12 border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-100 transition-all rounded-xl"
+                        />
+                    </div>
+
+                    {error && (
+                        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+                            {error}
+                        </div>
+                    )}
+
+                    <Button
+                        type="submit"
+                        disabled={loading}
+                        className="h-12 w-full bg-[#0ea5e9] text-white font-black text-base shadow-lg shadow-blue-200/50 transition-all hover:bg-[#0284c7] rounded-xl active:scale-[0.98]"
+                    >
+                        {loading ? (
+                            <span className="flex items-center gap-2">
+                                <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                                </svg>
+                                Iniciando sesión...
+                            </span>
+                        ) : (
+                            "Iniciar sesión"
+                        )}
+                    </Button>
+                </form>
+
+                <p className="mt-12 text-center text-xs font-bold text-slate-400 tracking-widest uppercase">
+                    © {new Date().getFullYear()} Automatiza Formación
+                </p>
             </div>
         </div>
     );

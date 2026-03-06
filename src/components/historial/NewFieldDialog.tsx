@@ -48,6 +48,8 @@ export function NewFieldDialog({ onClose, onSaved }: Props) {
                     <input
                         type="text"
                         autoFocus
+                        title="Nombre del Cabezal"
+                        aria-label="Nombre del Cabezal"
                         placeholder="ej. master_interes, campaña..."
                         value={name}
                         onChange={(e) => setName(e.target.value)}

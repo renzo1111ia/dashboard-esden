@@ -1,6 +1,7 @@
 ﻿"use server";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { KpiConfig } from "@/types/tenant";
 
 export interface KpiTotals {
     total_calls: number;
@@ -71,6 +72,34 @@ async function rpc<T>(fn: string, from: string, to: string): Promise<T | null> {
 export async function getKpiTotals(from: string, to: string): Promise<KpiTotals> {
     const data = await rpc<KpiTotals>("get_kpi_totals", from, to);
     return data || {} as KpiTotals;
+}
+
+export async function getDynamicKpis(from: string, to: string, configs: KpiConfig[]): Promise<Record<string, number>> {
+    if (!configs || configs.length === 0) return {};
+    const supabase = await getSupabaseServerClient();
+    const results: Record<string, number> = {};
+
+    await Promise.all(configs.map(async (c) => {
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data, error } = await (supabase as any).rpc("get_dynamic_kpi_value", {
+                p_from: from,
+                p_to: to,
+                p_calc_type: c.calcType,
+                p_target_col: c.targetCol || "*",
+                p_is_extra_target: !!c.isExtraTarget,
+                p_cond_col: c.condCol || null,
+                p_is_extra_cond: !!c.isExtraCond,
+                p_cond_op: c.condOp || null,
+                p_cond_val: c.condVal || null
+            });
+            results[c.id] = error ? 0 : Number(data);
+        } catch {
+            results[c.id] = 0;
+        }
+    }));
+
+    return results;
 }
 
 export async function getMotivoAnulacion(from: string, to: string): Promise<ChartRow[]> {

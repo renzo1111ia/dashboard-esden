@@ -19,6 +19,9 @@ async function createDemoUser() {
         email,
         password,
         email_confirm: true, // Auto-confirmamos el correo para que pueda iniciar sesión directamente
+        user_metadata: {
+            is_admin: true
+        }
     });
 
     if (error) {

@@ -8,8 +8,11 @@ import {
     getOptInWhatsapp,
     getMasterInteres,
     getLeadsNoCualificados,
-    getAreaHistorico
+    getAreaHistorico,
+    getDynamicKpis
 } from "@/lib/actions/analytics";
+import { getActiveTenantConfig } from "@/lib/actions/tenant";
+import { KpiConfig } from "@/types/tenant";
 import {
     SummaryCard,
     DarkScoreCard,
@@ -23,16 +26,59 @@ import {
 import { TenantSetupBanner } from "@/components/layout/TenantSetupBanner";
 import {
     Phone, PhoneCall, PhoneMissed, Users, UserX, PhoneOff, Voicemail,
-    UserMinus, ThumbsDown, Star, Calendar, Clock, TrendingUp
+    UserMinus, ThumbsDown, Star, Calendar, Clock, TrendingUp, Activity
 } from "lucide-react";
+
+const ICON_MAP: Record<string, React.ReactNode> = {
+    "Phone": <Phone className="h-6 w-6 text-white" />,
+    "PhoneCall": <PhoneCall className="h-6 w-6 text-white" />,
+    "Activity": <Activity className="h-6 w-6 text-white" />,
+    "Users": <Users className="h-6 w-6 text-white" />,
+    "Star": <Star className="h-6 w-6 text-white" />,
+    "Calendar": <Calendar className="h-6 w-6 text-white" />,
+    "TrendingUp": <TrendingUp className="h-6 w-6 text-white" />,
+};
 
 async function SummarySection({ from, to }: { from: string; to: string }) {
     const kpi = await getKpiTotals(from, to);
+    const tenantConfig = await getActiveTenantConfig();
+
+    // Process dynamic KPIs
+    const customConfigKpis = (tenantConfig?.config as any)?.kpis as KpiConfig[] || [];
+    const dynamicValues = await getDynamicKpis(from, to, customConfigKpis);
+
     return (
         <div className="mb-10">
-            <h1 className="text-3xl font-bold text-white mb-6">Panel <span className="text-indigo-400">General</span></h1>
+            <h1 className="text-3xl font-black text-slate-900 mb-6 tracking-tight">Panel <span className="text-blue-600">General</span></h1>
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8 text-left">
+                {/* ── KPIs Dinámicos Creados por el Administrador ── */}
+                {customConfigKpis.map((ck) => {
+                    const colSpanClass = `md:col-span-${ck.size || "4"}`;
+                    const val = dynamicValues[ck.id];
+                    let displayVal: number | string = val !== undefined ? val : 0;
+
+                    if (ck.calcType === "avg" || ck.isPercentage) {
+                        displayVal = Number((displayVal as number).toFixed(2));
+                    }
+
+                    if (ck.isPercentage) {
+                        displayVal = displayVal.toString() + "%";
+                    }
+
+                    return (
+                        <div key={ck.id} className={colSpanClass}>
+                            <SummaryCard
+                                label={ck.label}
+                                value={displayVal.toLocaleString('es-ES')}
+                                icon={ICON_MAP[ck.icon] || <Activity className="h-6 w-6 text-white" />}
+                                bgColor={ck.color || "bg-slate-600"}
+                            />
+                        </div>
+                    );
+                })}
+
+                {/* ── KPIs Estáticos Originales ── */}
                 {/* Fila 1 */}
                 <div className="md:col-span-4">
                     <SummaryCard label="Total de llamados" value={kpi.total_llamados?.toLocaleString('es-ES') || "0"} icon={<Phone className="h-6 w-6 text-white" />} bgColor="bg-blue-600" />

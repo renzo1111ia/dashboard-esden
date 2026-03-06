@@ -1,124 +1,340 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+    getTenants,
+    createTenant,
+    updateTenant,
+    deleteTenant,
+    setTenantCookies
+} from "@/lib/actions/tenant";
 import { useTenantStore } from "@/store/tenant";
-import { setTenantCookies } from "@/lib/actions/tenant";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Plus, Trash2, Edit2, Check, X, Shield, Settings as SettingsIcon, Globe } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Tenant, KpiConfig } from "@/types/tenant";
+import { KpiBuilder } from "./KpiBuilder";
 
 export default function SettingsPage() {
     const router = useRouter();
-    const { supabaseUrl, supabaseAnonKey, tenantName, isConfigured, setTenant, clearTenant } =
-        useTenantStore();
+    const { tenantName: activeTenantName, setTenant: setActiveTenant } = useTenantStore();
+    const [tenants, setTenants] = useState<Tenant[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [isEditing, setIsEditing] = useState<string | null>(null); // ID of tenant being edited
+    const [editForm, setEditForm] = useState<Partial<Tenant>>({ name: "", supabase_url: "", supabase_anon_key: "", config: {} });
+    const [showNewForm, setShowNewForm] = useState(false);
 
-    const [url, setUrl] = useState(supabaseUrl);
-    const [key, setKey] = useState(supabaseAnonKey);
-    const [name, setName] = useState(tenantName);
-    const [saved, setSaved] = useState(false);
+    useEffect(() => {
+        loadTenants();
+    }, []);
 
-    async function handleSave(e: React.FormEvent) {
-        e.preventDefault();
-        setTenant({ supabaseUrl: url, supabaseAnonKey: key, tenantName: name });
-        await setTenantCookies(url, key);
-        setSaved(true);
-        setTimeout(() => setSaved(false), 3000);
-        router.refresh();
+    async function loadTenants() {
+        setLoading(true);
+        const data = await getTenants();
+        setTenants(data);
+        setLoading(false);
     }
 
-    async function handleClear() {
-        clearTenant();
-        await setTenantCookies("", "");
-        setUrl("");
-        setKey("");
-        setName("");
-        router.refresh();
+    async function handleSaveNew(e: React.FormEvent) {
+        e.preventDefault();
+        try {
+            const configObj = typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : editForm.config;
+            await createTenant({ ...editForm, config: configObj });
+            setShowNewForm(false);
+            setEditForm({ name: "", supabase_url: "", supabase_anon_key: "", config: {} });
+            loadTenants();
+        } catch (err: any) {
+            alert("Error al crear cliente: " + err.message);
+        }
+    }
+
+    async function handleUpdate(id: string) {
+        try {
+            const configObj = typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : editForm.config;
+            await updateTenant(id, { ...editForm, config: configObj });
+            setIsEditing(null);
+            loadTenants();
+
+            // Si el cliente editado es el activo, actualizar el store
+            if (activeTenantName === editForm.name) {
+                setActiveTenant({
+                    supabaseUrl: editForm.supabase_url || "",
+                    supabaseAnonKey: editForm.supabase_anon_key || "",
+                    tenantName: editForm.name,
+                    config: configObj
+                });
+            }
+        } catch (err: any) {
+            alert("Error al actualizar cliente: " + err.message);
+        }
+    }
+
+    async function handleDelete(id: string) {
+        if (!confirm("¿Estás seguro de eliminar este cliente?")) return;
+        try {
+            await deleteTenant(id);
+            loadTenants();
+        } catch (err: any) {
+            alert("Error al eliminar cliente: " + err.message);
+        }
+    }
+
+    function startEdit(t: Tenant) {
+        setIsEditing(t.id);
+        setEditForm({
+            name: t.name,
+            supabase_url: t.supabase_url,
+            supabase_anon_key: t.supabase_anon_key,
+            config: JSON.stringify(t.config, null, 2) as unknown as Record<string, unknown>
+        });
     }
 
     return (
-        <div className="mx-auto max-w-2xl space-y-8">
+        <div className="mx-auto max-w-5xl space-y-10 pb-20">
             <div>
-                <h2 className="text-lg font-semibold text-white">Configuración de Conexión</h2>
-                <p className="mt-1 text-sm text-white/40">
-                    Ingresa las credenciales de tu proyecto Supabase. Las credenciales se almacenan en
-                    sessionStorage y se eliminan al cerrar el navegador.
+                <h1 className="text-3xl font-black text-slate-900 tracking-tight">Administración de Clientes</h1>
+                <p className="mt-2 text-base font-medium text-slate-500">
+                    Gestiona los entornos de Supabase y configuraciones personalizadas para cada cliente.
                 </p>
             </div>
 
-            {/* Status badge */}
-            <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${isConfigured
-                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                : "bg-white/[0.06] text-white/40 border border-white/10"
-                }`}>
-                <span className={`h-1.5 w-1.5 rounded-full ${isConfigured ? "bg-emerald-400" : "bg-white/30"}`} />
-                {isConfigured ? `Conectado — ${tenantName || "Proyecto personalizado"}` : "Sin configurar (usando credenciales por defecto)"}
-            </div>
-
-            <form onSubmit={handleSave} className="space-y-5 rounded-xl border border-white/[0.07] bg-white/[0.02] p-6">
-                <div className="space-y-2">
-                    <Label htmlFor="tenant-name" className="text-xs uppercase tracking-wider text-white/60">
-                        Nombre del cliente / proyecto
-                    </Label>
-                    <Input
-                        id="tenant-name"
-                        placeholder="Ej: ESDEN - Bot Ventas Q1"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="border-white/10 bg-white/5 text-white placeholder:text-white/20"
-                    />
-                </div>
-
-                <div className="space-y-2">
-                    <Label htmlFor="sb-url" className="text-xs uppercase tracking-wider text-white/60">
-                        Supabase URL
-                    </Label>
-                    <Input
-                        id="sb-url"
-                        placeholder="https://xxxx.supabase.co"
-                        value={url}
-                        onChange={(e) => setUrl(e.target.value)}
-                        className="border-white/10 bg-white/5 font-mono text-sm text-white placeholder:text-white/20"
-                    />
-                </div>
-
-                <div className="space-y-2">
-                    <Label htmlFor="sb-key" className="text-xs uppercase tracking-wider text-white/60">
-                        Supabase Anon Key
-                    </Label>
-                    <Input
-                        id="sb-key"
-                        type="password"
-                        placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                        value={key}
-                        onChange={(e) => setKey(e.target.value)}
-                        className="border-white/10 bg-white/5 font-mono text-sm text-white placeholder:text-white/20"
-                    />
-                </div>
-
-                <div className="flex items-center gap-3 pt-2">
-                    <Button
-                        type="submit"
-                        className="bg-indigo-600 text-white hover:bg-indigo-500"
-                    >
-                        {saved ? "✓ Guardado" : "Guardar conexión"}
-                    </Button>
-                    {isConfigured && (
+            {/* Clients List */}
+            <section className="space-y-6">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-bold text-slate-700 uppercase tracking-widest text-[11px]">Clientes Activos</h2>
+                    {!showNewForm && (
                         <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={handleClear}
-                            className="text-white/40 hover:text-red-400"
+                            onClick={() => {
+                                setShowNewForm(true);
+                                setEditForm({ name: "", supabase_url: "", supabase_anon_key: "", config: {} });
+                            }}
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-200"
                         >
-                            Limpiar
+                            <Plus className="mr-2 h-4 w-4" /> Nuevo Cliente
                         </Button>
                     )}
                 </div>
-            </form>
 
-            <p className="text-xs text-white/25">
-                ⚠️ Nunca compartas tu Anon Key públicamente. Esta configuración es solo visible en tu sesión activa.
-            </p>
+                <div className="grid grid-cols-1 gap-4">
+                    {loading && <div className="text-slate-400 font-bold animate-pulse">Cargando infraestructura...</div>}
+
+                    {!loading && tenants.length === 0 && !showNewForm && (
+                        <div className="rounded-3xl border border-dashed border-slate-200 p-20 text-center bg-white shadow-sm">
+                            <Globe className="mx-auto h-16 w-16 text-slate-100 mb-6" />
+                            <p className="text-slate-400 font-bold">No se han detectado clientes configurados.</p>
+                        </div>
+                    )}
+
+                    {/* New Tenant Form */}
+                    {showNewForm && (
+                        <form onSubmit={handleSaveNew} className="rounded-3xl border border-blue-100 bg-blue-50/30 p-8 space-y-6 animate-in fade-in zoom-in duration-300 shadow-xl shadow-blue-100/50">
+                            <div className="flex items-center justify-between mb-2">
+                                <h3 className="text-sm font-black uppercase tracking-widest text-blue-600">Configurar Nuevo Entorno</h3>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowNewForm(false)}
+                                    className="h-8 w-8 flex items-center justify-center rounded-full bg-white text-slate-400 hover:text-red-500 shadow-sm transition-all"
+                                    aria-label="Cerrar"
+                                >
+                                    <X className="h-5 w-5" />
+                                </button>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Nombre del Proyecto</Label>
+                                    <Input
+                                        value={editForm.name}
+                                        onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                                        className="h-12 bg-white border-slate-200 text-slate-900 rounded-xl focus:ring-blue-100"
+                                        placeholder="Ej: ESDEN México"
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Supabase API URL</Label>
+                                    <Input
+                                        value={editForm.supabase_url}
+                                        onChange={e => setEditForm({ ...editForm, supabase_url: e.target.value })}
+                                        className="h-12 bg-white border-slate-200 text-slate-900 font-mono text-xs rounded-xl focus:ring-blue-100"
+                                        placeholder="https://xxx.supabase.co"
+                                        required
+                                    />
+                                </div>
+                                <div className="md:col-span-2 space-y-2">
+                                    <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Supabase Service Role / Anon Key</Label>
+                                    <Input
+                                        value={editForm.supabase_anon_key}
+                                        onChange={e => setEditForm({ ...editForm, supabase_anon_key: e.target.value })}
+                                        className="h-12 bg-white border-slate-200 text-slate-900 font-mono text-xs rounded-xl focus:ring-blue-100"
+                                        placeholder="Acceso de solo lectura o administrador"
+                                        type="password"
+                                        required
+                                    />
+                                </div>
+                                <div className="md:col-span-2 space-y-2">
+                                    <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Metadata & Configuración JSON</Label>
+                                    <div className="rounded-2xl bg-white border border-slate-200 p-4 shadow-sm">
+                                        <textarea
+                                            title="Configuracion JSON"
+                                            value={editForm.config as unknown as string}
+                                            onChange={e => setEditForm({ ...editForm, config: e.target.value as unknown as Record<string, unknown> })}
+                                            className="w-full min-h-[80px] rounded-xl bg-slate-50 border border-slate-100 p-3 text-[10px] text-slate-700 font-mono focus:border-blue-500 outline-none mb-4"
+                                            placeholder='{ "headers": ["Ventas", "Marketing"], "dashboard_title": "ESDEN Global" }'
+                                        />
+                                        <div className="border-t border-slate-100 pt-6">
+                                            <KpiBuilder
+                                                kpis={(typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}").kpis : (editForm.config as any)?.kpis) || []}
+                                                onChange={(kpis) => {
+                                                    try {
+                                                        const current = typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : (editForm.config || {});
+                                                        current.kpis = kpis;
+                                                        setEditForm({ ...editForm, config: JSON.stringify(current, null, 2) as unknown as Record<string, unknown> });
+                                                    } catch (e) { }
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex gap-3 pt-4">
+                                <Button type="submit" className="h-12 px-8 bg-blue-600 font-black text-white rounded-xl hover:bg-blue-700 active:scale-95 transition-all">Desplegar Cliente</Button>
+                                <Button type="button" variant="ghost" onClick={() => setShowNewForm(false)} className="h-12 text-slate-400 font-bold rounded-xl hover:bg-slate-100">Descartar</Button>
+                            </div>
+                        </form>
+                    )}
+
+                    {tenants.map(t => (
+                        <div key={t.id} className={cn(
+                            "group rounded-3xl border transition-all duration-300 overflow-hidden",
+                            isEditing === t.id
+                                ? "border-blue-400 bg-blue-50/50 shadow-2xl shadow-blue-200/50"
+                                : "border-slate-100 bg-white hover:border-blue-200 hover:shadow-xl hover:shadow-slate-200/50"
+                        )}>
+                            {isEditing === t.id ? (
+                                <div className="p-8 space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nombre</Label>
+                                            <Input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} className="h-11 bg-white border-slate-200 text-slate-900 rounded-xl" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">URL de Conexión</Label>
+                                            <Input value={editForm.supabase_url} onChange={e => setEditForm({ ...editForm, supabase_url: e.target.value })} className="h-11 bg-white border-slate-200 text-slate-900 text-xs font-mono rounded-xl" />
+                                        </div>
+                                        <div className="md:col-span-2 space-y-2">
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Credenciales</Label>
+                                            <Input value={editForm.supabase_anon_key} onChange={e => setEditForm({ ...editForm, supabase_anon_key: e.target.value })} className="h-11 bg-white border-slate-200 text-slate-900 text-xs font-mono rounded-xl" type="password" />
+                                        </div>
+                                        <div className="md:col-span-2 space-y-2">
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Estructura de Datos e Interfaz</Label>
+                                            <div className="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm space-y-6">
+                                                <textarea
+                                                    title="Configuracion JSON"
+                                                    placeholder='{ "headers": [] }'
+                                                    value={editForm.config as unknown as string}
+                                                    onChange={e => setEditForm({ ...editForm, config: e.target.value as unknown as Record<string, unknown> })}
+                                                    className="w-full min-h-[80px] rounded-xl bg-slate-50 border border-slate-100 p-3 text-[10px] text-slate-700 font-mono focus:border-blue-500 outline-none"
+                                                />
+                                                <div className="border-t border-slate-100 pt-6">
+                                                    <KpiBuilder
+                                                        kpis={(typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}").kpis : (editForm.config as any)?.kpis) || []}
+                                                        onChange={(kpis) => {
+                                                            try {
+                                                                const current = typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : (editForm.config || {});
+                                                                current.kpis = kpis;
+                                                                setEditForm({ ...editForm, config: JSON.stringify(current, null, 2) as unknown as Record<string, unknown> });
+                                                            } catch (e) { }
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <Button onClick={() => handleUpdate(t.id)} className="h-11 px-6 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all">
+                                            <Check className="mr-2 h-4 w-4" /> Sincronizar Cambios
+                                        </Button>
+                                        <Button onClick={() => setIsEditing(null)} variant="ghost" className="h-11 text-slate-400 font-bold hover:bg-slate-100 rounded-xl">
+                                            <X className="mr-2 h-4 w-4" /> Abortar
+                                        </Button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-6 p-6">
+                                    <div className="h-14 w-14 rounded-2xl bg-slate-50 flex items-center justify-center text-blue-600 shadow-inner group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
+                                        <Building2 className="h-7 w-7" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="text-lg font-black text-slate-900 truncate tracking-tight">{t.name}</h3>
+                                        <p className="text-xs text-slate-400 truncate font-mono mt-0.5">{t.supabase_url}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => startEdit(t)}
+                                            className="h-10 w-10 flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                                            title="Editar parámetros"
+                                        >
+                                            <Edit2 className="h-5 w-5" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDelete(t.id)}
+                                            className="h-10 w-10 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                            title="Eliminar instancia"
+                                        >
+                                            <Trash2 className="h-5 w-5" />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </section>
+
+            {/* Security/Info Alert */}
+            <div className="rounded-3xl bg-blue-600 p-8 flex items-center gap-6 shadow-2xl shadow-blue-200 overflow-hidden relative">
+                <div className="absolute right-0 top-0 h-full w-48 bg-white/5 skew-x-[-20deg] translate-x-12" />
+                <Shield className="h-10 w-10 text-blue-100 relative z-10" />
+                <div className="space-y-1 relative z-10">
+                    <h4 className="text-xs font-black text-white uppercase tracking-[0.2em]">Protocolo de Seguridad</h4>
+                    <p className="text-sm font-medium text-blue-50 leading-relaxed max-w-2xl">
+                        Cada entorno cargado aquí utiliza un túnel seguro hacia Supabase.
+                        Los administradores registrados en el sistema central son los únicos con privilegios para modificar estos nodos.
+                    </p>
+                </div>
+            </div>
         </div>
+    );
+}
+
+function Building2(props: any) {
+    return (
+        <svg
+            {...props}
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <rect width="16" height="20" x="4" y="2" rx="2" ry="2" />
+            <path d="M9 22v-4h6v4" />
+            <path d="M8 6h.01" />
+            <path d="M16 6h.01" />
+            <path d="M12 6h.01" />
+            <path d="M12 10h.01" />
+            <path d="M12 14h.01" />
+            <path d="M16 10h.01" />
+            <path d="M16 14h.01" />
+            <path d="M8 10h.01" />
+            <path d="M8 14h.01" />
+        </svg>
     );
 }

@@ -294,6 +294,8 @@ export function DuplicateLeadDialog({ phone, onClose }: Props) {
                     </div>
                     <button
                         onClick={onClose}
+                        title="Cerrar"
+                        aria-label="Cerrar"
                         className="rounded-full p-2 text-white/50 hover:bg-white/10 hover:text-white transition"
                     >
                         <X className="h-5 w-5" />

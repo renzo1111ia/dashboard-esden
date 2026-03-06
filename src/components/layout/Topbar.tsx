@@ -1,8 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { useDateRangeStore, type DateRange } from "@/store/dateRange";
+import { useTenantStore } from "@/store/tenant";
 import { cn } from "@/lib/utils";
 
 const DATE_RANGES: { label: string; value: DateRange }[] = [
@@ -12,8 +12,8 @@ const DATE_RANGES: { label: string; value: DateRange }[] = [
 ];
 
 export function Topbar({ title }: { title: string }) {
-    const router = useRouter();
     const { range, setRange } = useDateRangeStore();
+    const { tenantName, config } = useTenantStore();
 
     async function handleLogout() {
         try {
@@ -31,23 +31,32 @@ export function Topbar({ title }: { title: string }) {
     }
 
     return (
-        <header className="flex h-16 items-center justify-between border-b border-white/[0.06] bg-[#070b14]/80 px-6 backdrop-blur-sm">
+        <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white/70 px-6 backdrop-blur-md">
             {/* Page Title */}
-            <h1 className="text-base font-semibold text-white/90">{title}</h1>
+            <div className="flex flex-col">
+                <h1 className="text-base font-bold text-slate-800">
+                    {(config?.dashboard_title as string) || title}
+                </h1>
+                {tenantName && (
+                    <span className="text-[10px] uppercase tracking-widest text-blue-600 font-black">
+                        {tenantName}
+                    </span>
+                )}
+            </div>
 
             {/* Right side controls */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
                 {/* Date range selector */}
-                <div className="flex items-center gap-1 rounded-lg border border-white/[0.08] bg-white/[0.04] p-1">
+                <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1 border border-slate-200">
                     {DATE_RANGES.map((opt) => (
                         <button
                             key={opt.value}
                             onClick={() => setRange(opt.value)}
                             className={cn(
-                                "rounded-md px-3 py-1 text-xs font-medium transition-all",
+                                "rounded-lg px-4 py-1.5 text-xs font-bold transition-all",
                                 range === opt.value
-                                    ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/30"
-                                    : "text-white/40 hover:text-white/70"
+                                    ? "bg-white text-blue-600 shadow-sm"
+                                    : "text-slate-500 hover:text-slate-700"
                             )}
                         >
                             {opt.label}
@@ -58,9 +67,9 @@ export function Topbar({ title }: { title: string }) {
                 {/* Logout */}
                 <button
                     onClick={handleLogout}
-                    className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-white/40 transition hover:bg-white/[0.05] hover:text-white/70"
+                    className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold text-slate-400 transition hover:bg-red-50 hover:text-red-500"
                 >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                     </svg>
                     Cerrar sesión

@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useTenantStore } from "@/store/tenant";
 
 import { LayoutDashboard, Megaphone, MessageCircle, Clock, History, Settings } from "lucide-react";
+import { TenantSelector } from "./TenantSelector";
 
 const NAV_ITEMS = [
     {
@@ -41,43 +42,74 @@ const NAV_ITEMS = [
     },
 ];
 
+import { createBrowserClient } from "@supabase/ssr";
+import { AUTH_SUPABASE_URL, AUTH_SUPABASE_ANON_KEY } from "@/lib/auth-config";
+
 export function Sidebar() {
     const pathname = usePathname();
     const [collapsed, setCollapsed] = useState(false);
+    const [isAdmin, setIsAdmin] = useState(false);
     const isConfigured = useTenantStore((s) => s.isConfigured);
+    const pathPrefix = pathname.startsWith("/dashboardadmin") ? "/dashboardadmin" : "/dashboard";
+
+    useEffect(() => {
+        async function checkAdmin() {
+            const supabase = createBrowserClient(AUTH_SUPABASE_URL, AUTH_SUPABASE_ANON_KEY);
+            const { data } = await supabase.auth.getUser();
+            setIsAdmin(data.user?.user_metadata?.is_admin === true);
+        }
+        checkAdmin();
+    }, []);
+
+    const visibleNavItems = NAV_ITEMS.filter(item => {
+        if (item.href === "/dashboard/settings") {
+            return isAdmin;
+        }
+        return true;
+    });
 
     return (
         <aside
             className={cn(
-                "relative flex h-screen flex-col border-r border-white/[0.06] bg-[#070b14] transition-all duration-300",
-                collapsed ? "w-16" : "w-60"
+                "relative flex h-screen flex-col border-r border-slate-200 bg-white transition-all duration-300",
+                collapsed ? "w-16" : "w-64"
             )}
         >
             {/* Logo */}
-            <div className="flex h-16 items-center gap-3 border-b border-white/[0.06] px-4">
-                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/20">
-                    <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            <div className="flex h-20 items-center gap-3 border-b border-slate-100 px-4">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50">
+                    <svg viewBox="0 0 24 24" className="h-7 w-7 text-blue-600" fill="currentColor">
+                        <path d="M12 3L1 9L12 15L21 10.09V17H23V9M5 13.18V17.18L12 21L19 17.18V13.18L12 17L5 13.18Z" />
+                        <path d="M11 11H13V15H11V11ZM7 12H9V15H7V12ZM15 9H17V15H15V9Z" opacity="0.6" />
                     </svg>
                 </div>
                 {!collapsed && (
-                    <span className="font-bold text-sm tracking-wide text-white">ESDEN Analytics</span>
+                    <div className="flex flex-col">
+                        <span className="text-xs font-bold tracking-[0.2em] text-slate-800 uppercase leading-tight">Automatiza</span>
+                        <span className="text-sm font-black tracking-tight text-blue-600 uppercase">Formación</span>
+                    </div>
                 )}
             </div>
 
+            {/* Tenant Selector */}
+            {isAdmin && <TenantSelector collapsed={collapsed} />}
+
             {/* Navigation */}
-            <nav className="flex-1 overflow-y-auto p-2 space-y-1 mt-2">
-                {NAV_ITEMS.map((item) => {
-                    const active = pathname === item.href || pathname.startsWith(item.href + "/");
+            <nav className="flex-1 overflow-y-auto p-3 space-y-1.5 mt-2">
+                {visibleNavItems.map((item) => {
+                    const cleanPath = item.href.replace("/dashboard", "");
+                    const targetHref = `${pathPrefix}${cleanPath}`;
+                    const active = pathname === targetHref || pathname.startsWith(targetHref + "/");
+
                     return (
                         <Link
                             key={item.href}
-                            href={item.href}
+                            href={targetHref}
                             className={cn(
-                                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
+                                "flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-all duration-200",
                                 active
-                                    ? "bg-indigo-600/20 text-indigo-400 shadow-sm"
-                                    : "text-white/50 hover:bg-white/[0.05] hover:text-white/80"
+                                    ? "bg-blue-600 text-white shadow-md shadow-blue-200"
+                                    : "text-slate-500 hover:bg-slate-50 hover:text-blue-600"
                             )}
                         >
                             <span className="relative flex-shrink-0">
@@ -90,9 +122,6 @@ export function Sidebar() {
                                 )}
                             </span>
                             {!collapsed && <span>{item.label}</span>}
-                            {active && !collapsed && (
-                                <span className="ml-auto h-1.5 w-1.5 rounded-full bg-indigo-400" />
-                            )}
                         </Link>
                     );
                 })}
@@ -101,12 +130,12 @@ export function Sidebar() {
             {/* Collapse toggle */}
             <button
                 onClick={() => setCollapsed(!collapsed)}
-                className="m-2 flex items-center justify-center rounded-lg py-2 text-white/30 transition hover:bg-white/5 hover:text-white/60"
+                className="m-3 flex items-center justify-center rounded-xl py-2.5 text-slate-400 transition hover:bg-slate-50 hover:text-blue-600"
                 title={collapsed ? "Expandir" : "Colapsar"}
             >
                 <svg
                     className={cn("h-4 w-4 transition-transform duration-300", collapsed && "rotate-180")}
-                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
                 >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
                 </svg>

@@ -8,6 +8,7 @@ interface AudioPlayerProps {
 
 export function AudioPlayer({ src }: AudioPlayerProps) {
     const audioRef = useRef<HTMLAudioElement>(null);
+    const progressRef = useRef<HTMLDivElement>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [current, setCurrent] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -50,6 +51,12 @@ export function AudioPlayer({ src }: AudioPlayerProps) {
 
     const pct = duration ? (current / duration) * 100 : 0;
 
+    useEffect(() => {
+        if (progressRef.current) {
+            progressRef.current.style.width = `${pct}%`;
+        }
+    }, [pct]);
+
     return (
         <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 min-w-[220px] max-w-[260px]">
             <audio ref={audioRef} src={src} preload="metadata" />
@@ -78,11 +85,13 @@ export function AudioPlayer({ src }: AudioPlayerProps) {
             {/* Progress bar */}
             <div className="relative flex-1 h-1 rounded-full bg-white/10">
                 <div
+                    ref={progressRef}
                     className="absolute inset-y-0 left-0 rounded-full bg-indigo-500"
-                    style={{ width: `${pct}%` }}
                 />
                 <input
                     type="range"
+                    title="Progreso de audio"
+                    aria-label="Progreso de audio"
                     min={0}
                     max={duration || 0}
                     step={0.1}

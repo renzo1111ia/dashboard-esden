@@ -6,8 +6,9 @@ export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
     const isAuthRoute = pathname.startsWith("/login");
-    const isPublic = isAuthRoute || pathname === "/";
-    const isProtected = pathname.startsWith("/dashboard");
+    const isAdminDashboard = pathname.startsWith("/dashboardadmin");
+    const isUserDashboard = pathname.startsWith("/dashboard") && !isAdminDashboard;
+    const isProtected = isAdminDashboard || isUserDashboard;
 
     const supabaseUrl = AUTH_SUPABASE_URL;
     const supabaseAnonKey = AUTH_SUPABASE_ANON_KEY;
@@ -58,10 +59,33 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(url);
     }
 
-    // Con sesión en página de login → dashboard
+    // Restriction: Only admins can access /dashboardadmin and /dashboard/settings
+    const isAdmin = user?.user_metadata?.is_admin === true;
+
+    if (isAdminDashboard && !isAdmin) {
+        const url = request.nextUrl.clone();
+        url.pathname = pathname.replace("/dashboardadmin", "/dashboard");
+        return NextResponse.redirect(url);
+    }
+
+    if (isUserDashboard && isAdmin) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/dashboardadmin" + pathname.substring(10); // replace "/dashboard" with "/dashboardadmin"
+        return NextResponse.redirect(url);
+    }
+
+    if (user && pathname.includes("/settings")) {
+        if (!isAdmin) {
+            const url = request.nextUrl.clone();
+            url.pathname = "/dashboard";
+            return NextResponse.redirect(url);
+        }
+    }
+
+    // Con sesión en página de login → redirect based on role
     if (user && isAuthRoute) {
         const url = request.nextUrl.clone();
-        url.pathname = "/dashboard";
+        url.pathname = isAdmin ? "/dashboardadmin" : "/dashboard";
         return NextResponse.redirect(url);
     }
 

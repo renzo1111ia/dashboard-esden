@@ -1,11 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useTenantStore } from "@/store/tenant";
 import { Settings, AlertTriangle } from "lucide-react";
 
 export function TenantSetupBanner() {
     const isConfigured = useTenantStore((s) => s.isConfigured);
+
+    const pathname = usePathname();
+    const configHref = pathname.startsWith("/dashboardadmin") ? "/dashboardadmin/settings" : "/dashboard/settings";
 
     if (isConfigured) return null;
 
@@ -24,7 +28,7 @@ export function TenantSetupBanner() {
                 </p>
             </div>
             <Link
-                href="/dashboard/settings"
+                href={configHref}
                 className="flex-shrink-0 flex items-center gap-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-xs font-medium text-amber-400 transition-all hover:bg-amber-500/20 hover:text-amber-300"
             >
                 <Settings className="h-3.5 w-3.5" />
