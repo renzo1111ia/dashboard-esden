@@ -40,13 +40,17 @@ async function getAdminSupabase() {
  * Client using SERVICE ROLE KEY to perform administrative tasks
  */
 async function getServiceSupabase() {
-    if (!AUTH_SUPABASE_URL || !AUTH_SUPABASE_SERVICE_ROLE_KEY) {
-        const availableKeys = Object.keys(process.env).filter(k => k.includes("KEY") || k.includes("SUPABASE") || k.includes("ROLE"));
-        console.error("DIAGNOSTICO ENV:", availableKeys);
-        throw new Error(`Falta la MASTER KEY. Claves detectadas en el servidor: ${availableKeys.join(", ") || "NINGUNA"}. Revisa la configuración en Dokploy.`);
+    // Leemos dinámicamente para asegurar que tome el valor de runtime
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY;
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || AUTH_SUPABASE_URL;
+
+    if (!url || !serviceKey) {
+        const allKeys = Object.keys(process.env);
+        console.error("DIAGNOSTICO TOTAL ENV:", allKeys);
+        throw new Error(`Falta la MASTER KEY. Variables disponibles en este contenedor: ${allKeys.join(", ") || "¡NINGUNA VARIABLE DETECTADA!"}. Verifica en Dokploy si las variables están aplicadas al despliegue.`);
     }
     const cookieStore = await cookies();
-    return createServerClient(AUTH_SUPABASE_URL, AUTH_SUPABASE_SERVICE_ROLE_KEY, {
+    return createServerClient(url, serviceKey, {
         cookies: {
             getAll() { return cookieStore.getAll(); },
             setAll() { },
