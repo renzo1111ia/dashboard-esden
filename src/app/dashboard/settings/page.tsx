@@ -155,10 +155,10 @@ export default function SettingsPage() {
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="border-b border-slate-50 bg-slate-50/50">
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Cliente</th>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Infraestructura (Link)</th>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Email de Acceso</th>
-                                <th className="px-6 py-4 text-right px-8 text-[10px] font-black uppercase tracking-widest text-slate-400">Acciones</th>
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-900">Cliente</th>
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-900">Infraestructura (Link)</th>
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-900">Email de Acceso</th>
+                                <th className="px-6 py-4 text-right px-8 text-[10px] font-black uppercase tracking-widest text-slate-900">Acciones</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -378,10 +378,10 @@ export default function SettingsPage() {
                                                     <span className="text-sm font-black text-slate-900 tracking-tight">{t.name}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-xs font-mono text-slate-400">
+                                            <td className="px-6 py-4 text-xs font-mono text-slate-700">
                                                 {t.supabase_url}
                                             </td>
-                                            <td className="px-6 py-4 text-sm font-bold text-slate-600">
+                                            <td className="px-6 py-4 text-sm font-bold text-slate-900">
                                                 {t.client_email || "No asignado"}
                                             </td>
                                             <td className="px-6 py-4 text-right">
