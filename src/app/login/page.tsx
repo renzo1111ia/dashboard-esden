@@ -35,13 +35,8 @@ export default function LoginPage() {
             {/* Card */}
             <div className="w-full max-w-[440px] px-6 py-12">
                 {/* Logo Area */}
-                <div className="mb-10 flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 shadow-lg shadow-blue-200">
-                        <svg viewBox="0 0 24 24" className="h-6 w-6 text-white" fill="currentColor">
-                            <path d="M12 3L1 9L12 15L21 10.09V17H23V9M5 13.18V17.18L12 21L19 17.18V13.18L12 17L5 13.18Z" />
-                        </svg>
-                    </div>
-                    <span className="text-xl font-bold tracking-tight text-slate-900">Automatiza <span className="text-blue-600">Formación</span></span>
+                <div className="mb-10 flex items-center justify-start">
+                    <img src="/logo.png" alt="Automatiza Formación" className="h-16 w-auto object-contain" />
                 </div>
 
                 <div className="mb-10">

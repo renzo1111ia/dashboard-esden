@@ -62,18 +62,15 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
             )}
         >
             {/* Logo */}
-            <div className="flex h-20 items-center gap-3 border-b border-slate-100 px-4">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50">
-                    <svg viewBox="0 0 24 24" className="h-7 w-7 text-blue-600" fill="currentColor">
-                        <path d="M12 3L1 9L12 15L21 10.09V17H23V9M5 13.18V17.18L12 21L19 17.18V13.18L12 17L5 13.18Z" />
-                        <path d="M11 11H13V15H11V11ZM7 12H9V15H7V12ZM15 9H17V15H15V9Z" opacity="0.6" />
-                    </svg>
-                </div>
-                {!collapsed && (
-                    <div className="flex flex-col">
-                        <span className="text-xs font-bold tracking-[0.2em] text-slate-800 uppercase leading-tight">Automatiza</span>
-                        <span className="text-sm font-black tracking-tight text-blue-600 uppercase">Formación</span>
+            <div className={cn("flex h-20 items-center justify-center border-b border-slate-100 transition-all", collapsed ? "px-2" : "px-4")}>
+                {collapsed ? (
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50">
+                        <svg viewBox="0 0 24 24" className="h-7 w-7 text-blue-600" fill="currentColor">
+                            <path d="M12 3L1 9L12 15L21 10.09V17H23V9M5 13.18V17.18L12 21L19 17.18V13.18L12 17L5 13.18Z" />
+                        </svg>
                     </div>
+                ) : (
+                    <img src="/logo.png" alt="Automatiza Formación" className="h-10 w-auto object-contain" />
                 )}
             </div>
 
