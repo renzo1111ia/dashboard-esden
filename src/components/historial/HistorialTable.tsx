@@ -8,7 +8,7 @@ import { DuplicateLeadDialog } from "@/components/historial/DuplicateLeadDialog"
 import { AudioPlayer } from "@/components/historial/AudioPlayer";
 import { formatDuration, formatDate, cn } from "@/lib/utils";
 import type { PostCallAnalisis } from "@/types/database";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Search, RotateCcw, Calendar } from "lucide-react";
 
 const AUDIO_EXTENSIONS = ['.wav', '.mp3', '.ogg', '.m4a', '.aac', '.flac'];
 
@@ -63,11 +63,33 @@ function deduplicateByPhone(data: PostCallAnalisis[]): { row: PostCallAnalisis; 
     return Array.from(map.values());
 }
 
+const DATE_PRESETS = [
+    { label: "Hoy", value: "today" },
+    { label: "Ayer", value: "yesterday" },
+    { label: "Últimos 7 días", value: "7d" },
+    { label: "Últimos 30 días", value: "30d" },
+    { label: "Este mes", value: "this_month" },
+    { label: "Este año", value: "this_year" },
+    { label: "Todos", value: "all" },
+];
+
 export function HistorialTable({ initialData, fromDate, toDate }: Props) {
     const [result, setResult] = useState<FetchCallsResult>(initialData);
     const [page, setPage] = useState(1);
-    const [search, setSearch] = useState("");
-    const [statusFilter, setStatusFilter] = useState("ALL");
+
+    // Filter Draft States (only applied when "Aplicar Filtros" is clicked)
+    const [draftSearch, setDraftSearch] = useState("");
+    const [draftStatus, setDraftStatus] = useState("ALL");
+    const [draftPreset, setDraftPreset] = useState("all");
+    const [draftFrom, setDraftFrom] = useState(fromDate.slice(0, 10)); // YYYY-MM-DD
+    const [draftTo, setDraftTo] = useState(toDate.slice(0, 10));
+
+    // Active Filters
+    const [activeSearch, setActiveSearch] = useState("");
+    const [activeStatus, setActiveStatus] = useState("ALL");
+    const [activeFrom, setActiveFrom] = useState(fromDate);
+    const [activeTo, setActiveTo] = useState(toDate);
+
     const tenantConfig = useTenantStore((s) => s.config);
     const [dynamicKeys, setDynamicKeys] = useState<string[]>(() => {
         const keys = new Set<string>();
@@ -104,41 +126,103 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
     }, []);
 
     const load = useCallback(
-        (p: number, q: string, status: string) => {
+        (p: number, q: string, status: string, fDate: string, tDate: string) => {
             startTransition(async () => {
                 const res = await fetchCalls({
                     page: p,
                     pageSize: PAGE_SIZE,
                     search: q,
                     callStatus: status,
-                    fromDate,
-                    toDate,
+                    fromDate: fDate,
+                    toDate: tDate,
                 });
                 setResult(res);
-                // Collect dynamic keys from new results
                 const keys = new Set<string>(dynamicKeys);
                 res.data.forEach((r) => Object.keys(r.extra_data).forEach((k) => keys.add(k)));
                 setDynamicKeys(Array.from(keys));
             });
         },
-        [fromDate, toDate, dynamicKeys]
+        [dynamicKeys]
     );
 
-    function handleSearch(val: string) {
-        setSearch(val);
+    function applyFilters() {
+        let fDate = new Date(activeFrom).toISOString();
+        let tDate = new Date(activeTo).toISOString();
+
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+        if (draftPreset === "today") {
+            fDate = startOfToday.toISOString();
+            tDate = now.toISOString();
+            setDraftFrom(fDate.slice(0, 10));
+            setDraftTo(tDate.slice(0, 10));
+        } else if (draftPreset === "yesterday") {
+            const yesterday = new Date(startOfToday.getTime() - 24 * 60 * 60 * 1000);
+            fDate = yesterday.toISOString();
+            tDate = startOfToday.toISOString();
+            setDraftFrom(fDate.slice(0, 10));
+            setDraftTo(tDate.slice(0, 10));
+        } else if (draftPreset === "7d") {
+            fDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+            tDate = now.toISOString();
+            setDraftFrom(fDate.slice(0, 10));
+            setDraftTo(tDate.slice(0, 10));
+        } else if (draftPreset === "30d") {
+            fDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+            tDate = now.toISOString();
+            setDraftFrom(fDate.slice(0, 10));
+            setDraftTo(tDate.slice(0, 10));
+        } else if (draftPreset === "this_month") {
+            fDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+            tDate = now.toISOString();
+            setDraftFrom(fDate.slice(0, 10));
+            setDraftTo(tDate.slice(0, 10));
+        } else if (draftPreset === "this_year") {
+            fDate = new Date(now.getFullYear(), 0, 1).toISOString();
+            tDate = now.toISOString();
+            setDraftFrom(fDate.slice(0, 10));
+            setDraftTo(tDate.slice(0, 10));
+        } else if (draftPreset === "all") {
+            // A long time ago
+            fDate = new Date(2000, 0, 1).toISOString();
+            tDate = now.toISOString();
+            setDraftFrom("");
+            setDraftTo("");
+        } else {
+            // custom using draftFrom and draftTo
+            if (draftFrom) fDate = new Date(draftFrom).toISOString();
+            if (draftTo) tDate = new Date(draftTo + "T23:59:59.999Z").toISOString();
+        }
+
+        setActiveSearch(draftSearch);
+        setActiveStatus(draftStatus);
+        setActiveFrom(fDate);
+        setActiveTo(tDate);
         setPage(1);
-        load(1, val, statusFilter);
+        load(1, draftSearch, draftStatus, fDate, tDate);
     }
 
-    function handleStatus(val: string) {
-        setStatusFilter(val);
+    function resetFilters() {
+        setDraftSearch("");
+        setDraftStatus("ALL");
+        setDraftPreset("all");
+        setDraftFrom("");
+        setDraftTo("");
+        setActiveSearch("");
+        setActiveStatus("ALL");
+
+        const now = new Date().toISOString();
+        const past = new Date(2000, 0, 1).toISOString();
+        setActiveFrom(past);
+        setActiveTo(now);
         setPage(1);
-        load(1, search, val);
+        load(1, "", "ALL", past, now);
     }
 
     function handlePage(p: number) {
         setPage(p);
-        load(p, search, statusFilter);
+        load(p, activeSearch, activeStatus, activeFrom, activeTo);
     }
 
     function toggleDynamicKey(key: string) {
@@ -168,63 +252,130 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
 
     return (
         <>
-            {/* Toolbar */}
-            <div className="mb-4 flex flex-wrap items-center gap-3">
-                {/* Search */}
-                <div className="relative flex-1 min-w-[320px]">
-                    <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    <input
-                        type="text"
-                        title="Buscar"
-                        aria-label="Buscar por Lead ID o número"
-                        placeholder="Buscar por Lead ID o número..."
-                        value={search}
-                        onChange={(e) => handleSearch(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 transition-all outline-none"
-                    />
-                </div>
+            {/* Filter Toolbar aligned to user request */}
+            <div className="mb-6 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
 
-                {/* Status filter */}
-                <select
-                    title="Filtrar por estado"
-                    aria-label="Filtrar por estado"
-                    value={statusFilter}
-                    onChange={(e) => handleStatus(e.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 transition-all"
-                >
-                    <option value="ALL">Todos los estados</option>
-                    {ALL_STATUSES.map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                    ))}
-                </select>
-
-                {/* Dynamic columns toggle */}
-                {dynamicKeys.length > 0 && (
-                    <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 py-1 shadow-sm">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mr-2 border-r border-slate-100 pr-2">Campos:</span>
-                        {dynamicKeys.map((k) => (
+                {/* Row 1: Date Presets & Custom Dates */}
+                <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex items-center gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-1 custom-scrollbar">
+                        {DATE_PRESETS.map((preset) => (
                             <button
-                                key={k}
-                                onClick={() => toggleDynamicKey(k)}
+                                key={preset.value}
+                                onClick={() => setDraftPreset(preset.value)}
                                 className={cn(
-                                    "rounded-lg px-2.5 py-1 text-xs font-bold transition-all",
-                                    visibleDynamic.includes(k)
+                                    "whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-bold transition-all",
+                                    draftPreset === preset.value
                                         ? "bg-blue-600 text-white shadow-sm"
-                                        : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+                                        : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
                                 )}
                             >
-                                {k}
+                                {preset.label}
                             </button>
                         ))}
                     </div>
-                )}
 
-                {/* Count */}
-                <span className="ml-auto text-xs text-slate-400">
-                    {isPending ? "Cargando..." : `${result.count.toLocaleString()} registros`}
-                </span>
+                    <div className="flex items-center gap-2">
+                        <div className="relative">
+                            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                            <input
+                                type="date"
+                                title="Fecha inicio"
+                                aria-label="Fecha inicio"
+                                value={draftFrom}
+                                onChange={(e) => { setDraftFrom(e.target.value); setDraftPreset("custom"); }}
+                                className="w-[140px] rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-xs font-bold text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
+                            />
+                        </div>
+                        <span className="text-sm font-medium text-slate-400">a</span>
+                        <div className="relative">
+                            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                            <input
+                                type="date"
+                                title="Fecha fin"
+                                aria-label="Fecha fin"
+                                value={draftTo}
+                                onChange={(e) => { setDraftTo(e.target.value); setDraftPreset("custom"); }}
+                                className="w-[140px] rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-xs font-bold text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Row 2: Search & Apply */}
+                <div className="flex flex-wrap items-center gap-3">
+                    <div className="relative w-full max-w-[320px]">
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder="Teléfono..."
+                            value={draftSearch}
+                            onChange={(e) => setDraftSearch(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm font-medium text-slate-900 placeholder:text-slate-400 transition-all outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-50"
+                        />
+                    </div>
+
+                    <button
+                        onClick={applyFilters}
+                        disabled={isPending}
+                        className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow disabled:opacity-50"
+                    >
+                        {isPending ? "Aplicando..." : "Aplicar Filtros"}
+                    </button>
+                </div>
+
+                {/* Row 3: Status, Dynamics & Stats */}
+                <div className="flex flex-wrap items-center justify-between gap-4 mt-1 pt-4 border-t border-slate-100">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <select
+                            title="Filtrar por estado"
+                            aria-label="Filtrar por estado"
+                            value={draftStatus}
+                            onChange={(e) => setDraftStatus(e.target.value)}
+                            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
+                        >
+                            <option value="ALL">Todos los estados</option>
+                            {ALL_STATUSES.map((s) => (
+                                <option key={s} value={s}>{s}</option>
+                            ))}
+                        </select>
+
+                        {/* Dynamic columns toggle */}
+                        {dynamicKeys.length > 0 && (
+                            <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-2 py-1 shadow-sm h-[38px]">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mx-2 border-r border-slate-100 pr-3">Campos</span>
+                                {dynamicKeys.map((k) => (
+                                    <button
+                                        key={k}
+                                        onClick={() => toggleDynamicKey(k)}
+                                        className={cn(
+                                            "rounded-lg px-2.5 py-1 text-xs font-bold transition-all",
+                                            visibleDynamic.includes(k)
+                                                ? "bg-blue-600 text-white shadow-sm"
+                                                : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+                                        )}
+                                    >
+                                        {k}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex items-center gap-5">
+                        <span className="text-sm font-black text-blue-600 tracking-tight bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
+                            {result.count.toLocaleString()} resultados
+                        </span>
+                        <button
+                            onClick={resetFilters}
+                            title="Limpiar filtros"
+                            className="flex items-center gap-2 text-sm font-bold text-slate-400 transition-colors hover:text-slate-700"
+                        >
+                            <RotateCcw className="h-4 w-4" />
+                            Limpiar
+                        </button>
+                    </div>
+                </div>
             </div>
 
             {/* Text popover */}
@@ -456,7 +607,7 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
             {isNewFieldDialogOpen && (
                 <NewFieldDialog
                     onClose={() => setIsNewFieldDialogOpen(false)}
-                    onSaved={() => load(page, search, statusFilter)}
+                    onSaved={() => load(page, activeSearch, activeStatus, activeFrom, activeTo)}
                 />
             )}
 
