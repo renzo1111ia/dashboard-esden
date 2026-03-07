@@ -1,11 +1,10 @@
 "use client";
 
-import { createBrowserClient } from "@supabase/ssr";
-import { AUTH_SUPABASE_URL, AUTH_SUPABASE_ANON_KEY } from "@/lib/auth-config";
 import { useDateRangeStore, type DateRange } from "@/store/dateRange";
 import { useTenantStore } from "@/store/tenant";
 import { cn } from "@/lib/utils";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { logoutAction } from "@/lib/actions/auth";
 
 const DATE_RANGES: { label: string; value: DateRange }[] = [
     { label: "7 días", value: "7d" },
@@ -22,8 +21,7 @@ export function Topbar({ title }: { title: string }) {
 
     async function handleLogout() {
         try {
-            const supabase = createBrowserClient(AUTH_SUPABASE_URL, AUTH_SUPABASE_ANON_KEY);
-            await supabase.auth.signOut();
+            await logoutAction();
         } catch (e) {
             console.error("Logout error:", e);
         } finally {
