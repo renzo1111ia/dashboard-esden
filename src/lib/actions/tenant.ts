@@ -40,15 +40,19 @@ async function getAdminSupabase() {
  * Client using SERVICE ROLE KEY to perform administrative tasks
  */
 async function getServiceSupabase() {
-    // Leemos dinámicamente para asegurar que tome el valor de runtime
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY;
+    // 1. Intentamos leer de las variables de entorno (Lo ideal)
+    let serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY;
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL || AUTH_SUPABASE_URL;
 
-    if (!url || !serviceKey) {
-        const allKeys = Object.keys(process.env);
-        console.error("DIAGNOSTICO TOTAL ENV:", allKeys);
-        throw new Error(`Falta la MASTER KEY. Variables disponibles en este contenedor: ${allKeys.join(", ") || "¡NINGUNA VARIABLE DETECTADA!"}. Verifica en Dokploy si las variables están aplicadas al despliegue.`);
+    // 2. Si no existe (problema de Hetzner/Dokploy), usamos la llave directa como respaldo
+    if (!serviceKey) {
+        serviceKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NzI0OTEyMjksImV4cCI6MTg5MzQ1NjAwMCwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlzcyI6InN1cGFiYXNlIn0.5VpQVwUhqDkHgplZiPE4iGjduuB2NfGNq-5vsASGAbI";
     }
+
+    if (!url || !serviceKey) {
+        throw new Error("Error crítico: No se pudo determinar la URL o la Llave Maestra de Supabase.");
+    }
+
     const cookieStore = await cookies();
     return createServerClient(url, serviceKey, {
         cookies: {
