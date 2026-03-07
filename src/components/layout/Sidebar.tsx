@@ -11,14 +11,14 @@ import { TenantSelector } from "./TenantSelector";
 
 const NAV_ITEMS = [
     {
-        label: "Panel General",
+        label: "General",
         href: "/dashboard",
         icon: <LayoutDashboard className="h-5 w-5" strokeWidth={1.8} />
     },
     {
-        label: "Campañas",
-        href: "/dashboard/campanas",
-        icon: <Megaphone className="h-5 w-5" strokeWidth={1.8} />
+        label: "Llamadas",
+        href: "/dashboard/minutos",
+        icon: <Clock className="h-5 w-5" strokeWidth={1.8} />
     },
     {
         label: "WhatsApp",
@@ -26,9 +26,9 @@ const NAV_ITEMS = [
         icon: <MessageCircle className="h-5 w-5" strokeWidth={1.8} />
     },
     {
-        label: "Minutos Totales",
-        href: "/dashboard/minutos",
-        icon: <Clock className="h-5 w-5" strokeWidth={1.8} />
+        label: "Campañas",
+        href: "/dashboard/campanas",
+        icon: <Megaphone className="h-5 w-5" strokeWidth={1.8} />
     },
     {
         label: "Historial",
@@ -36,7 +36,7 @@ const NAV_ITEMS = [
         icon: <History className="h-5 w-5" strokeWidth={1.8} />
     },
     {
-        label: "Configuración",
+        label: "Configuraciones",
         href: "/dashboard/settings",
         icon: <Settings className="h-5 w-5" strokeWidth={1.8} />
     },
