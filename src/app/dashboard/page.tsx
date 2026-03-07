@@ -15,33 +15,13 @@ import { getActiveTenantConfig } from "@/lib/actions/tenant";
 import { getAdminStatus } from "@/lib/actions/auth";
 import { KpiConfig, ChartConfig } from "@/types/tenant";
 import {
-    SummaryCard,
-    DarkScoreCard,
-    HorizontalBarChart,
-    VerticalBarChart,
-    DonutChart,
-    AreaChartComponent,
     ChartSkeleton,
     KpiSkeleton,
 } from "@/components/charts/DashboardCharts";
 import { TenantSetupBanner } from "@/components/layout/TenantSetupBanner";
-import {
-    Phone, PhoneCall, PhoneMissed, Users, UserX, PhoneOff, Voicemail,
-    UserMinus, ThumbsDown, Star, Calendar, Clock, TrendingUp, Activity
-} from "lucide-react";
-
-const ICON_MAP: Record<string, React.ReactNode> = {
-    "Phone": <Phone className="h-6 w-6 text-white" />,
-    "PhoneCall": <PhoneCall className="h-6 w-6 text-white" />,
-    "Activity": <Activity className="h-6 w-6 text-white" />,
-    "Users": <Users className="h-6 w-6 text-white" />,
-    "Star": <Star className="h-6 w-6 text-white" />,
-    "Calendar": <Calendar className="h-6 w-6 text-white" />,
-    "TrendingUp": <TrendingUp className="h-6 w-6 text-white" />,
-};
-
 import { SummaryManager } from "@/components/dashboard/SummaryManager";
-import { DEFAULT_SUMMARY_KPIS } from "@/lib/constants/kpi-defaults";
+import { ChartManager } from "@/components/dashboard/ChartManager";
+import { DEFAULT_SUMMARY_KPIS, DEFAULT_CHARTS } from "@/lib/constants/kpi-defaults";
 
 async function SummarySection({ from, to, isAdmin }: { from: string; to: string; isAdmin: boolean }) {
     const kpi = await getKpiTotals(from, to);
@@ -49,12 +29,8 @@ async function SummarySection({ from, to, isAdmin }: { from: string; to: string;
 
     if (!tenantConfig) return null;
 
-    // Get KPIs from config or use defaults
     const currentConfigKpis = (tenantConfig.config as any)?.kpis as KpiConfig[] || [];
 
-    // If config is empty or doesn't have the static ones, we might want to merge them or start with defaults
-    // For a transition, if the config has custom ones, we use the config as is.
-    // If we want EVERYTHING to be editable, we should merge.
     let mergedKpis = currentConfigKpis;
     if (currentConfigKpis.length === 0) {
         mergedKpis = DEFAULT_SUMMARY_KPIS;
@@ -72,9 +48,6 @@ async function SummarySection({ from, to, isAdmin }: { from: string; to: string;
         />
     );
 }
-
-import { ChartManager } from "@/components/dashboard/ChartManager";
-import { DEFAULT_CHARTS } from "@/lib/constants/kpi-defaults";
 
 async function ChartsSection({ from, to, isAdmin }: { from: string; to: string; isAdmin: boolean }) {
     const [
@@ -126,10 +99,6 @@ async function ChartsSection({ from, to, isAdmin }: { from: string; to: string; 
         />
     );
 }
-
-type PageProps = {
-    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-};
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<any> }) {
     const params = await searchParams;

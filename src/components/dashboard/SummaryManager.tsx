@@ -1,19 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import { KpiConfig, Tenant } from "@/types/tenant";
 import { KpiTotals } from "@/lib/actions/analytics";
 import { SummaryCard } from "@/components/charts/DashboardCharts";
 import {
     Phone, PhoneCall, PhoneMissed, Users, UserX, PhoneOff, Voicemail,
     UserMinus, ThumbsDown, Star, Calendar, Clock, TrendingUp, Activity,
-    GripVertical, Maximize2, Edit3, Save, X, ChevronUp, ChevronDown, EyeOff, Eye
+    Maximize2, Edit3, Save, X, ChevronUp, ChevronDown, EyeOff, Eye
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { updateTenant } from "@/lib/actions/tenant";
 import { useRouter } from "next/navigation";
 
-const ICON_MAP: Record<string, React.ReactNode> = {
+const ICON_MAP: Record<string, ReactNode> = {
     "Phone": <Phone className="h-6 w-6 text-white" />,
     "PhoneCall": <PhoneCall className="h-6 w-6 text-white" />,
     "PhoneMissed": <PhoneMissed className="h-6 w-6 text-white" />,
