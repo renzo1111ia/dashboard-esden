@@ -146,59 +146,53 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
     );
 
     function applyFilters() {
-        let fDate = new Date(activeFrom).toISOString();
-        let tDate = new Date(activeTo).toISOString();
-
         const now = new Date();
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+        let fDate: string;
+        let tDate: string;
 
         if (draftPreset === "today") {
             fDate = startOfToday.toISOString();
             tDate = now.toISOString();
-            setDraftFrom(fDate.slice(0, 10));
-            setDraftTo(tDate.slice(0, 10));
         } else if (draftPreset === "yesterday") {
-            const yesterday = new Date(startOfToday.getTime() - 24 * 60 * 60 * 1000);
-            fDate = yesterday.toISOString();
-            tDate = startOfToday.toISOString();
-            setDraftFrom(fDate.slice(0, 10));
-            setDraftTo(tDate.slice(0, 10));
+            const yesterdayStart = new Date(startOfToday.getTime() - 24 * 60 * 60 * 1000);
+            const yesterdayEnd = startOfToday;
+            fDate = yesterdayStart.toISOString();
+            tDate = yesterdayEnd.toISOString();
         } else if (draftPreset === "7d") {
             fDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
             tDate = now.toISOString();
-            setDraftFrom(fDate.slice(0, 10));
-            setDraftTo(tDate.slice(0, 10));
         } else if (draftPreset === "30d") {
             fDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
             tDate = now.toISOString();
-            setDraftFrom(fDate.slice(0, 10));
-            setDraftTo(tDate.slice(0, 10));
         } else if (draftPreset === "this_month") {
             fDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
             tDate = now.toISOString();
-            setDraftFrom(fDate.slice(0, 10));
-            setDraftTo(tDate.slice(0, 10));
         } else if (draftPreset === "this_year") {
             fDate = new Date(now.getFullYear(), 0, 1).toISOString();
             tDate = now.toISOString();
-            setDraftFrom(fDate.slice(0, 10));
-            setDraftTo(tDate.slice(0, 10));
         } else if (draftPreset === "all") {
-            // A long time ago
             fDate = new Date(2000, 0, 1).toISOString();
             tDate = now.toISOString();
-            setDraftFrom("");
-            setDraftTo("");
         } else {
-            // custom using draftFrom and draftTo
-            if (draftFrom) fDate = new Date(draftFrom).toISOString();
-            if (draftTo) tDate = new Date(draftTo + "T23:59:59.999Z").toISOString();
+            // "custom" or other
+            fDate = draftFrom ? new Date(draftFrom).toISOString() : new Date(2000, 0, 1).toISOString();
+            // End of today for the 'toDate'
+            tDate = draftTo ? new Date(draftTo + "T23:59:59.999Z").toISOString() : now.toISOString();
+        }
+
+        // Sync inputs UI if they were preset-driven
+        if (draftPreset !== "custom" && draftPreset !== "all") {
+            setDraftFrom(fDate.slice(0, 10));
+            setDraftTo(tDate.slice(0, 10));
         }
 
         setActiveSearch(draftSearch);
         setActiveStatus(draftStatus);
         setActiveFrom(fDate);
         setActiveTo(tDate);
+
         setPage(1);
         load(1, draftSearch, draftStatus, fDate, tDate);
     }

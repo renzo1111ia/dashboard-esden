@@ -173,18 +173,23 @@ type PageProps = {
     searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
-export default async function DashboardPage(props: PageProps) {
-    const sp = await props.searchParams;
-    const rangeParam = sp?.range as string || "30d";
-    const days = rangeParam === "7d" ? 7 : rangeParam === "90d" ? 90 : 30;
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<any> }) {
+    const params = await searchParams;
+    const range = (params.range as string) || "7d";
 
-    const now = () => Date.now();
-    const to = new Date().toISOString();
-    const from = new Date(now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const now = new Date();
+    let fromDate = new Date();
+    if (range === "30d") fromDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    else if (range === "90d") fromDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    else fromDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const from = fromDate.toISOString();
+    const to = now.toISOString();
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
             <TenantSetupBanner />
+
             <Suspense
                 fallback={
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 mb-8">

@@ -16,7 +16,7 @@ async function CampanasModule({ from, to }: { from: string; to: string }) {
 
     return (
         <div className="mb-10">
-            <h1 className="text-3xl font-bold text-white mb-6">Total <span className="text-indigo-400">Leads Campañas</span></h1>
+            <h1 className="text-3xl font-black text-slate-900 mb-6 tracking-tight">Total <span className="text-blue-600">Leads Campañas</span></h1>
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8">
                 {/* Row 1 */}
@@ -62,17 +62,25 @@ async function CampanasModule({ from, to }: { from: string; to: string }) {
     );
 }
 
-export default async function CampanasPage() {
-    const now = () => Date.now();
-    const to = new Date().toISOString();
-    const from = new Date(now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+export default async function CampanasPage({ searchParams }: { searchParams: Promise<any> }) {
+    const params = await searchParams;
+    const range = (params.range as string) || "30d";
+
+    const now = new Date();
+    let fromDate = new Date();
+    if (range === "7d") fromDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    else if (range === "90d") fromDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    else fromDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const from = fromDate.toISOString();
+    const to = now.toISOString();
 
     return (
         <div className="space-y-6">
             <Suspense
                 fallback={
                     <div className="mb-8">
-                        <div className="h-8 w-64 bg-white/5 rounded animate-pulse mb-4"></div>
+                        <div className="h-8 w-64 bg-slate-200 rounded animate-pulse mb-4"></div>
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                             {Array.from({ length: 9 }).map((_, i) => <KpiSkeleton key={i} />)}
                         </div>

@@ -8,10 +8,10 @@ async function MinutosModule({ from, to }: { from: string; to: string }) {
     const kpi = await getKpiTotals(from, to);
     return (
         <div className="mb-8">
-            <div className="mb-4">
-                <h2 className="text-xl font-bold text-white">Total Mins Mes</h2>
-                <p className="text-xs text-white/40">Contabilizar los minutos usados en mes actual, calendario</p>
-                <p className="text-4xl font-bold mt-1 text-white">{kpi.total_mins_mes}</p>
+            <div className="mb-6">
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Total Mins Mes</h2>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Contabilizar los minutos usados en mes actual, calendario</p>
+                <p className="text-5xl font-black mt-3 text-blue-600 tracking-tighter">{kpi.total_mins_mes}</p>
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3 mb-4">
                 <KpiCard label="Total de llamados" value={kpi.total_llamados?.toLocaleString() || 0} />
@@ -38,17 +38,25 @@ async function MinutosModule({ from, to }: { from: string; to: string }) {
     );
 }
 
-export default async function MinutosPage() {
-    const now = () => Date.now();
-    const to = new Date().toISOString();
-    const from = new Date(now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+export default async function MinutosPage({ searchParams }: { searchParams: Promise<any> }) {
+    const params = await searchParams;
+    const range = (params.range as string) || "30d";
+
+    const now = new Date();
+    let fromDate = new Date();
+    if (range === "7d") fromDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    else if (range === "90d") fromDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    else fromDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const from = fromDate.toISOString();
+    const to = now.toISOString();
 
     return (
         <div className="space-y-6">
             <Suspense
                 fallback={
                     <div className="mb-8">
-                        <div className="h-10 w-48 bg-white/5 rounded animate-pulse mb-8"></div>
+                        <div className="h-10 w-48 bg-slate-200 rounded animate-pulse mb-8"></div>
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-5">
                             {Array.from({ length: 13 }).map((_, i) => <KpiSkeleton key={i} />)}
                         </div>
