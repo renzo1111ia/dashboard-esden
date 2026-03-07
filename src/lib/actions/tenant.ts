@@ -20,6 +20,9 @@ export async function setTenantCookies(url: string, key: string, name: string = 
 }
 
 async function getAdminSupabase() {
+    if (!AUTH_SUPABASE_URL || !AUTH_SUPABASE_ANON_KEY) {
+        throw new Error("Configuración de administración (AUTH) incompleta. Verifique las variables de entorno.");
+    }
     const cookieStore = await cookies();
     return createServerClient(AUTH_SUPABASE_URL, AUTH_SUPABASE_ANON_KEY, {
         cookies: {
@@ -37,6 +40,9 @@ async function getAdminSupabase() {
  * Client using SERVICE ROLE KEY to perform administrative tasks
  */
 async function getServiceSupabase() {
+    if (!AUTH_SUPABASE_URL || !AUTH_SUPABASE_SERVICE_ROLE_KEY) {
+        throw new Error("Falta la MASTER KEY (Service Role). Configúrela en Portainer como SUPABASE_SERVICE_ROLE_KEY.");
+    }
     const cookieStore = await cookies();
     return createServerClient(AUTH_SUPABASE_URL, AUTH_SUPABASE_SERVICE_ROLE_KEY, {
         cookies: {
