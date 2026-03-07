@@ -8,10 +8,12 @@ async function MinutosModule({ from, to }: { from: string; to: string }) {
     const kpi = await getKpiTotals(from, to);
     return (
         <div className="mb-8">
-            <div className="mb-6">
-                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Total Mins Mes</h2>
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Contabilizar los minutos usados en mes actual, calendario</p>
-                <p className="text-5xl font-black mt-3 text-blue-600 tracking-tighter">{kpi.total_mins_mes}</p>
+            <div className="mb-10">
+                <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Total <span className="text-blue-600">Minutos del Mes</span></h1>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Contabilización de minutos consumidos en el periodo actual</p>
+                <div className="mt-4">
+                    <p className="text-6xl font-black text-slate-900 tracking-tighter">{kpi.total_mins_mes}</p>
+                </div>
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3 mb-4">
                 <KpiCard label="Total de llamados" value={kpi.total_llamados?.toLocaleString() || 0} />

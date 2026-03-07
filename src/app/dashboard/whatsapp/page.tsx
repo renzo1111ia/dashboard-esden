@@ -8,7 +8,8 @@ async function WhatsAppModule({ from, to }: { from: string; to: string }) {
     const kpi = await getKpiTotals(from, to);
     return (
         <div className="mb-8">
-            <h2 className="mb-4 text-2xl font-bold text-white tracking-tight">Total Leads Efectivos WhatsApp</h2>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Total Leads <span className="text-blue-600">WhatsApp</span></h1>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">Resumen de leads gestionados por WhatsApp</p>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mb-4">
                 <KpiCard label="Total Efectivos WhatsApp (Cualificados o anulados)" value={kpi.efectivos_whatsapp?.toLocaleString() || 0} />
                 <KpiCard label="Whatsapp ilocalizables" value={kpi.whatsapp_ilocalizables?.toLocaleString() || 0} />
@@ -35,7 +36,7 @@ export default async function WhatsappPage() {
             <Suspense
                 fallback={
                     <div className="mb-8">
-                        <div className="h-8 w-80 bg-white/5 rounded animate-pulse mb-4"></div>
+                        <div className="h-10 w-80 bg-slate-200 rounded animate-pulse mb-6"></div>
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
                             {Array.from({ length: 6 }).map((_, i) => <KpiSkeleton key={i} />)}
                         </div>
