@@ -23,6 +23,7 @@ export default function SettingsPage() {
     const { tenantName: activeTenantName, setTenant: setActiveTenant } = useTenantStore();
     const [tenants, setTenants] = useState<Tenant[]>([]);
     const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
     const [isEditing, setIsEditing] = useState<string | null>(null); // ID of tenant being edited
     const [editForm, setEditForm] = useState<Partial<Tenant> & { password?: string }>({
         name: "",
@@ -47,14 +48,19 @@ export default function SettingsPage() {
 
     async function handleSaveNew(e: React.FormEvent) {
         e.preventDefault();
+        console.log("SUBMITTING NEW TENANT:", editForm);
+        setSaving(true);
         try {
             const configObj = typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : editForm.config;
             await createTenant({ ...editForm, config: configObj });
             setShowNewForm(false);
             setEditForm({ name: "", supabase_url: "", supabase_anon_key: "", client_email: "", password: "", config: {} });
-            loadTenants();
+            await loadTenants();
         } catch (err: any) {
+            console.error("SAVE TENANT ERROR:", err);
             alert("Error al crear cliente: " + err.message);
+        } finally {
+            setSaving(false);
         }
     }
 
@@ -296,7 +302,7 @@ export default function SettingsPage() {
                                                                         title="Configuracion JSON"
                                                                         value={typeof editForm.config === 'string' ? editForm.config : JSON.stringify(editForm.config, null, 2)}
                                                                         onChange={e => setEditForm({ ...editForm, config: e.target.value as unknown as Record<string, unknown> })}
-                                                                        className="w-full min-h-[120px] rounded-xl bg-slate-50 border border-slate-100 p-3 text-[10px] text-slate-700 font-mono focus:border-blue-500 outline-none"
+                                                                        className="w-full min-h-[120px] rounded-xl bg-slate-50 border border-slate-100 p-3 text-[10px] text-slate-900 font-mono focus:border-blue-500 outline-none"
                                                                         placeholder='{ "headers": [], "dashboard_title": "" }'
                                                                     />
                                                                 </div>
@@ -305,7 +311,13 @@ export default function SettingsPage() {
                                                     </div>
                                                 </div>
                                                 <div className="flex gap-3 pt-4">
-                                                    <Button type="submit" className="h-12 px-8 bg-blue-600 font-black text-white rounded-xl hover:bg-blue-700 active:scale-95 transition-all">Desplegar Cliente</Button>
+                                                    <Button
+                                                        type="submit"
+                                                        disabled={saving}
+                                                        className="h-12 px-8 bg-blue-600 font-black text-white rounded-xl hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50"
+                                                    >
+                                                        {saving ? "Desplegando..." : "Desplegar Cliente"}
+                                                    </Button>
                                                     <Button type="button" variant="ghost" onClick={() => setShowNewForm(false)} className="h-12 text-slate-400 font-bold rounded-xl hover:bg-slate-100">Descartar</Button>
                                                 </div>
                                             </form>
@@ -323,16 +335,16 @@ export default function SettingsPage() {
                                         <td colSpan={4} className="p-8">
                                             <div className="space-y-6">
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nombre</Label><Input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} className="h-11 bg-white rounded-xl" /></div>
-                                                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">URL Supabase</Label><Input value={editForm.supabase_url} onChange={e => setEditForm({ ...editForm, supabase_url: e.target.value })} className="h-11 bg-white font-mono text-xs rounded-xl" /></div>
-                                                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Email Acceso</Label><Input value={editForm.client_email} onChange={e => setEditForm({ ...editForm, client_email: e.target.value })} className="h-11 bg-white rounded-xl" /></div>
-                                                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Cambiar Contraseña</Label><Input value={editForm.password} onChange={e => setEditForm({ ...editForm, password: e.target.value })} className="h-11 bg-white rounded-xl" type="password" placeholder="Solo para cambiarla" /></div>
-                                                    <div className="md:col-span-2 space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Service Role / Key</Label><Input value={editForm.supabase_anon_key} onChange={e => setEditForm({ ...editForm, supabase_anon_key: e.target.value })} className="h-11 bg-white font-mono text-xs rounded-xl" type="password" /></div>
+                                                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nombre</Label><Input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} className="h-11 bg-white rounded-xl text-slate-900 font-bold" /></div>
+                                                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">URL Supabase</Label><Input value={editForm.supabase_url} onChange={e => setEditForm({ ...editForm, supabase_url: e.target.value })} className="h-11 bg-white font-mono text-xs rounded-xl text-slate-900" /></div>
+                                                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Email Acceso</Label><Input value={editForm.client_email} onChange={e => setEditForm({ ...editForm, client_email: e.target.value })} className="h-11 bg-white rounded-xl text-slate-900 font-bold" /></div>
+                                                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Cambiar Contraseña</Label><Input value={editForm.password} onChange={e => setEditForm({ ...editForm, password: e.target.value })} className="h-11 bg-white rounded-xl text-slate-900" type="password" placeholder="Solo para cambiarla" /></div>
+                                                    <div className="md:col-span-2 space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Service Role / Key</Label><Input value={editForm.supabase_anon_key} onChange={e => setEditForm({ ...editForm, supabase_anon_key: e.target.value })} className="h-11 bg-white font-mono text-xs rounded-xl text-slate-900" type="password" /></div>
 
                                                     <div className="md:col-span-2 space-y-4 pt-4">
                                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                            <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Título</Label><Input value={(() => { try { const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {}); return conf.dashboard_title || ""; } catch (e) { return ""; } })()} onChange={e => { try { const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {}); conf.dashboard_title = e.target.value; setEditForm({ ...editForm, config: JSON.stringify(conf, null, 2) as any }); } catch (e) { } }} className="h-10 bg-white rounded-xl" /></div>
-                                                            <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Headers</Label><Input value={(() => { try { const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {}); return (conf.headers || []).join(", "); } catch (e) { return ""; } })()} onChange={e => { try { const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {}); conf.headers = e.target.value.split(",").map(s => s.trim()).filter(s => s !== ""); setEditForm({ ...editForm, config: JSON.stringify(conf, null, 2) as any }); } catch (e) { } }} className="h-10 bg-white rounded-xl" /></div>
+                                                            <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Título</Label><Input value={(() => { try { const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {}); return conf.dashboard_title || ""; } catch (e) { return ""; } })()} onChange={e => { try { const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {}); conf.dashboard_title = e.target.value; setEditForm({ ...editForm, config: JSON.stringify(conf, null, 2) as any }); } catch (e) { } }} className="h-10 bg-white rounded-xl text-slate-900" /></div>
+                                                            <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Headers</Label><Input value={(() => { try { const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {}); return (conf.headers || []).join(", "); } catch (e) { return ""; } })()} onChange={e => { try { const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {}); conf.headers = e.target.value.split(",").map(s => s.trim()).filter(s => s !== ""); setEditForm({ ...editForm, config: JSON.stringify(conf, null, 2) as any }); } catch (e) { } }} className="h-10 bg-white rounded-xl text-slate-900" /></div>
                                                         </div>
                                                         <div className="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm">
                                                             <KpiBuilder kpis={(typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}").kpis : (editForm.config as any)?.kpis) || []} onChange={(kpis) => { try { const current = typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : (editForm.config || {}); current.kpis = kpis; setEditForm({ ...editForm, config: JSON.stringify(current, null, 2) as any }); } catch (e) { } }} />

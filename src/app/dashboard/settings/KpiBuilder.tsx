@@ -85,7 +85,7 @@ export function KpiBuilder({ kpis, onChange }: Props) {
                                             type="text"
                                             value={kpi.label}
                                             onChange={(e) => updateKpi(kpi.id, { label: e.target.value })}
-                                            className="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 bg-white focus:border-blue-500 outline-none"
+                                            className="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 bg-white text-slate-900 focus:border-blue-500 outline-none"
                                             placeholder="Ej: Llamadas de Ventas"
                                         />
                                     </div>
@@ -95,7 +95,7 @@ export function KpiBuilder({ kpis, onChange }: Props) {
                                             title="Color"
                                             value={kpi.color}
                                             onChange={(e) => updateKpi(kpi.id, { color: e.target.value })}
-                                            className="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 bg-white outline-none font-medium h-9"
+                                            className="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 bg-white text-slate-900 outline-none font-medium h-9"
                                         >
                                             {COLORS.map(c => <option key={c} value={c}>{c}</option>)}
                                         </select>
@@ -106,7 +106,7 @@ export function KpiBuilder({ kpis, onChange }: Props) {
                                             title="Tamaño"
                                             value={kpi.size}
                                             onChange={(e) => updateKpi(kpi.id, { size: e.target.value as any })}
-                                            className="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 bg-white outline-none font-medium h-9"
+                                            className="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 bg-white text-slate-900 outline-none font-medium h-9"
                                         >
                                             <option value="3">Chico (1/4)</option>
                                             <option value="4">Mediano (1/3)</option>
@@ -130,7 +130,7 @@ export function KpiBuilder({ kpis, onChange }: Props) {
                                                 title="Operación"
                                                 value={kpi.calcType}
                                                 onChange={(e) => updateKpi(kpi.id, { calcType: e.target.value as any })}
-                                                className="w-full text-[11px] border border-blue-200 rounded-lg px-2.5 py-1.5 bg-white outline-none"
+                                                className="w-full text-[11px] border border-blue-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-900 outline-none"
                                             >
                                                 <option value="count">Contar (* o Registros)</option>
                                                 <option value="sum">Sumar (Totales)</option>
@@ -143,7 +143,7 @@ export function KpiBuilder({ kpis, onChange }: Props) {
                                                 type="text"
                                                 value={kpi.targetCol}
                                                 onChange={(e) => updateKpi(kpi.id, { targetCol: e.target.value })}
-                                                className="w-full text-[11px] border border-blue-200 rounded-lg px-2.5 py-1.5 bg-white outline-none font-mono"
+                                                className="w-full text-[11px] border border-blue-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-900 outline-none font-mono"
                                                 placeholder="Ej: * (todo) o Total Mins"
                                             />
                                         </div>
@@ -175,7 +175,7 @@ export function KpiBuilder({ kpis, onChange }: Props) {
                                                 type="text"
                                                 value={kpi.condCol || ""}
                                                 onChange={(e) => updateKpi(kpi.id, { condCol: e.target.value })}
-                                                className="w-full text-[11px] border border-amber-200 rounded-lg px-2.5 py-1.5 bg-white outline-none font-mono placeholder:text-amber-200"
+                                                className="w-full text-[11px] border border-amber-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-900 outline-none font-mono placeholder:text-amber-200"
                                                 placeholder="Ej: is_qualified o campana..."
                                             />
                                         </div>
@@ -200,7 +200,7 @@ export function KpiBuilder({ kpis, onChange }: Props) {
                                                 type="text"
                                                 value={kpi.condVal || ""}
                                                 onChange={(e) => updateKpi(kpi.id, { condVal: e.target.value })}
-                                                className="w-full text-[11px] border border-amber-200 rounded-lg px-2.5 py-1.5 bg-white outline-none font-mono"
+                                                className="w-full text-[11px] border border-amber-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-900 outline-none font-mono"
                                                 placeholder="Ej: true, NO_CONTACT..."
                                             />
                                         </div>
