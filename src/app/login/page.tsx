@@ -36,7 +36,7 @@ export default function LoginPage() {
             <div className="w-full max-w-[440px] px-6 py-12">
                 {/* Logo Area */}
                 <div className="mb-10 flex items-center justify-start">
-                    <img src="/logo.png" alt="Automatiza Formación" className="h-16 w-auto object-contain" />
+                    <img src="/logo.png" alt="App Automatiza" className="h-16 w-auto object-contain" />
                 </div>
 
                 <div className="mb-10">
@@ -111,7 +111,7 @@ export default function LoginPage() {
                 </form>
 
                 <p className="mt-12 text-center text-xs font-bold text-slate-400 tracking-widest uppercase">
-                    © {new Date().getFullYear()} Automatiza Formación
+                    © {new Date().getFullYear()} App Automatiza
                 </p>
             </div>
         </div>

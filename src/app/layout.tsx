@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "ESDEN Analytics",
+  title: "App Automatiza",
   description: "Dashboard de análisis de rendimiento de bots de llamadas IA",
 };
 

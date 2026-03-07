@@ -70,7 +70,7 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
                         </svg>
                     </div>
                 ) : (
-                    <img src="/logo.png" alt="Automatiza Formación" className="h-10 w-auto object-contain" />
+                    <img src="/logo.png" alt="App Automatiza" className="h-10 w-auto object-contain" />
                 )}
             </div>
 

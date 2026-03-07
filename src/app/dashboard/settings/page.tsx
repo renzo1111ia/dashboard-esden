@@ -111,7 +111,7 @@ export default function SettingsPage() {
     return (
         <div className="mx-auto max-w-5xl space-y-10 pb-20">
             <div>
-                <h1 className="text-3xl font-black text-slate-900 tracking-tight">Administración de Clientes</h1>
+                <h1 className="text-3xl font-black text-slate-900 tracking-tight">Configuración de App Automatiza</h1>
                 <p className="mt-2 text-base font-medium text-slate-500">
                     Gestiona los entornos de Supabase y configuraciones personalizadas para cada cliente.
                 </p>
@@ -186,7 +186,7 @@ export default function SettingsPage() {
                                                             value={editForm.name}
                                                             onChange={e => setEditForm({ ...editForm, name: e.target.value })}
                                                             className="h-12 bg-white border-slate-200 text-slate-900 rounded-xl focus:ring-blue-100"
-                                                            placeholder="Ej: ESDEN México"
+                                                            placeholder="Ej: Proyecto México"
                                                             required
                                                         />
                                                     </div>
@@ -252,7 +252,7 @@ export default function SettingsPage() {
                                                                         } catch (e) { }
                                                                     }}
                                                                     className="h-11 bg-white border-slate-200 text-slate-900 rounded-xl"
-                                                                    placeholder="Ej: Esden Global"
+                                                                    placeholder="Ej: App Automatiza"
                                                                 />
                                                             </div>
                                                             <div className="space-y-2">
