@@ -68,6 +68,13 @@ export async function getActiveTenantConfig(): Promise<Tenant | null> {
     return data as Tenant;
 }
 
+export async function getTenantByUserId(userId: string): Promise<Tenant | null> {
+    const supabase = await getAdminSupabase();
+    const { data, error } = await supabase.from("tenants").select("*").eq("auth_user_id", userId).single();
+    if (error || !data) return null;
+    return data as Tenant;
+}
+
 export async function createTenant(tenant: Partial<Tenant> & { password?: string }) {
     const supabase = await getAdminSupabase();
     const serviceSupabase = await getServiceSupabase();

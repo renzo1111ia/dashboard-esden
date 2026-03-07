@@ -3,6 +3,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { AUTH_SUPABASE_URL, AUTH_SUPABASE_ANON_KEY } from "@/lib/auth-config";
+import { getTenantByUserId, setTenantCookies } from "./tenant";
 
 export async function loginAction(email: string, password: string) {
     const cookieStore = await cookies();
@@ -28,6 +29,16 @@ export async function loginAction(email: string, password: string) {
     }
 
     const isAdmin = data.user?.user_metadata?.is_admin === true || data.user?.user_metadata?.is_admin === "true";
+
+    // ⚡ AUTO-CONFIG FOR CLIENTS
+    // If not admin, find their tenant and set cookies automatically
+    if (!isAdmin && data.user) {
+        const tenant = await getTenantByUserId(data.user.id);
+        if (tenant) {
+            await setTenantCookies(tenant.supabase_url, tenant.supabase_anon_key, tenant.name);
+        }
+    }
+
     return { success: true, isAdmin };
 }
 
