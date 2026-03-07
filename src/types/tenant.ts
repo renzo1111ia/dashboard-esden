@@ -12,15 +12,17 @@ export interface Tenant {
 
 export interface KpiConfig {
     id: string;
-    label: string;
+    label: string | React.ReactNode;
     icon: string;
     color: string;
-    size: "3" | "4" | "6" | "12";
+    size: "3" | "4" | "6" | "8" | "9" | "12";
+    staticKey?: string; // If present, it's a hardcoded KPI from getKpiTotals
+    isVisible?: boolean;
 
     // Main calculation (Numerator)
-    calcType: "count" | "sum" | "avg";
-    targetCol: string;
-    isExtraTarget: boolean;
+    calcType?: "count" | "sum" | "avg";
+    targetCol?: string;
+    isExtraTarget?: boolean;
 
     condCol?: string;
     isExtraCond?: boolean;
@@ -41,10 +43,22 @@ export interface KpiConfig {
     isPercentage?: boolean;
 }
 
+export interface ChartConfig {
+    id: string;
+    type: "area" | "bar" | "donut" | "vertical-bar";
+    title: string;
+    dataKey: string; // The key in the fetched results
+    size: "6" | "12";
+    isVisible?: boolean;
+    isDonut?: boolean;
+    centerLabel?: string;
+}
+
 export interface TenantConfig {
     supabaseUrl: string;
     supabaseAnonKey: string;
     tenantName: string;
     kpis?: KpiConfig[];
+    charts?: ChartConfig[];
     config?: Record<string, unknown>;
 }

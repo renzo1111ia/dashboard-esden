@@ -13,7 +13,7 @@ import {
 } from "@/lib/actions/analytics";
 import { getActiveTenantConfig } from "@/lib/actions/tenant";
 import { getAdminStatus } from "@/lib/actions/auth";
-import { KpiConfig } from "@/types/tenant";
+import { KpiConfig, ChartConfig } from "@/types/tenant";
 import {
     SummaryCard,
     DarkScoreCard,
@@ -40,98 +40,43 @@ const ICON_MAP: Record<string, React.ReactNode> = {
     "TrendingUp": <TrendingUp className="h-6 w-6 text-white" />,
 };
 
-async function SummarySection({ from, to }: { from: string; to: string }) {
+import { SummaryManager } from "@/components/dashboard/SummaryManager";
+import { DEFAULT_SUMMARY_KPIS } from "@/lib/constants/kpi-defaults";
+
+async function SummarySection({ from, to, isAdmin }: { from: string; to: string; isAdmin: boolean }) {
     const kpi = await getKpiTotals(from, to);
     const tenantConfig = await getActiveTenantConfig();
 
-    // Process dynamic KPIs
-    const customConfigKpis = (tenantConfig?.config as any)?.kpis as KpiConfig[] || [];
-    const dynamicValues = await getDynamicKpis(from, to, customConfigKpis);
+    if (!tenantConfig) return null;
+
+    // Get KPIs from config or use defaults
+    const currentConfigKpis = (tenantConfig.config as any)?.kpis as KpiConfig[] || [];
+
+    // If config is empty or doesn't have the static ones, we might want to merge them or start with defaults
+    // For a transition, if the config has custom ones, we use the config as is.
+    // If we want EVERYTHING to be editable, we should merge.
+    let mergedKpis = currentConfigKpis;
+    if (currentConfigKpis.length === 0) {
+        mergedKpis = DEFAULT_SUMMARY_KPIS;
+    }
+
+    const dynamicValues = await getDynamicKpis(from, to, mergedKpis.filter(k => !k.staticKey));
 
     return (
-        <div className="mb-10">
-            <h1 className="text-3xl font-black text-slate-900 mb-6 tracking-tight">Panel <span className="text-blue-600">General</span></h1>
-
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8 text-left">
-                {/* ── KPIs Dinámicos Creados por el Administrador ── */}
-                {customConfigKpis.map((ck) => {
-                    const colSpanClass = `md:col-span-${ck.size || "4"}`;
-                    const val = dynamicValues[ck.id];
-                    let displayVal: number | string = val !== undefined ? val : 0;
-
-                    if (ck.calcType === "avg" || ck.isPercentage) {
-                        displayVal = Number((displayVal as number).toFixed(2));
-                    }
-
-                    if (ck.isPercentage) {
-                        displayVal = displayVal.toString() + "%";
-                    }
-
-                    return (
-                        <div key={ck.id} className={colSpanClass}>
-                            <SummaryCard
-                                label={ck.label}
-                                value={displayVal.toLocaleString('es-ES')}
-                                icon={ICON_MAP[ck.icon] || <Activity className="h-6 w-6 text-white" />}
-                                bgColor={ck.color || "bg-slate-600"}
-                            />
-                        </div>
-                    );
-                })}
-
-                {/* ── KPIs Estáticos Originales ── */}
-                {/* Fila 1 */}
-                <div className="md:col-span-4">
-                    <SummaryCard label="Total de llamados" value={kpi.total_llamados?.toLocaleString('es-ES') || "0"} icon={<Phone className="h-6 w-6 text-white" />} bgColor="bg-blue-600" />
-                </div>
-                <div className="md:col-span-4">
-                    <SummaryCard label="Llamadas atendidas" value={kpi.llamadas_atendidas_gen?.toLocaleString('es-ES') || "0"} icon={<PhoneCall className="h-6 w-6 text-white" />} bgColor="bg-emerald-600" />
-                </div>
-                <div className="md:col-span-4">
-                    <SummaryCard label="Fallidas" value={kpi.fallidas_gen?.toLocaleString('es-ES') || "0"} icon={<PhoneMissed className="h-6 w-6 text-white" />} bgColor="bg-red-600" />
-                </div>
-
-                {/* Fila 2 */}
-                <div className="md:col-span-3">
-                    <SummaryCard label={<>Leads totales<br />Alcanzados</>} value={kpi.leads_totales_alcanzados_gen?.toLocaleString('es-ES') + "..."} icon={<Users className="h-6 w-6 text-white" />} bgColor="bg-indigo-600" />
-                </div>
-                <div className="md:col-span-3">
-                    <SummaryCard label={<>Leads totales<br />ilocalizables</>} value={kpi.leads_totales_ilocalizables?.toLocaleString('es-ES') || "0"} icon={<UserX className="h-6 w-6 text-white" />} bgColor="bg-orange-600" />
-                </div>
-                <div className="md:col-span-3">
-                    <SummaryCard label={<>Ilocalizables<br />Teléfono erroneo</>} value={kpi.ilocalizables_telefono?.toLocaleString('es-ES') || "0"} icon={<PhoneOff className="h-6 w-6 text-white" />} bgColor="bg-rose-600" />
-                </div>
-                <div className="md:col-span-3">
-                    <SummaryCard label={<>Ilocalizables<br />por Buzón de Voz</>} value={kpi.ilocalizables_buzon?.toLocaleString('es-ES') || "0"} icon={<Voicemail className="h-6 w-6 text-white" />} bgColor="bg-amber-600" />
-                </div>
-
-                {/* Fila 3 */}
-                <div className="md:col-span-3">
-                    <SummaryCard label={<>No cumplen<br />requisitos</>} value={kpi.no_cumplen_requisitos?.toLocaleString('es-ES') || "0"} icon={<UserMinus className="h-6 w-6 text-white" />} bgColor="bg-pink-600" />
-                </div>
-                <div className="md:col-span-3">
-                    <SummaryCard label="No interesados" value={kpi.no_interesados_gen?.toLocaleString('es-ES') || "0"} icon={<ThumbsDown className="h-6 w-6 text-white" />} bgColor="bg-slate-600" />
-                </div>
-                <div className="md:col-span-3">
-                    <SummaryCard label="Leads cualificados" value={kpi.leads_cualificados_gen?.toLocaleString('es-ES') || "0"} icon={<Star className="h-6 w-6 text-white" />} bgColor="bg-yellow-600" />
-                </div>
-                <div className="md:col-span-3">
-                    <SummaryCard label="Total de agendas" value={kpi.total_agendas_gen?.toLocaleString('es-ES') || "0"} icon={<Calendar className="h-6 w-6 text-white" />} bgColor="bg-teal-600" />
-                </div>
-
-                {/* Fila 4 */}
-                <div className="md:col-span-6">
-                    <SummaryCard label="Duracion media de llamada" value={kpi.duracion_media || "0.00"} icon={<Clock className="h-6 w-6 text-white" />} bgColor="bg-cyan-600" />
-                </div>
-                <div className="md:col-span-6">
-                    <SummaryCard label="Total minutos" value={kpi.total_minutos_gen || "0"} icon={<TrendingUp className="h-6 w-6 text-white" />} bgColor="bg-purple-600" />
-                </div>
-            </div>
-        </div>
+        <SummaryManager
+            tenant={tenantConfig}
+            initialKpis={mergedKpis}
+            values={kpi}
+            dynamicValues={dynamicValues}
+            isAdmin={isAdmin}
+        />
     );
 }
 
-async function ChartsSection({ from, to }: { from: string; to: string }) {
+import { ChartManager } from "@/components/dashboard/ChartManager";
+import { DEFAULT_CHARTS } from "@/lib/constants/kpi-defaults";
+
+async function ChartsSection({ from, to, isAdmin }: { from: string; to: string; isAdmin: boolean }) {
     const [
         mejoresHoras,
         motivoNoContacto,
@@ -152,21 +97,33 @@ async function ChartsSection({ from, to }: { from: string; to: string }) {
         getAreaHistorico(from, to)
     ]);
 
+    const tenantConfig = await getActiveTenantConfig();
+    if (!tenantConfig) return null;
+
+    const currentCharts = (tenantConfig.config as any)?.charts as ChartConfig[] || [];
+    let mergedCharts = currentCharts;
+    if (currentCharts.length === 0) {
+        mergedCharts = DEFAULT_CHARTS;
+    }
+
+    const chartDataMap = {
+        mejoresHoras,
+        motivoNoContacto,
+        tipologia,
+        agendados,
+        optIn,
+        masterInteres,
+        leadsAnulados,
+        areaHistorico
+    };
+
     return (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 mt-4">
-            <div className="lg:col-span-2">
-                <AreaChartComponent title="Evolución de Minutos (Totales vs Facturados)" data={areaHistorico} />
-            </div>
-            <div className="lg:col-span-2">
-                <VerticalBarChart title="Mejores horas de contacto" data={mejoresHoras} />
-            </div>
-            <DonutChart title="Motivo de No contacto" data={motivoNoContacto} isDonut={false} />
-            <VerticalBarChart title="Tipología de llamadas" data={tipologia} />
-            <VerticalBarChart title="Leads cualificados agendados vs no agendados" data={agendados} />
-            <VerticalBarChart title="Opt-in Whatsapp" data={optIn} />
-            <DonutChart title="Master de interés" data={masterInteres} isDonut={false} />
-            <DonutChart title="Leads no cualificados (Motivos de anulación)" data={leadsAnulados} isDonut={true} centerLabel="total" />
-        </div>
+        <ChartManager
+            tenant={tenantConfig}
+            initialCharts={mergedCharts}
+            data={chartDataMap}
+            isAdmin={isAdmin}
+        />
     );
 }
 
@@ -199,7 +156,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                     </div>
                 }
             >
-                <SummarySection from={from} to={to} />
+                <SummarySection from={from} to={to} isAdmin={isAdmin} />
             </Suspense>
 
             <Suspense
@@ -209,7 +166,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                     </div>
                 }
             >
-                <ChartsSection from={from} to={to} />
+                <ChartsSection from={from} to={to} isAdmin={isAdmin} />
             </Suspense>
         </div>
     );
