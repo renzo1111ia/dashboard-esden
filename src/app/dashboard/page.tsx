@@ -12,6 +12,7 @@ import {
     getDynamicKpis
 } from "@/lib/actions/analytics";
 import { getActiveTenantConfig } from "@/lib/actions/tenant";
+import { getAdminStatus } from "@/lib/actions/auth";
 import { KpiConfig } from "@/types/tenant";
 import {
     SummaryCard,
@@ -176,6 +177,7 @@ type PageProps = {
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<any> }) {
     const params = await searchParams;
     const range = (params.range as string) || "7d";
+    const isAdmin = await getAdminStatus();
 
     const now = new Date();
     let fromDate = new Date();
@@ -188,7 +190,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
     return (
         <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
-            <TenantSetupBanner />
+            {isAdmin && <TenantSetupBanner />}
 
             <Suspense
                 fallback={

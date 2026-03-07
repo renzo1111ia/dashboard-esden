@@ -1,6 +1,8 @@
 import { Suspense } from "react";
 import { getKpiTotals, getAreaHistorico } from "@/lib/actions/analytics";
+import { getAdminStatus } from "@/lib/actions/auth";
 import { SummaryCard, AreaChartComponent, KpiSkeleton } from "@/components/charts/DashboardCharts";
+import { TenantSetupBanner } from "@/components/layout/TenantSetupBanner";
 import {
     Phone, PhoneCall, PhoneMissed, Users, UserX, UserMinus,
     ThumbsDown, Star, Calendar
@@ -65,6 +67,7 @@ async function CampanasModule({ from, to }: { from: string; to: string }) {
 export default async function CampanasPage({ searchParams }: { searchParams: Promise<any> }) {
     const params = await searchParams;
     const range = (params.range as string) || "30d";
+    const isAdmin = await getAdminStatus();
 
     const now = new Date();
     let fromDate = new Date();
@@ -77,6 +80,7 @@ export default async function CampanasPage({ searchParams }: { searchParams: Pro
 
     return (
         <div className="space-y-6">
+            {isAdmin && <TenantSetupBanner />}
             <Suspense
                 fallback={
                     <div className="mb-8">

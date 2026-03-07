@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import { useTenantStore } from "@/store/tenant";
 import { setTenantCookies, getTenants } from "@/lib/actions/tenant";
 import { cn } from "@/lib/utils";
-import { ChevronDown, Building2, Check } from "lucide-react";
+import { ChevronDown, Building2, Check, Plus } from "lucide-react";
 import { Tenant } from "@/types/tenant";
 
-export function TenantSelector({ collapsed }: { collapsed: boolean }) {
+export function TenantSelector({ collapsed, isAdmin }: { collapsed: boolean; isAdmin: boolean }) {
     const router = useRouter();
     const { tenantName, setTenant } = useTenantStore();
     const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -63,20 +63,36 @@ export function TenantSelector({ collapsed }: { collapsed: boolean }) {
             </button>
 
             {isOpen && (
-                <div className="absolute left-4 right-4 z-50 mt-2 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg shadow-slate-200/50">
-                    {tenants.map((t) => (
-                        <button
-                            key={t.id}
-                            onClick={() => handleSelect(t)}
-                            className={cn(
-                                "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition hover:bg-slate-50",
-                                tenantName === t.name ? "text-blue-600 font-bold bg-blue-50/50" : "text-slate-600 font-medium"
-                            )}
-                        >
-                            <span className="flex-1 truncate">{t.name}</span>
-                            {tenantName === t.name && <Check className="h-4 w-4" />}
-                        </button>
-                    ))}
+                <div className="absolute left-4 right-4 z-50 mt-2 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg shadow-slate-200/50">
+                    <div className="py-1">
+                        {tenants.map((t) => (
+                            <button
+                                key={t.id}
+                                onClick={() => handleSelect(t)}
+                                className={cn(
+                                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition hover:bg-slate-50",
+                                    tenantName === t.name ? "text-blue-600 font-bold bg-blue-50/50" : "text-slate-600 font-medium"
+                                )}
+                            >
+                                <span className="flex-1 truncate">{t.name}</span>
+                                {tenantName === t.name && <Check className="h-4 w-4" />}
+                            </button>
+                        ))}
+                    </div>
+                    {isAdmin && (
+                        <div className="mt-1 border-t border-slate-100 p-1">
+                            <button
+                                onClick={() => {
+                                    setIsOpen(false);
+                                    router.push("/dashboard/settings");
+                                }}
+                                className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-black text-blue-600 transition hover:bg-blue-50"
+                            >
+                                <Plus className="h-3.5 w-3.5" />
+                                Agregar nuevo cliente
+                            </button>
+                        </div>
+                    )}
                     {tenants.length === 0 && !loading && (
                         <div className="px-3 py-2 text-xs text-slate-400 italic font-medium">No hay clientes configurados</div>
                     )}

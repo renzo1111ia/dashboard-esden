@@ -75,7 +75,7 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
             </div>
 
             {/* Tenant Selector */}
-            {isAdmin && <TenantSelector collapsed={collapsed} />}
+            {isAdmin && <TenantSelector collapsed={collapsed} isAdmin={isAdmin} />}
 
             {/* Navigation */}
             <nav className="flex-1 overflow-y-auto p-3 space-y-1.5 mt-2">
