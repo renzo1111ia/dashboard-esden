@@ -222,7 +222,7 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
                 )}
 
                 {/* Count */}
-                <span className="ml-auto text-xs text-white/30">
+                <span className="ml-auto text-xs text-slate-400">
                     {isPending ? "Cargando..." : `${result.count.toLocaleString()} registros`}
                 </span>
             </div>
@@ -365,7 +365,7 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
                                                 <td key={k} className="px-3 py-1.5">
                                                     <button
                                                         onClick={() => setPopoverText(strVal)}
-                                                        className="max-w-[160px] truncate text-left text-xs text-white/50 hover:text-indigo-400 hover:underline transition block"
+                                                        className="max-w-[160px] truncate text-left text-xs text-slate-500 hover:text-blue-600 hover:underline transition block"
                                                         title="Clic para ver completo"
                                                     >
                                                         {strVal}
@@ -373,7 +373,7 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
                                                 </td>
                                             );
                                         }
-                                        return <td key={k} className="px-3 py-1.5 text-white/50 text-xs whitespace-nowrap">{strVal ?? "—"}</td>;
+                                        return <td key={k} className="px-3 py-1.5 text-slate-500 text-xs whitespace-nowrap">{strVal ?? "—"}</td>;
                                     })}
 
                                     {visibleDynamic.map((k) => {
@@ -392,14 +392,14 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
                                                 <td key={k} className="px-3 py-1.5">
                                                     <button
                                                         onClick={() => setPopoverText(dynVal)}
-                                                        className="max-w-[160px] truncate text-left text-xs text-indigo-300/80 hover:text-indigo-400 hover:underline transition block"
+                                                        className="max-w-[160px] truncate text-left text-xs text-slate-500 hover:text-blue-600 hover:underline transition block"
                                                     >
                                                         {dynVal}
                                                     </button>
                                                 </td>
                                             );
                                         }
-                                        return <td key={k} className="px-3 py-1.5 text-xs text-indigo-300/80 whitespace-nowrap">{dynVal}</td>;
+                                        return <td key={k} className="px-3 py-1.5 text-xs text-slate-500 whitespace-nowrap">{dynVal}</td>;
                                     })}
                                     <td className="px-3 py-1.5 text-right">
                                     </td>

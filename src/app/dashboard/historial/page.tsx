@@ -14,8 +14,8 @@ export default async function HistorialPage() {
         <div className="space-y-4">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-lg font-semibold text-white">Historial de Llamadas</h2>
-                    <p className="text-xs text-white/40 mt-0.5">
+                    <h2 className="text-lg font-semibold text-slate-800">Historial de Llamadas</h2>
+                    <p className="text-xs text-slate-500 mt-0.5">
                         {initialData.count.toLocaleString()} registros totales · Paginación servidor
                     </p>
                 </div>
