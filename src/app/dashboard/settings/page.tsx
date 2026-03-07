@@ -52,13 +52,19 @@ export default function SettingsPage() {
         setSaving(true);
         try {
             const configObj = typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : editForm.config;
-            await createTenant({ ...editForm, config: configObj });
+            const result = await createTenant({ ...editForm, config: configObj });
+
+            if (result.error) {
+                alert(result.error);
+                return;
+            }
+
             setShowNewForm(false);
             setEditForm({ name: "", supabase_url: "", supabase_anon_key: "", client_email: "", password: "", config: {} });
             await loadTenants();
         } catch (err: any) {
             console.error("SAVE TENANT ERROR:", err);
-            alert("Error al crear cliente: " + err.message);
+            alert("Error crítico: " + err.message);
         } finally {
             setSaving(false);
         }
@@ -69,11 +75,16 @@ export default function SettingsPage() {
             const configObj = typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : editForm.config;
             const tenantObj = tenants.find(t => t.id === id);
 
-            await updateTenant(id, {
+            const result = await updateTenant(id, {
                 ...editForm,
                 config: configObj,
                 auth_user_id: tenantObj?.auth_user_id
             });
+
+            if (result.error) {
+                alert(result.error);
+                return;
+            }
 
             setIsEditing(null);
             loadTenants();
@@ -88,7 +99,7 @@ export default function SettingsPage() {
                 });
             }
         } catch (err: any) {
-            alert("Error al actualizar cliente: " + err.message);
+            alert("Error crítico: " + err.message);
         }
     }
 

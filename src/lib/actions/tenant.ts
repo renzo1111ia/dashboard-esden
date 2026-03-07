@@ -76,69 +76,79 @@ export async function getTenantByUserId(userId: string): Promise<Tenant | null> 
 }
 
 export async function createTenant(tenant: Partial<Tenant> & { password?: string }) {
-    const supabase = await getAdminSupabase();
-    const serviceSupabase = await getServiceSupabase();
+    try {
+        const supabase = await getAdminSupabase();
+        const serviceSupabase = await getServiceSupabase();
 
-    let authUserId: string | undefined;
+        let authUserId: string | undefined;
 
-    // 1. If email and password provided, create user in Auth
-    if (tenant.client_email && tenant.password) {
-        const { data: authData, error: authError } = await serviceSupabase.auth.admin.createUser({
-            email: tenant.client_email,
-            password: tenant.password,
-            email_confirm: true,
-            user_metadata: { is_admin: false, tenant_name: tenant.name }
-        });
+        // 1. If email and password provided, create user in Auth
+        if (tenant.client_email && tenant.password) {
+            const { data: authData, error: authError } = await serviceSupabase.auth.admin.createUser({
+                email: tenant.client_email,
+                password: tenant.password,
+                email_confirm: true,
+                user_metadata: { is_admin: false, tenant_name: tenant.name }
+            });
 
-        if (authError) {
-            console.error("AUTH USER CREATION ERROR:", authError.message);
-            throw new Error(`Error en Auth: ${authError.message}`);
+            if (authError) {
+                console.error("AUTH USER CREATION ERROR:", authError.message);
+                return { error: `Error en Auth: ${authError.message}` };
+            }
+            authUserId = authData.user?.id;
         }
-        authUserId = authData.user?.id;
-    }
 
-    // 2. Insert into tenants table
-    const { password, ...tenantData } = tenant;
-    const { data, error } = await supabase
-        .from("tenants")
-        .insert({
-            ...tenantData,
-            auth_user_id: authUserId
-        })
-        .select()
-        .single();
+        // 2. Insert into tenants table
+        const { password, ...tenantData } = tenant;
+        const { data, error } = await supabase
+            .from("tenants")
+            .insert({
+                ...tenantData,
+                auth_user_id: authUserId
+            })
+            .select()
+            .single();
 
-    if (error) {
-        console.error("CREATE TENANT ERROR:", error.message);
-        throw new Error(error.message);
+        if (error) {
+            console.error("CREATE TENANT ERROR:", error.message);
+            return { error: `Error en Base de Datos: ${error.message}` };
+        }
+        return { success: true, data };
+    } catch (e: any) {
+        console.error("UNEXPECTED CREATE TENANT ERROR:", e);
+        return { error: `Error inesperado: ${e.message || "Error desconocido"}` };
     }
-    return data;
 }
 
 export async function updateTenant(id: string, updates: Partial<Tenant> & { password?: string }) {
-    const supabase = await getAdminSupabase();
-    const serviceSupabase = await getServiceSupabase();
+    try {
+        const supabase = await getAdminSupabase();
+        const serviceSupabase = await getServiceSupabase();
 
-    // 1. If password is provided AND auth_user_id exists, update it
-    if (updates.password && updates.auth_user_id) {
-        const { error: authError } = await serviceSupabase.auth.admin.updateUserById(
-            updates.auth_user_id,
-            { password: updates.password }
-        );
-        if (authError) {
-            console.error("AUTH PASSWORD UPDATE ERROR:", authError.message);
-            throw new Error(`Error actualizando contraseña: ${authError.message}`);
+        // 1. If password is provided AND auth_user_id exists, update it
+        if (updates.password && updates.auth_user_id) {
+            const { error: authError } = await serviceSupabase.auth.admin.updateUserById(
+                updates.auth_user_id,
+                { password: updates.password }
+            );
+            if (authError) {
+                console.error("AUTH PASSWORD UPDATE ERROR:", authError.message);
+                return { error: `Error actualizando contraseña: ${authError.message}` };
+            }
         }
-    }
 
-    // 2. Update record
-    const { password, ...cleanUpdates } = updates;
-    const { data, error } = await supabase.from("tenants").update(cleanUpdates).eq("id", id).select().single();
-    if (error) {
-        console.error("UPDATE TENANT ERROR:", error.message);
-        throw new Error(error.message);
+        // 2. Update record
+        const { password, ...cleanUpdates } = updates;
+        const { data, error } = await supabase.from("tenants").update(cleanUpdates).eq("id", id).select().single();
+        if (error) {
+            console.error("UPDATE TENANT ERROR:", error.message);
+            return { error: `Error en Base de Datos: ${error.message}` };
+        }
+        return { success: true, data };
+    } catch (e: any) {
+        console.error("UNEXPECTED UPDATE TENANT ERROR:", e);
+        return { error: `Error inesperado: ${e.message || "Error desconocido"}` };
     }
-    return data;
 }
 
 export async function deleteTenant(id: string) {
