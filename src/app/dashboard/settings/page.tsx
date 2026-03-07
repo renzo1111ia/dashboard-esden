@@ -24,7 +24,14 @@ export default function SettingsPage() {
     const [tenants, setTenants] = useState<Tenant[]>([]);
     const [loading, setLoading] = useState(true);
     const [isEditing, setIsEditing] = useState<string | null>(null); // ID of tenant being edited
-    const [editForm, setEditForm] = useState<Partial<Tenant>>({ name: "", supabase_url: "", supabase_anon_key: "", config: {} });
+    const [editForm, setEditForm] = useState<Partial<Tenant> & { password?: string }>({
+        name: "",
+        supabase_url: "",
+        supabase_anon_key: "",
+        client_email: "",
+        password: "",
+        config: {}
+    });
     const [showNewForm, setShowNewForm] = useState(false);
 
     useEffect(() => {
@@ -44,7 +51,7 @@ export default function SettingsPage() {
             const configObj = typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : editForm.config;
             await createTenant({ ...editForm, config: configObj });
             setShowNewForm(false);
-            setEditForm({ name: "", supabase_url: "", supabase_anon_key: "", config: {} });
+            setEditForm({ name: "", supabase_url: "", supabase_anon_key: "", client_email: "", password: "", config: {} });
             loadTenants();
         } catch (err: any) {
             alert("Error al crear cliente: " + err.message);
@@ -54,7 +61,14 @@ export default function SettingsPage() {
     async function handleUpdate(id: string) {
         try {
             const configObj = typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : editForm.config;
-            await updateTenant(id, { ...editForm, config: configObj });
+            const tenantObj = tenants.find(t => t.id === id);
+
+            await updateTenant(id, {
+                ...editForm,
+                config: configObj,
+                auth_user_id: tenantObj?.auth_user_id
+            });
+
             setIsEditing(null);
             loadTenants();
 
@@ -63,7 +77,7 @@ export default function SettingsPage() {
                 setActiveTenant({
                     supabaseUrl: editForm.supabase_url || "",
                     supabaseAnonKey: editForm.supabase_anon_key || "",
-                    tenantName: editForm.name,
+                    tenantName: editForm.name || "",
                     config: configObj
                 });
             }
@@ -88,6 +102,8 @@ export default function SettingsPage() {
             name: t.name,
             supabase_url: t.supabase_url,
             supabase_anon_key: t.supabase_anon_key,
+            client_email: t.client_email || "",
+            password: "",
             config: JSON.stringify(t.config, null, 2) as unknown as Record<string, unknown>
         });
     }
@@ -109,7 +125,7 @@ export default function SettingsPage() {
                         <Button
                             onClick={() => {
                                 setShowNewForm(true);
-                                setEditForm({ name: "", supabase_url: "", supabase_anon_key: "", config: {} });
+                                setEditForm({ name: "", supabase_url: "", supabase_anon_key: "", client_email: "", password: "", config: {} });
                             }}
                             className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-200"
                         >
@@ -170,6 +186,28 @@ export default function SettingsPage() {
                                         onChange={e => setEditForm({ ...editForm, supabase_anon_key: e.target.value })}
                                         className="h-12 bg-white border-slate-200 text-slate-900 font-mono text-xs rounded-xl focus:ring-blue-100"
                                         placeholder="Acceso de solo lectura o administrador"
+                                        type="password"
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Email de Acceso (Dashboard)</Label>
+                                    <Input
+                                        value={editForm.client_email}
+                                        onChange={e => setEditForm({ ...editForm, client_email: e.target.value })}
+                                        className="h-12 bg-white border-slate-200 text-slate-900 rounded-xl focus:ring-blue-100"
+                                        placeholder="cliente@ejemplo.com"
+                                        type="email"
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Contraseña de Acceso</Label>
+                                    <Input
+                                        value={editForm.password}
+                                        onChange={e => setEditForm({ ...editForm, password: e.target.value })}
+                                        className="h-12 bg-white border-slate-200 text-slate-900 rounded-xl focus:ring-blue-100"
+                                        placeholder="••••••••"
                                         type="password"
                                         required
                                     />
@@ -271,8 +309,16 @@ export default function SettingsPage() {
                                             <Input value={editForm.supabase_url} onChange={e => setEditForm({ ...editForm, supabase_url: e.target.value })} className="h-11 bg-white border-slate-200 text-slate-900 text-xs font-mono rounded-xl" />
                                         </div>
                                         <div className="md:col-span-2 space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Credenciales</Label>
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Credenciales Supabase</Label>
                                             <Input value={editForm.supabase_anon_key} onChange={e => setEditForm({ ...editForm, supabase_anon_key: e.target.value })} className="h-11 bg-white border-slate-200 text-slate-900 text-xs font-mono rounded-xl" type="password" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Email de Acceso</Label>
+                                            <Input value={editForm.client_email} onChange={e => setEditForm({ ...editForm, client_email: e.target.value })} className="h-11 bg-white border-slate-200 text-slate-900 rounded-xl" type="email" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Cambiar Contraseña (Opcional)</Label>
+                                            <Input value={editForm.password} onChange={e => setEditForm({ ...editForm, password: e.target.value })} className="h-11 bg-white border-slate-200 text-slate-900 rounded-xl" type="password" placeholder="Solo si deseas cambiarla" />
                                         </div>
                                         <div className="md:col-span-2 space-y-4 pt-4">
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

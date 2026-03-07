@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
-import { AUTH_SUPABASE_URL, AUTH_SUPABASE_ANON_KEY } from "@/lib/auth-config";
+import { AUTH_SUPABASE_URL, AUTH_SUPABASE_ANON_KEY, AUTH_SUPABASE_SERVICE_ROLE_KEY } from "@/lib/auth-config";
 import { Tenant } from "@/types/tenant";
 
 export async function setTenantCookies(url: string, key: string, name: string = "") {
@@ -23,14 +23,25 @@ async function getAdminSupabase() {
     const cookieStore = await cookies();
     return createServerClient(AUTH_SUPABASE_URL, AUTH_SUPABASE_ANON_KEY, {
         cookies: {
-            getAll() {
-                return cookieStore.getAll();
-            },
+            getAll() { return cookieStore.getAll(); },
             setAll(cookiesToSet) {
                 cookiesToSet.forEach(({ name, value, options }) => {
                     cookieStore.set(name, value, options);
                 });
             },
+        },
+    });
+}
+
+/**
+ * Client using SERVICE ROLE KEY to perform administrative tasks
+ */
+async function getServiceSupabase() {
+    const cookieStore = await cookies();
+    return createServerClient(AUTH_SUPABASE_URL, AUTH_SUPABASE_SERVICE_ROLE_KEY, {
+        cookies: {
+            getAll() { return cookieStore.getAll(); },
+            setAll() { },
         },
     });
 }
@@ -57,9 +68,39 @@ export async function getActiveTenantConfig(): Promise<Tenant | null> {
     return data as Tenant;
 }
 
-export async function createTenant(tenant: Partial<Tenant>) {
+export async function createTenant(tenant: Partial<Tenant> & { password?: string }) {
     const supabase = await getAdminSupabase();
-    const { data, error } = await supabase.from("tenants").insert(tenant).select().single();
+    const serviceSupabase = await getServiceSupabase();
+
+    let authUserId: string | undefined;
+
+    // 1. If email and password provided, create user in Auth
+    if (tenant.client_email && tenant.password) {
+        const { data: authData, error: authError } = await serviceSupabase.auth.admin.createUser({
+            email: tenant.client_email,
+            password: tenant.password,
+            email_confirm: true,
+            user_metadata: { is_admin: false, tenant_name: tenant.name }
+        });
+
+        if (authError) {
+            console.error("AUTH USER CREATION ERROR:", authError.message);
+            throw new Error(`Error en Auth: ${authError.message}`);
+        }
+        authUserId = authData.user?.id;
+    }
+
+    // 2. Insert into tenants table
+    const { password, ...tenantData } = tenant;
+    const { data, error } = await supabase
+        .from("tenants")
+        .insert({
+            ...tenantData,
+            auth_user_id: authUserId
+        })
+        .select()
+        .single();
+
     if (error) {
         console.error("CREATE TENANT ERROR:", error.message);
         throw new Error(error.message);
@@ -67,9 +108,25 @@ export async function createTenant(tenant: Partial<Tenant>) {
     return data;
 }
 
-export async function updateTenant(id: string, updates: Partial<Tenant>) {
+export async function updateTenant(id: string, updates: Partial<Tenant> & { password?: string }) {
     const supabase = await getAdminSupabase();
-    const { data, error } = await supabase.from("tenants").update(updates).eq("id", id).select().single();
+    const serviceSupabase = await getServiceSupabase();
+
+    // 1. If password is provided AND auth_user_id exists, update it
+    if (updates.password && updates.auth_user_id) {
+        const { error: authError } = await serviceSupabase.auth.admin.updateUserById(
+            updates.auth_user_id,
+            { password: updates.password }
+        );
+        if (authError) {
+            console.error("AUTH PASSWORD UPDATE ERROR:", authError.message);
+            throw new Error(`Error actualizando contraseña: ${authError.message}`);
+        }
+    }
+
+    // 2. Update record
+    const { password, ...cleanUpdates } = updates;
+    const { data, error } = await supabase.from("tenants").update(cleanUpdates).eq("id", id).select().single();
     if (error) {
         console.error("UPDATE TENANT ERROR:", error.message);
         throw new Error(error.message);

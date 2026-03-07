@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS public.tenants (
     name TEXT NOT NULL,
     supabase_url TEXT NOT NULL,
     supabase_anon_key TEXT NOT NULL,
+    client_email TEXT,
+    auth_user_id UUID,
     config JSONB NOT NULL DEFAULT '{
         "headers": [],
         "dashboard_title": "Dashboard ESDEN",
