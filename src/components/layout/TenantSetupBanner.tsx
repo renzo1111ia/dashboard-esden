@@ -19,17 +19,17 @@ export function TenantSetupBanner() {
                 <AlertTriangle className="h-4 w-4 text-amber-400" strokeWidth={2} />
             </div>
             <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-amber-300">
+                <p className="text-sm font-semibold text-amber-700">
                     Conexión de datos no configurada
                 </p>
-                <p className="mt-0.5 text-xs text-amber-400/60 leading-relaxed">
+                <p className="mt-0.5 text-xs text-amber-900/70 leading-relaxed">
                     Para visualizar tus datos necesitás ingresar las credenciales de tu proyecto Supabase.
                     Hacé clic en &quot;Configurar ahora&quot; para completar la configuración.
                 </p>
             </div>
             <Link
                 href={configHref}
-                className="flex-shrink-0 flex items-center gap-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-xs font-medium text-amber-400 transition-all hover:bg-amber-500/20 hover:text-amber-300"
+                className="flex-shrink-0 flex items-center gap-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-xs font-bold text-amber-700 transition-all hover:bg-amber-500/20 hover:text-amber-800"
             >
                 <Settings className="h-3.5 w-3.5" />
                 Configurar ahora
