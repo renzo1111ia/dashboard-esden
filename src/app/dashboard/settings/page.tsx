@@ -174,28 +174,74 @@ export default function SettingsPage() {
                                         required
                                     />
                                 </div>
-                                <div className="md:col-span-2 space-y-2">
-                                    <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Metadata & Configuración JSON</Label>
-                                    <div className="rounded-2xl bg-white border border-slate-200 p-4 shadow-sm">
-                                        <textarea
-                                            title="Configuracion JSON"
-                                            value={editForm.config as unknown as string}
-                                            onChange={e => setEditForm({ ...editForm, config: e.target.value as unknown as Record<string, unknown> })}
-                                            className="w-full min-h-[80px] rounded-xl bg-slate-50 border border-slate-100 p-3 text-[10px] text-slate-700 font-mono focus:border-blue-500 outline-none mb-4"
-                                            placeholder='{ "headers": ["Ventas", "Marketing"], "dashboard_title": "ESDEN Global" }'
-                                        />
-                                        <div className="border-t border-slate-100 pt-6">
-                                            <KpiBuilder
-                                                kpis={(typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}").kpis : (editForm.config as any)?.kpis) || []}
-                                                onChange={(kpis) => {
+                                <div className="md:col-span-2 space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Título del Dashboard</Label>
+                                            <Input
+                                                value={(() => {
                                                     try {
-                                                        const current = typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : (editForm.config || {});
-                                                        current.kpis = kpis;
-                                                        setEditForm({ ...editForm, config: JSON.stringify(current, null, 2) as unknown as Record<string, unknown> });
+                                                        const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {});
+                                                        return conf.dashboard_title || "";
+                                                    } catch (e) { return ""; }
+                                                })()}
+                                                onChange={e => {
+                                                    try {
+                                                        const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {});
+                                                        conf.dashboard_title = e.target.value;
+                                                        setEditForm({ ...editForm, config: JSON.stringify(conf, null, 2) as any });
                                                     } catch (e) { }
                                                 }}
+                                                className="h-11 bg-white border-slate-200 text-slate-900 rounded-xl"
+                                                placeholder="Ej: Esden Global"
                                             />
                                         </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Encabezados Extra (Separados por coma)</Label>
+                                            <Input
+                                                value={(() => {
+                                                    try {
+                                                        const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {});
+                                                        return (conf.headers || []).join(", ");
+                                                    } catch (e) { return ""; }
+                                                })()}
+                                                onChange={e => {
+                                                    try {
+                                                        const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {});
+                                                        conf.headers = e.target.value.split(",").map(s => s.trim()).filter(s => s !== "");
+                                                        setEditForm({ ...editForm, config: JSON.stringify(conf, null, 2) as any });
+                                                    } catch (e) { }
+                                                }}
+                                                className="h-11 bg-white border-slate-200 text-slate-900 rounded-xl"
+                                                placeholder="Ej: Ventas, Marketing"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm">
+                                        <KpiBuilder
+                                            kpis={(typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}").kpis : (editForm.config as any)?.kpis) || []}
+                                            onChange={(kpis) => {
+                                                try {
+                                                    const current = typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : (editForm.config || {});
+                                                    current.kpis = kpis;
+                                                    setEditForm({ ...editForm, config: JSON.stringify(current, null, 2) as unknown as Record<string, unknown> });
+                                                } catch (e) { }
+                                            }}
+                                        />
+
+                                        <details className="mt-8 border-t border-slate-100 pt-6">
+                                            <summary className="text-[10px] font-black uppercase tracking-widest text-slate-400 cursor-pointer hover:text-blue-600 transition-colors">Configuración Avanzada (JSON Raw)</summary>
+                                            <div className="mt-4">
+                                                <textarea
+                                                    title="Configuracion JSON"
+                                                    value={typeof editForm.config === 'string' ? editForm.config : JSON.stringify(editForm.config, null, 2)}
+                                                    onChange={e => setEditForm({ ...editForm, config: e.target.value as unknown as Record<string, unknown> })}
+                                                    className="w-full min-h-[120px] rounded-xl bg-slate-50 border border-slate-100 p-3 text-[10px] text-slate-700 font-mono focus:border-blue-500 outline-none"
+                                                    placeholder='{ "headers": [], "dashboard_title": "" }'
+                                                />
+                                            </div>
+                                        </details>
                                     </div>
                                 </div>
                             </div>
@@ -228,28 +274,70 @@ export default function SettingsPage() {
                                             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Credenciales</Label>
                                             <Input value={editForm.supabase_anon_key} onChange={e => setEditForm({ ...editForm, supabase_anon_key: e.target.value })} className="h-11 bg-white border-slate-200 text-slate-900 text-xs font-mono rounded-xl" type="password" />
                                         </div>
-                                        <div className="md:col-span-2 space-y-2">
-                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Estructura de Datos e Interfaz</Label>
-                                            <div className="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm space-y-6">
-                                                <textarea
-                                                    title="Configuracion JSON"
-                                                    placeholder='{ "headers": [] }'
-                                                    value={editForm.config as unknown as string}
-                                                    onChange={e => setEditForm({ ...editForm, config: e.target.value as unknown as Record<string, unknown> })}
-                                                    className="w-full min-h-[80px] rounded-xl bg-slate-50 border border-slate-100 p-3 text-[10px] text-slate-700 font-mono focus:border-blue-500 outline-none"
-                                                />
-                                                <div className="border-t border-slate-100 pt-6">
-                                                    <KpiBuilder
-                                                        kpis={(typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}").kpis : (editForm.config as any)?.kpis) || []}
-                                                        onChange={(kpis) => {
+                                        <div className="md:col-span-2 space-y-4 pt-4">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Título del Dashboard</Label>
+                                                    <Input
+                                                        value={(() => {
                                                             try {
-                                                                const current = typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : (editForm.config || {});
-                                                                current.kpis = kpis;
-                                                                setEditForm({ ...editForm, config: JSON.stringify(current, null, 2) as unknown as Record<string, unknown> });
+                                                                const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {});
+                                                                return conf.dashboard_title || "";
+                                                            } catch (e) { return ""; }
+                                                        })()}
+                                                        onChange={e => {
+                                                            try {
+                                                                const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {});
+                                                                conf.dashboard_title = e.target.value;
+                                                                setEditForm({ ...editForm, config: JSON.stringify(conf, null, 2) as any });
                                                             } catch (e) { }
                                                         }}
+                                                        className="h-10 bg-white border-slate-200 text-slate-900 rounded-xl"
                                                     />
                                                 </div>
+                                                <div className="space-y-2">
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Encabezados Tabla (Comas)</Label>
+                                                    <Input
+                                                        value={(() => {
+                                                            try {
+                                                                const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {});
+                                                                return (conf.headers || []).join(", ");
+                                                            } catch (e) { return ""; }
+                                                        })()}
+                                                        onChange={e => {
+                                                            try {
+                                                                const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {});
+                                                                conf.headers = e.target.value.split(",").map(s => s.trim()).filter(s => s !== "");
+                                                                setEditForm({ ...editForm, config: JSON.stringify(conf, null, 2) as any });
+                                                            } catch (e) { }
+                                                        }}
+                                                        className="h-10 bg-white border-slate-200 text-slate-900 rounded-xl"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm">
+                                                <KpiBuilder
+                                                    kpis={(typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}").kpis : (editForm.config as any)?.kpis) || []}
+                                                    onChange={(kpis) => {
+                                                        try {
+                                                            const current = typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : (editForm.config || {});
+                                                            current.kpis = kpis;
+                                                            setEditForm({ ...editForm, config: JSON.stringify(current, null, 2) as unknown as Record<string, unknown> });
+                                                        } catch (e) { }
+                                                    }}
+                                                />
+                                                <details className="mt-8 border-t border-slate-100 pt-6">
+                                                    <summary className="text-[10px] font-black uppercase tracking-widest text-slate-400 cursor-pointer hover:text-blue-600">Configuración Avanzada (JSON)</summary>
+                                                    <div className="mt-4">
+                                                        <textarea
+                                                            title="Configuracion JSON"
+                                                            value={typeof editForm.config === 'string' ? editForm.config : JSON.stringify(editForm.config, null, 2)}
+                                                            onChange={e => setEditForm({ ...editForm, config: e.target.value as unknown as Record<string, unknown> })}
+                                                            className="w-full min-h-[120px] rounded-xl bg-slate-50 border border-slate-100 p-3 text-[10px] text-slate-700 font-mono focus:border-blue-500 outline-none"
+                                                        />
+                                                    </div>
+                                                </details>
                                             </div>
                                         </div>
                                     </div>
