@@ -1,5 +1,6 @@
 "use client";
 
+import { ReactNode } from "react";
 import {
     BarChart, Bar, PieChart, Pie, Cell,
     XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
@@ -76,10 +77,10 @@ export function DarkScoreCard({ label, value, valueColor = "text-slate-900" }: D
 
 /* ── Summary Card ──────────────────────────── */
 interface SummaryCardProps {
-    label: React.ReactNode;
-    value: React.ReactNode;
-    sub?: React.ReactNode;
-    icon?: React.ReactNode;
+    label: ReactNode;
+    value: ReactNode;
+    sub?: ReactNode;
+    icon?: ReactNode;
     bgColor?: string;
 }
 
