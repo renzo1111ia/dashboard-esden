@@ -56,3 +56,21 @@ export async function logoutAction() {
 
     return { success: true };
 }
+
+export async function getAdminStatus(): Promise<boolean> {
+    const cookieStore = await cookies();
+    const supabase = createServerClient(AUTH_SUPABASE_URL, AUTH_SUPABASE_ANON_KEY, {
+        cookies: {
+            getAll() { return cookieStore.getAll(); },
+            setAll() { },
+        },
+    });
+
+    const { data } = await supabase.auth.getUser();
+    const user = data.user;
+    const isAdm = user?.user_metadata?.is_admin === true ||
+        user?.user_metadata?.is_admin === "true" ||
+        user?.app_metadata?.is_admin === true ||
+        user?.app_metadata?.is_admin === "true";
+    return isAdm;
+}

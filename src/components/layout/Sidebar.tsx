@@ -42,28 +42,10 @@ const NAV_ITEMS = [
     },
 ];
 
-import { createBrowserClient } from "@supabase/ssr";
-import { AUTH_SUPABASE_URL, AUTH_SUPABASE_ANON_KEY } from "@/lib/auth-config";
-
-export function Sidebar() {
+export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
     const pathname = usePathname();
     const [collapsed, setCollapsed] = useState(false);
-    const [isAdmin, setIsAdmin] = useState(false);
     const isConfigured = useTenantStore((s) => s.isConfigured);
-
-    useEffect(() => {
-        async function checkAdmin() {
-            const supabase = createBrowserClient(AUTH_SUPABASE_URL, AUTH_SUPABASE_ANON_KEY);
-            const { data } = await supabase.auth.getUser();
-            const user = data.user;
-            const isAdm = user?.user_metadata?.is_admin === true ||
-                user?.user_metadata?.is_admin === "true" ||
-                user?.app_metadata?.is_admin === true ||
-                user?.app_metadata?.is_admin === "true";
-            setIsAdmin(isAdm);
-        }
-        checkAdmin();
-    }, []);
 
     const visibleNavItems = NAV_ITEMS.filter(item => {
         if (item.href === "/dashboard/settings") {
