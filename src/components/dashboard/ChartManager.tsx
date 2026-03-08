@@ -8,7 +8,8 @@ import {
     DonutChart
 } from "@/components/charts/DashboardCharts";
 import {
-    Maximize2, Edit3, Save, X, ChevronUp, ChevronDown, EyeOff, Eye, GripVertical
+    Maximize2, Edit3, Save, X, ChevronUp, ChevronDown, EyeOff, Eye, GripVertical,
+    Plus, Trash2, PieChart, BarChart3, AreaChart
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { updateTenant } from "@/lib/actions/tenant";
@@ -50,11 +51,12 @@ interface SortableChartProps {
     move: (index: number, direction: 'up' | 'down') => void;
     cycleSize: (id: string, current: string) => void;
     updateChart: (id: string, updates: Partial<ChartConfig>) => void;
+    removeChart: (id: string) => void;
     chartData: any;
     totalCount: number;
 }
 
-function SortableChartItem({ c, idx, isEditing, move, cycleSize, updateChart, chartData, totalCount }: SortableChartProps) {
+function SortableChartItem({ c, idx, isEditing, move, cycleSize, updateChart, removeChart, chartData, totalCount }: SortableChartProps) {
     const {
         attributes,
         listeners,
@@ -135,19 +137,56 @@ function SortableChartItem({ c, idx, isEditing, move, cycleSize, updateChart, ch
                         >
                             {c.isVisible === false ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
                         </button>
+                        <div className="w-px h-6 bg-slate-100 mx-1" />
+                        <button
+                            type="button"
+                            title="Eliminar Gráfico"
+                            aria-label="Eliminar Gráfico"
+                            onClick={() => removeChart(c.id)}
+                            className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                        >
+                            <Trash2 className="h-5 w-5" />
+                        </button>
                     </div>
-                    <input
-                        type="text"
-                        title="Título del Gráfico"
-                        aria-label="Título del Gráfico"
-                        value={c.title}
-                        onChange={(e) => updateChart(c.id, { title: e.target.value })}
-                        className="bg-white px-4 py-2 border border-slate-100 rounded-xl text-xs font-bold text-slate-700 w-64 text-center shadow-lg outline-none focus:border-blue-400 transition-all"
-                        placeholder="Título del Gráfico"
-                    />
+
+                    <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-100 shadow-sm">
+                            <button
+                                title="Gráfico de Área"
+                                onClick={() => updateChart(c.id, { type: 'area' })}
+                                className={cn("p-1.5 rounded-lg transition-colors", c.type === 'area' ? "bg-blue-50 text-blue-600" : "text-slate-400 hover:bg-slate-50")}
+                            >
+                                <AreaChart className="h-4 w-4" />
+                            </button>
+                            <button
+                                title="Gráfico de Barras"
+                                onClick={() => updateChart(c.id, { type: 'vertical-bar' })}
+                                className={cn("p-1.5 rounded-lg transition-colors", c.type === 'vertical-bar' ? "bg-blue-50 text-blue-600" : "text-slate-400 hover:bg-slate-50")}
+                            >
+                                <BarChart3 className="h-4 w-4" />
+                            </button>
+                            <button
+                                title="Gráfico Donut"
+                                onClick={() => updateChart(c.id, { type: 'donut' })}
+                                className={cn("p-1.5 rounded-lg transition-colors", c.type === 'donut' ? "bg-blue-50 text-blue-600" : "text-slate-400 hover:bg-slate-50")}
+                            >
+                                <PieChart className="h-4 w-4" />
+                            </button>
+                        </div>
+                        <input
+                            type="text"
+                            title="Título del Gráfico"
+                            aria-label="Título del Gráfico"
+                            value={c.title}
+                            onChange={(e) => updateChart(c.id, { title: e.target.value })}
+                            className="bg-white px-4 py-2 border border-slate-100 rounded-xl text-xs font-bold text-slate-700 w-64 text-center shadow-lg outline-none focus:border-blue-400 transition-all"
+                            placeholder="Título del Gráfico"
+                        />
+                    </div>
                 </div>
-            )}
-        </div>
+            )
+            }
+        </div >
     );
 }
 
@@ -218,6 +257,24 @@ export function ChartManager({ tenant, initialCharts, data, isAdmin, configKey =
         updateChart(id, { size: nextSize as any });
     }
 
+    function addChart() {
+        const newChart: ChartConfig = {
+            id: `chart-${Date.now()}`,
+            title: 'Nuevo Gráfico',
+            type: 'vertical-bar',
+            dataKey: 'areaHistorico', // Default relevant data
+            size: '6',
+            isVisible: true
+        };
+        setCharts([...charts, newChart]);
+    }
+
+    function removeChart(id: string) {
+        if (confirm("¿Estás seguro de eliminar este gráfico?")) {
+            setCharts(charts.filter(c => c.id !== id));
+        }
+    }
+
     return (
         <div className="mt-8">
             <div className="flex items-center justify-between mb-6">
@@ -235,6 +292,14 @@ export function ChartManager({ tenant, initialCharts, data, isAdmin, configKey =
                 )}
                 {isEditing && (
                     <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={addChart}
+                            className="flex items-center gap-2 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-blue-600 bg-white border border-blue-200 rounded-lg hover:bg-blue-50 transition-all"
+                        >
+                            <Plus className="h-3.5 w-3.5" /> Crear bloque
+                        </button>
+                        <div className="w-px h-5 bg-slate-200 mx-1" />
                         <button
                             type="button"
                             title="Descartar Cambios"
@@ -280,6 +345,7 @@ export function ChartManager({ tenant, initialCharts, data, isAdmin, configKey =
                                     move={move}
                                     cycleSize={cycleSize}
                                     updateChart={updateChart}
+                                    removeChart={removeChart}
                                     chartData={chartData}
                                     totalCount={charts.length}
                                 />

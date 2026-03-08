@@ -7,7 +7,8 @@ import { SummaryCard } from "@/components/charts/DashboardCharts";
 import {
     Phone, PhoneCall, PhoneMissed, Users, UserX, PhoneOff, Voicemail,
     UserMinus, ThumbsDown, Star, Calendar, Clock, TrendingUp, Activity,
-    Maximize2, Edit3, Save, X, ChevronUp, ChevronDown, EyeOff, Eye, GripVertical
+    Maximize2, Edit3, Save, X, ChevronUp, ChevronDown, EyeOff, Eye, GripVertical,
+    Plus, Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { updateTenant } from "@/lib/actions/tenant";
@@ -78,11 +79,12 @@ interface SortableKpiProps {
     move: (index: number, direction: 'up' | 'down') => void;
     cycleSize: (id: string, current: string) => void;
     updateKpi: (id: string, updates: Partial<KpiConfig>) => void;
+    removeKpi: (id: string) => void;
     val: any;
     totalCount: number;
 }
 
-function SortableKpi({ k, idx, isEditing, move, cycleSize, updateKpi, val, totalCount }: SortableKpiProps) {
+function SortableKpi({ k, idx, isEditing, move, cycleSize, updateKpi, removeKpi, val, totalCount }: SortableKpiProps) {
     const {
         attributes,
         listeners,
@@ -165,6 +167,14 @@ function SortableKpi({ k, idx, isEditing, move, cycleSize, updateKpi, val, total
                                 )}
                             >
                                 {k.isVisible === false ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
+                            </button>
+                            <div className="w-px h-6 bg-slate-100 mx-1" />
+                            <button
+                                title="Eliminar Bloque"
+                                onClick={() => removeKpi(k.id)}
+                                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                                <Trash2 className="h-5 w-5" />
                             </button>
                         </div>
 
@@ -251,6 +261,24 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
         setKpis(kpis.map(k => k.id === id ? { ...k, ...updates } : k));
     }
 
+    function addKpi() {
+        const newKpi: KpiConfig = {
+            id: `kpi-${Date.now()}`,
+            label: 'Nuevo Bloque',
+            icon: 'Activity',
+            color: 'bg-blue-600',
+            size: '4',
+            isVisible: true
+        };
+        setKpis([...kpis, newKpi]);
+    }
+
+    function removeKpi(id: string) {
+        if (confirm("¿Estás seguro de eliminar este bloque?")) {
+            setKpis(kpis.filter(k => k.id !== id));
+        }
+    }
+
     function cycleSize(id: string, current: string) {
         const sizes: KpiConfig["size"][] = ["3", "4", "6", "12"];
         const currentIndex = sizes.indexOf(current as any);
@@ -272,15 +300,22 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
                         {isEditing ? (
                             <>
                                 <button
+                                    onClick={addKpi}
+                                    className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-blue-600 bg-white border border-blue-200 rounded-xl hover:bg-blue-50 transition-all"
+                                >
+                                    <Plus className="h-4 w-4" /> Crear bloque
+                                </button>
+                                <div className="w-px h-6 bg-slate-200 mx-1" />
+                                <button
                                     onClick={() => { setKpis(initialKpis); setIsEditing(false); }}
-                                    className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-500 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all"
+                                    className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-500 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all font-outfit"
                                 >
                                     <X className="h-4 w-4" /> Cancelar
                                 </button>
                                 <button
                                     onClick={handleSave}
                                     disabled={saving}
-                                    className="flex items-center gap-2 px-6 py-2 text-xs font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all disabled:opacity-50"
+                                    className="flex items-center gap-2 px-6 py-2 text-xs font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all disabled:opacity-50 font-outfit"
                                 >
                                     <Save className="h-4 w-4" /> {saving ? "Guardando..." : "Guardar Cambios"}
                                 </button>
@@ -331,6 +366,7 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
                                     move={move}
                                     cycleSize={cycleSize}
                                     updateKpi={updateKpi}
+                                    removeKpi={removeKpi}
                                     val={val}
                                     totalCount={filteredArr.length}
                                 />
