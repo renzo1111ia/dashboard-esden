@@ -1,5 +1,6 @@
 "use client";
 
+import { ReactNode } from "react";
 import { KpiConfig } from "@/types/tenant";
 import { Plus, Trash2, Activity, Settings2, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -226,6 +227,6 @@ export function KpiBuilder({ kpis, onChange }: Props) {
     );
 }
 
-function Label({ children, className }: { children: React.ReactNode, className?: string }) {
+function Label({ children, className }: { children: ReactNode, className?: string }) {
     return <label className={cn("block text-sm font-medium", className)}>{children}</label>;
 }

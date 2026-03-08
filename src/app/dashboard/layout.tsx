@@ -1,12 +1,12 @@
+import { ReactNode, Suspense } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
-import { Suspense } from "react";
 import { getAdminStatus } from "@/lib/actions/auth";
 
 export default async function DashboardLayout({
     children,
 }: {
-    children: React.ReactNode;
+    children: ReactNode;
 }) {
     const isAdmin = await getAdminStatus();
 

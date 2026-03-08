@@ -225,7 +225,7 @@ export function AreaChartComponent({ title, data }: { title: string; data: any[]
 }
 
 /* ── Chart Card wrapper ────────────────────── */
-function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+function ChartCard({ title, children }: { title: string; children: ReactNode }) {
     return (
         <div className="rounded-3xl border border-slate-100 bg-white p-7 shadow-sm shadow-slate-100">
             <h3 className="mb-6 text-sm font-black uppercase tracking-widest text-slate-400">{title}</h3>

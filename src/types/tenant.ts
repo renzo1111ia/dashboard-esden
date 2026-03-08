@@ -1,5 +1,3 @@
-import { ReactNode } from "react";
-
 export interface Tenant {
     id: string;
     name: string;
@@ -14,7 +12,7 @@ export interface Tenant {
 
 export interface KpiConfig {
     id: string;
-    label: string | ReactNode;
+    label: string;
     icon: string;
     color: string;
     size: "3" | "4" | "6" | "8" | "9" | "12";
