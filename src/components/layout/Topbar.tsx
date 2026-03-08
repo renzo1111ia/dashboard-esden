@@ -1,23 +1,12 @@
 "use client";
 
-import { useDateRangeStore, type DateRange } from "@/store/dateRange";
 import { useTenantStore } from "@/store/tenant";
-import { cn } from "@/lib/utils";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { logoutAction } from "@/lib/actions/auth";
 
-const DATE_RANGES: { label: string; value: DateRange }[] = [
-    { label: "7 días", value: "7d" },
-    { label: "30 días", value: "30d" },
-    { label: "90 días", value: "90d" },
-];
-
 export function Topbar({ title }: { title: string }) {
-    const { range, setRange } = useDateRangeStore();
     const { tenantName, config } = useTenantStore();
     const router = useRouter();
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
 
     async function handleLogout() {
         try {
@@ -46,32 +35,6 @@ export function Topbar({ title }: { title: string }) {
 
             {/* Right side controls */}
             <div className="flex items-center gap-4">
-                {/* Date range selector */}
-                <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1 border border-slate-200">
-                    {DATE_RANGES.map((opt) => {
-                        // Check if the current range in URL matches (or fallback to store)
-                        const currentRange = searchParams.get("range") || range;
-                        return (
-                            <button
-                                key={opt.value}
-                                onClick={() => {
-                                    setRange(opt.value);
-                                    const newParams = new URLSearchParams(searchParams.toString());
-                                    newParams.set("range", opt.value);
-                                    router.push(`${pathname}?${newParams.toString()}`);
-                                }}
-                                className={cn(
-                                    "rounded-lg px-4 py-1.5 text-xs font-bold transition-all",
-                                    currentRange === opt.value
-                                        ? "bg-white text-blue-600 shadow-sm"
-                                        : "text-slate-500 hover:text-slate-700"
-                                )}
-                            >
-                                {opt.label}
-                            </button>
-                        );
-                    })}
-                </div>
 
                 {/* Logout */}
                 <button
