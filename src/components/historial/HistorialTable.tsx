@@ -83,12 +83,20 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
     const [draftPreset, setDraftPreset] = useState("all");
     const [draftFrom, setDraftFrom] = useState(fromDate.slice(0, 10)); // YYYY-MM-DD
     const [draftTo, setDraftTo] = useState(toDate.slice(0, 10));
+    const [draftCurso, setDraftCurso] = useState("");
+    const [draftPais, setDraftPais] = useState("");
+    const [draftOrigen, setDraftOrigen] = useState("");
+    const [draftCampana, setDraftCampana] = useState("");
 
     // Active Filters
     const [activeSearch, setActiveSearch] = useState("");
     const [activeStatus, setActiveStatus] = useState("ALL");
     const [activeFrom, setActiveFrom] = useState(fromDate);
     const [activeTo, setActiveTo] = useState(toDate);
+    const [activeCurso, setActiveCurso] = useState("");
+    const [activePais, setActivePais] = useState("");
+    const [activeOrigen, setActiveOrigen] = useState("");
+    const [activeCampana, setActiveCampana] = useState("");
 
     const tenantConfig = useTenantStore((s) => s.config);
     const [dynamicKeys, setDynamicKeys] = useState<string[]>(() => {
@@ -126,7 +134,7 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
     }, []);
 
     const load = useCallback(
-        (p: number, q: string, status: string, fDate: string, tDate: string) => {
+        (p: number, q: string, status: string, fDate: string, tDate: string, curso?: string, pais?: string, origen?: string, campana?: string) => {
             startTransition(async () => {
                 const res = await fetchCalls({
                     page: p,
@@ -135,6 +143,10 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
                     callStatus: status,
                     fromDate: fDate,
                     toDate: tDate,
+                    curso,
+                    pais,
+                    origen,
+                    campana,
                 });
                 setResult(res);
                 const keys = new Set<string>(dynamicKeys);
@@ -192,9 +204,13 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
         setActiveStatus(draftStatus);
         setActiveFrom(fDate);
         setActiveTo(tDate);
+        setActiveCurso(draftCurso);
+        setActivePais(draftPais);
+        setActiveOrigen(draftOrigen);
+        setActiveCampana(draftCampana);
 
         setPage(1);
-        load(1, draftSearch, draftStatus, fDate, tDate);
+        load(1, draftSearch, draftStatus, fDate, tDate, draftCurso, draftPais, draftOrigen, draftCampana);
     }
 
     function resetFilters() {
@@ -216,7 +232,7 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
 
     function handlePage(p: number) {
         setPage(p);
-        load(p, activeSearch, activeStatus, activeFrom, activeTo);
+        load(p, activeSearch, activeStatus, activeFrom, activeTo, activeCurso, activePais, activeOrigen, activeCampana);
     }
 
     function toggleDynamicKey(key: string) {
@@ -295,9 +311,9 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
                     </div>
                 </div>
 
-                {/* Row 2: Search & Apply */}
-                <div className="flex flex-wrap items-center gap-3">
-                    <div className="relative w-full max-w-[320px]">
+                {/* Row 2: Advanced filters */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-1">
+                    <div className="relative">
                         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <input
                             type="text"
@@ -309,13 +325,48 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
                         />
                     </div>
 
-                    <button
-                        onClick={applyFilters}
-                        disabled={isPending}
-                        className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow disabled:opacity-50"
-                    >
-                        {isPending ? "Aplicando..." : "Aplicar Filtros"}
-                    </button>
+                    <input
+                        type="text"
+                        placeholder="Curso..."
+                        value={draftCurso}
+                        onChange={(e) => setDraftCurso(e.target.value)}
+                        className="rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-4 text-sm font-medium outline-none focus:border-blue-500 focus:bg-white"
+                    />
+
+                    <input
+                        type="text"
+                        placeholder="País..."
+                        value={draftPais}
+                        onChange={(e) => setDraftPais(e.target.value)}
+                        className="rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-4 text-sm font-medium outline-none focus:border-blue-500 focus:bg-white"
+                    />
+
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            placeholder="Origen..."
+                            value={draftOrigen}
+                            onChange={(e) => setDraftOrigen(e.target.value)}
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-4 text-sm font-medium outline-none focus:border-blue-500 focus:bg-white"
+                        />
+                        <button
+                            onClick={applyFilters}
+                            disabled={isPending}
+                            className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow disabled:opacity-50"
+                        >
+                            {isPending ? "..." : "Aplicar"}
+                        </button>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <input
+                        type="text"
+                        placeholder="Campaña..."
+                        value={draftCampana}
+                        onChange={(e) => setDraftCampana(e.target.value)}
+                        className="rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-4 text-sm font-medium outline-none focus:border-blue-500 focus:bg-white"
+                    />
                 </div>
 
                 {/* Row 3: Status, Dynamics & Stats */}

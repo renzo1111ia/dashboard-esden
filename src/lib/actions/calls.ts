@@ -10,6 +10,10 @@ export interface FetchCallsParams {
     callStatus?: string;
     fromDate?: string;
     toDate?: string;
+    curso?: string;
+    pais?: string;
+    origen?: string;
+    campana?: string;
 }
 
 export interface FetchCallsResult {
@@ -25,6 +29,10 @@ export async function fetchCalls({
     callStatus,
     fromDate,
     toDate,
+    curso,
+    pais,
+    origen,
+    campana,
 }: FetchCallsParams): Promise<FetchCallsResult> {
     const emptyResult: FetchCallsResult = { data: [], count: 0, totalPages: 0 };
     try {
@@ -50,6 +58,12 @@ export async function fetchCalls({
 
         if (fromDate) query = query.gte("created_at", fromDate);
         if (toDate) query = query.lte("created_at", toDate);
+
+        // Advanced filters
+        if (curso) query = query.ilike("master_interes", `%${curso}%`);
+        if (pais) query = query.contains("extra_data", { pais: pais });
+        if (origen) query = query.contains("extra_data", { origen: origen });
+        if (campana) query = query.contains("extra_data", { campana: campana });
 
         const { data, error, count } = await query;
 

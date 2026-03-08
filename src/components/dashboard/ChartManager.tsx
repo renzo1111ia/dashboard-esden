@@ -8,11 +8,31 @@ import {
     DonutChart
 } from "@/components/charts/DashboardCharts";
 import {
-    Maximize2, Edit3, Save, X, ChevronUp, ChevronDown, EyeOff, Eye
+    Maximize2, Edit3, Save, X, ChevronUp, ChevronDown, EyeOff, Eye, GripVertical
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { updateTenant } from "@/lib/actions/tenant";
 import { useRouter } from "next/navigation";
+
+// DND Kit Imports
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent,
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    rectSortingStrategy,
+    useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { restrictToFirstScrollableAncestor } from '@dnd-kit/modifiers';
 
 interface Props {
     tenant: Tenant;
@@ -23,11 +43,130 @@ interface Props {
     title?: string;
 }
 
+interface SortableChartProps {
+    c: ChartConfig;
+    idx: number;
+    isEditing: boolean;
+    move: (index: number, direction: 'up' | 'down') => void;
+    cycleSize: (id: string, current: string) => void;
+    updateChart: (id: string, updates: Partial<ChartConfig>) => void;
+    chartData: any;
+    totalCount: number;
+}
+
+function SortableChartItem({ c, idx, isEditing, move, cycleSize, updateChart, chartData, totalCount }: SortableChartProps) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging
+    } = useSortable({ id: c.id, disabled: !isEditing });
+
+    const style = {
+        transform: CSS.Translate.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+    };
+
+    const colSpanClass = c.size === "12" ? "lg:col-span-12" : "lg:col-span-6";
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            className={cn(
+                colSpanClass,
+                "relative group transition-all duration-300",
+                isEditing && "ring-2 ring-blue-400 ring-offset-4 rounded-3xl z-10 scale-[1.01] bg-white shadow-xl cursor-default"
+            )}
+        >
+            {c.type === 'area' && <AreaChartComponent title={c.title} data={chartData} />}
+            {c.type === 'vertical-bar' && <VerticalBarChart title={c.title} data={chartData} />}
+            {c.type === 'donut' && <DonutChart title={c.title} data={chartData} isDonut={c.isDonut} centerLabel={c.centerLabel} />}
+
+            {isEditing && (
+                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-white/70 backdrop-blur-[2px] rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-2 bg-white p-2 rounded-2xl shadow-xl border border-slate-100">
+                        {/* Drag Handle */}
+                        <div {...attributes} {...listeners} className="p-2 text-slate-400 hover:text-blue-600 cursor-grab active:cursor-grabbing">
+                            <GripVertical className="h-5 w-5" />
+                        </div>
+
+                        <div className="w-px h-6 bg-slate-100 mx-1" />
+
+                        <button
+                            type="button"
+                            title="Subir"
+                            aria-label="Subir"
+                            onClick={() => move(idx, 'up')}
+                            disabled={idx === 0}
+                            className="p-2 text-slate-400 hover:text-blue-600 disabled:opacity-20 transition-colors"
+                        >
+                            <ChevronUp className="h-5 w-5" />
+                        </button>
+                        <button
+                            type="button"
+                            title="Bajar"
+                            aria-label="Bajar"
+                            onClick={() => move(idx, 'down')}
+                            disabled={idx === totalCount - 1}
+                            className="p-2 text-slate-400 hover:text-blue-600 disabled:opacity-20 transition-colors"
+                        >
+                            <ChevronDown className="h-5 w-5" />
+                        </button>
+                        <div className="w-px h-6 bg-slate-100 mx-1" />
+                        <button
+                            type="button"
+                            title="Cambiar Ancho"
+                            aria-label="Cambiar Ancho"
+                            onClick={() => cycleSize(c.id, c.size)}
+                            className="p-2 text-slate-400 hover:text-blue-600 transition-colors"
+                        >
+                            <Maximize2 className="h-5 w-5" />
+                        </button>
+                        <button
+                            type="button"
+                            title={c.isVisible === false ? "Mostrar" : "Ocultar"}
+                            aria-label={c.isVisible === false ? "Mostrar" : "Ocultar"}
+                            onClick={() => updateChart(c.id, { isVisible: c.isVisible === false })}
+                            className="p-2 text-slate-400 hover:text-blue-600 transition-colors"
+                        >
+                            {c.isVisible === false ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
+                        </button>
+                    </div>
+                    <input
+                        type="text"
+                        title="Título del Gráfico"
+                        aria-label="Título del Gráfico"
+                        value={c.title}
+                        onChange={(e) => updateChart(c.id, { title: e.target.value })}
+                        className="bg-white px-4 py-2 border border-slate-100 rounded-xl text-xs font-bold text-slate-700 w-64 text-center shadow-lg outline-none focus:border-blue-400 transition-all"
+                        placeholder="Título del Gráfico"
+                    />
+                </div>
+            )}
+        </div>
+    );
+}
+
 export function ChartManager({ tenant, initialCharts, data, isAdmin, configKey = 'charts', title = 'Métricas Detalladas' }: Props) {
     const [isEditing, setIsEditing] = useState(false);
     const [charts, setCharts] = useState<ChartConfig[]>(initialCharts);
     const [saving, setSaving] = useState(false);
     const router = useRouter();
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8,
+            },
+        }),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
 
     async function handleSave() {
         setSaving(true);
@@ -45,6 +184,18 @@ export function ChartManager({ tenant, initialCharts, data, isAdmin, configKey =
             }
         } finally {
             setSaving(false);
+        }
+    }
+
+    function handleDragEnd(event: DragEndEvent) {
+        const { active, over } = event;
+
+        if (over && active.id !== over.id) {
+            setCharts((items) => {
+                const oldIndex = items.findIndex(i => i.id === active.id);
+                const newIndex = items.findIndex(i => i.id === over.id);
+                return arrayMove(items, oldIndex, newIndex);
+            });
         }
     }
 
@@ -89,7 +240,7 @@ export function ChartManager({ tenant, initialCharts, data, isAdmin, configKey =
                             title="Descartar Cambios"
                             aria-label="Descartar Cambios"
                             onClick={() => { setCharts(initialCharts); setIsEditing(false); }}
-                            className="p-2 text-slate-400 hover:text-red-500"
+                            className="p-2 text-slate-400 hover:text-red-500 transition-colors"
                         >
                             <X className="h-4 w-4" />
                         </button>
@@ -99,7 +250,7 @@ export function ChartManager({ tenant, initialCharts, data, isAdmin, configKey =
                             aria-label="Guardar Cambios"
                             onClick={handleSave}
                             disabled={saving}
-                            className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2"
+                            className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all disabled:opacity-50"
                         >
                             <Save className="h-3.5 w-3.5" /> {saving ? "..." : "Guardar"}
                         </button>
@@ -107,75 +258,36 @@ export function ChartManager({ tenant, initialCharts, data, isAdmin, configKey =
                 )}
             </div>
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-                {charts.filter(c => isEditing || c.isVisible !== false).map((c, idx) => {
-                    const colSpanClass = c.size === "12" ? "lg:col-span-12" : "lg:col-span-6";
-                    const chartData = data[c.dataKey] || [];
-
-                    return (
-                        <div key={c.id} className={cn(colSpanClass, "relative group transition-all duration-300", isEditing && "ring-2 ring-blue-400 ring-offset-4 rounded-3xl z-10 scale-[1.01] bg-white shadow-xl")}>
-                            {c.type === 'area' && <AreaChartComponent title={c.title} data={chartData} />}
-                            {c.type === 'vertical-bar' && <VerticalBarChart title={c.title} data={chartData} />}
-                            {c.type === 'donut' && <DonutChart title={c.title} data={chartData} isDonut={c.isDonut} centerLabel={c.centerLabel} />}
-
-                            {isEditing && (
-                                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-white/70 backdrop-blur-[2px] rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <div className="flex items-center gap-2 bg-white p-2 rounded-2xl shadow-xl border border-slate-100">
-                                        <button
-                                            type="button"
-                                            title="Subir"
-                                            aria-label="Subir"
-                                            onClick={() => move(idx, 'up')}
-                                            disabled={idx === 0}
-                                            className="p-2 text-slate-400 hover:text-blue-600 disabled:opacity-20"
-                                        >
-                                            <ChevronUp className="h-5 w-5" />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            title="Bajar"
-                                            aria-label="Bajar"
-                                            onClick={() => move(idx, 'down')}
-                                            disabled={idx === charts.length - 1}
-                                            className="p-2 text-slate-400 hover:text-blue-600 disabled:opacity-20"
-                                        >
-                                            <ChevronDown className="h-5 w-5" />
-                                        </button>
-                                        <div className="w-px h-6 bg-slate-100 mx-1" />
-                                        <button
-                                            type="button"
-                                            title="Cambiar Ancho"
-                                            aria-label="Cambiar Ancho"
-                                            onClick={() => cycleSize(c.id, c.size)}
-                                            className="p-2 text-slate-400 hover:text-blue-600"
-                                        >
-                                            <Maximize2 className="h-5 w-5" />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            title={c.isVisible === false ? "Mostrar" : "Ocultar"}
-                                            aria-label={c.isVisible === false ? "Mostrar" : "Ocultar"}
-                                            onClick={() => updateChart(c.id, { isVisible: c.isVisible === false })}
-                                            className="p-2 text-slate-400 hover:text-blue-600"
-                                        >
-                                            {c.isVisible === false ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
-                                        </button>
-                                    </div>
-                                    <input
-                                        type="text"
-                                        title="Título del Gráfico"
-                                        aria-label="Título del Gráfico"
-                                        value={c.title}
-                                        onChange={(e) => updateChart(c.id, { title: e.target.value })}
-                                        className="bg-white px-4 py-2 border border-slate-100 rounded-xl text-xs font-bold text-slate-700 w-64 text-center shadow-lg"
-                                        placeholder="Título del Gráfico"
-                                    />
-                                </div>
-                            )}
-                        </div>
-                    );
-                })}
-            </div>
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+                modifiers={[restrictToFirstScrollableAncestor]}
+            >
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+                    <SortableContext
+                        items={charts.map(c => c.id)}
+                        strategy={rectSortingStrategy}
+                    >
+                        {charts.filter(c => isEditing || c.isVisible !== false).map((c, idx) => {
+                            const chartData = data[c.dataKey] || [];
+                            return (
+                                <SortableChartItem
+                                    key={c.id}
+                                    c={c}
+                                    idx={idx}
+                                    isEditing={isEditing}
+                                    move={move}
+                                    cycleSize={cycleSize}
+                                    updateChart={updateChart}
+                                    chartData={chartData}
+                                    totalCount={charts.length}
+                                />
+                            );
+                        })}
+                    </SortableContext>
+                </div>
+            </DndContext>
         </div>
     );
 }

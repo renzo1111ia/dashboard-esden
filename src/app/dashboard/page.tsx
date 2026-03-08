@@ -9,7 +9,8 @@ import {
     getMasterInteres,
     getLeadsNoCualificados,
     getAreaHistorico,
-    getDynamicKpis
+    getDynamicKpis,
+    AnalyticsFilters
 } from "@/lib/actions/analytics";
 import { getActiveTenantConfig } from "@/lib/actions/tenant";
 import { getAdminStatus } from "@/lib/actions/auth";
@@ -22,9 +23,11 @@ import { TenantSetupBanner } from "@/components/layout/TenantSetupBanner";
 import { SummaryManager } from "@/components/dashboard/SummaryManager";
 import { ChartManager } from "@/components/dashboard/ChartManager";
 import { DEFAULT_SUMMARY_KPIS, DEFAULT_CHARTS } from "@/lib/constants/kpi-defaults";
+import { FilterBar } from "@/components/dashboard/FilterBar";
+import { parseFilters } from "@/lib/utils/date-filters";
 
-async function SummarySection({ from, to, isAdmin }: { from: string; to: string; isAdmin: boolean }) {
-    const kpi = await getKpiTotals(from, to);
+async function SummarySection({ from, to, isAdmin, filters }: { from: string; to: string; isAdmin: boolean; filters: AnalyticsFilters }) {
+    const kpi = await getKpiTotals(from, to, filters);
     const tenantConfig = await getActiveTenantConfig();
 
     if (!tenantConfig) return null;
@@ -36,7 +39,7 @@ async function SummarySection({ from, to, isAdmin }: { from: string; to: string;
         mergedKpis = DEFAULT_SUMMARY_KPIS;
     }
 
-    const dynamicValues = await getDynamicKpis(from, to, mergedKpis.filter(k => !k.staticKey));
+    const dynamicValues = await getDynamicKpis(from, to, mergedKpis.filter(k => !k.staticKey), filters);
 
     return (
         <SummaryManager
@@ -49,7 +52,7 @@ async function SummarySection({ from, to, isAdmin }: { from: string; to: string;
     );
 }
 
-async function ChartsSection({ from, to, isAdmin }: { from: string; to: string; isAdmin: boolean }) {
+async function ChartsSection({ from, to, isAdmin, filters }: { from: string; to: string; isAdmin: boolean; filters: AnalyticsFilters }) {
     const [
         mejoresHoras,
         motivoNoContacto,
@@ -60,14 +63,14 @@ async function ChartsSection({ from, to, isAdmin }: { from: string; to: string; 
         leadsAnulados,
         areaHistorico
     ] = await Promise.all([
-        getMejoresHoras(from, to),
-        getMotivoNoContacto(from, to),
-        getTipologiaLlamadas(from, to),
-        getAgendadosVsNoAgendados(from, to),
-        getOptInWhatsapp(from, to),
-        getMasterInteres(from, to),
-        getLeadsNoCualificados(from, to),
-        getAreaHistorico(from, to)
+        getMejoresHoras(from, to, filters),
+        getMotivoNoContacto(from, to, filters),
+        getTipologiaLlamadas(from, to, filters),
+        getAgendadosVsNoAgendados(from, to, filters),
+        getOptInWhatsapp(from, to, filters),
+        getMasterInteres(from, to, filters),
+        getLeadsNoCualificados(from, to, filters),
+        getAreaHistorico(from, to, filters)
     ]);
 
     const tenantConfig = await getActiveTenantConfig();
@@ -102,40 +105,35 @@ async function ChartsSection({ from, to, isAdmin }: { from: string; to: string; 
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<any> }) {
     const params = await searchParams;
-    const range = (params.range as string) || "7d";
+    const { from, to, filters } = parseFilters(params);
     const isAdmin = await getAdminStatus();
-
-    const now = new Date();
-    let fromDate = new Date();
-    if (range === "30d") fromDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    else if (range === "90d") fromDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-    else fromDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
-    const from = fromDate.toISOString();
-    const to = now.toISOString();
 
     return (
         <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
             {isAdmin && <TenantSetupBanner />}
 
+            <FilterBar />
+
             <Suspense
+                key={`summary-${from}-${to}-${JSON.stringify(filters)}`}
                 fallback={
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 mb-8">
                         {Array.from({ length: 6 }).map((_, i) => <KpiSkeleton key={i} />)}
                     </div>
                 }
             >
-                <SummarySection from={from} to={to} isAdmin={isAdmin} />
+                <SummarySection from={from} to={to} isAdmin={isAdmin} filters={filters} />
             </Suspense>
 
             <Suspense
+                key={`charts-${from}-${to}-${JSON.stringify(filters)}`}
                 fallback={
                     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                         {Array.from({ length: 6 }).map((_, i) => <ChartSkeleton key={i} />)}
                     </div>
                 }
             >
-                <ChartsSection from={from} to={to} isAdmin={isAdmin} />
+                <ChartsSection from={from} to={to} isAdmin={isAdmin} filters={filters} />
             </Suspense>
         </div>
     );

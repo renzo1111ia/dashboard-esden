@@ -51,11 +51,25 @@ export interface ChartRow {
     value: number;
 }
 
-async function rpc<T>(fn: string, from: string, to: string): Promise<T | null> {
+export interface AnalyticsFilters {
+    curso?: string;
+    pais?: string;
+    origen?: string;
+    campana?: string;
+}
+
+async function rpc<T>(fn: string, from: string, to: string, filters: AnalyticsFilters = {}): Promise<T | null> {
     try {
         const supabase = await getSupabaseServerClient();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data, error } = await (supabase as any).rpc(fn, { p_from: from, p_to: to });
+        const { data, error } = await (supabase as any).rpc(fn, {
+            p_from: from,
+            p_to: to,
+            p_curso: filters.curso || null,
+            p_pais: filters.pais || null,
+            p_origen: filters.origen || null,
+            p_campana: filters.campana || null
+        });
 
         if (error) {
             console.error(`RPC ERROR [${fn}]:`, error.message);
@@ -69,12 +83,12 @@ async function rpc<T>(fn: string, from: string, to: string): Promise<T | null> {
     }
 }
 
-export async function getKpiTotals(from: string, to: string): Promise<KpiTotals> {
-    const data = await rpc<KpiTotals>("get_kpi_totals", from, to);
+export async function getKpiTotals(from: string, to: string, filters: AnalyticsFilters = {}): Promise<KpiTotals> {
+    const data = await rpc<KpiTotals>("get_kpi_totals", from, to, filters);
     return data || {} as KpiTotals;
 }
 
-export async function getDynamicKpis(from: string, to: string, configs: KpiConfig[]): Promise<Record<string, number>> {
+export async function getDynamicKpis(from: string, to: string, configs: KpiConfig[], filters: AnalyticsFilters = {}): Promise<Record<string, number>> {
     if (!configs || configs.length === 0) return {};
     const supabase = await getSupabaseServerClient();
     const results: Record<string, number> = {};
@@ -91,7 +105,11 @@ export async function getDynamicKpis(from: string, to: string, configs: KpiConfi
                 p_cond_col: c.condCol || null,
                 p_is_extra_cond: !!c.isExtraCond,
                 p_cond_op: c.condOp || null,
-                p_cond_val: c.condVal || null
+                p_cond_val: c.condVal || null,
+                p_curso: filters.curso || null,
+                p_pais: filters.pais || null,
+                p_origen: filters.origen || null,
+                p_campana: filters.campana || null
             });
             results[c.id] = error ? 0 : Number(data);
         } catch {
@@ -102,55 +120,55 @@ export async function getDynamicKpis(from: string, to: string, configs: KpiConfi
     return results;
 }
 
-export async function getMotivoAnulacion(from: string, to: string): Promise<ChartRow[]> {
-    const rows = await rpc<{ motivo: string; cantidad: number }[]>("get_motivo_anulacion", from, to);
+export async function getMotivoAnulacion(from: string, to: string, filters: AnalyticsFilters = {}): Promise<ChartRow[]> {
+    const rows = await rpc<{ motivo: string; cantidad: number }[]>("get_motivo_anulacion", from, to, filters);
     if (!rows) return [];
     return rows.map((r) => ({ label: r.motivo, value: r.cantidad }));
 }
 
-export async function getMejoresHoras(from: string, to: string): Promise<ChartRow[]> {
-    const rows = await rpc<{ hora: string; cantidad: number }[]>("get_mejores_horas", from, to);
+export async function getMejoresHoras(from: string, to: string, filters: AnalyticsFilters = {}): Promise<ChartRow[]> {
+    const rows = await rpc<{ hora: string; cantidad: number }[]>("get_mejores_horas", from, to, filters);
     if (!rows) return [];
     return rows.map((r) => ({ label: r.hora, value: r.cantidad }));
 }
 
-export async function getMotivoNoContacto(from: string, to: string): Promise<ChartRow[]> {
-    const rows = await rpc<{ motivo: string; cantidad: number }[]>("get_motivo_no_contacto", from, to);
+export async function getMotivoNoContacto(from: string, to: string, filters: AnalyticsFilters = {}): Promise<ChartRow[]> {
+    const rows = await rpc<{ motivo: string; cantidad: number }[]>("get_motivo_no_contacto", from, to, filters);
     if (!rows) return [];
     return rows.map((r) => ({ label: r.motivo, value: r.cantidad }));
 }
 
-export async function getTipologiaLlamadas(from: string, to: string): Promise<ChartRow[]> {
-    const rows = await rpc<{ tipologia: string; cantidad: number }[]>("get_tipologia_llamadas", from, to);
+export async function getTipologiaLlamadas(from: string, to: string, filters: AnalyticsFilters = {}): Promise<ChartRow[]> {
+    const rows = await rpc<{ tipologia: string; cantidad: number }[]>("get_tipologia_llamadas", from, to, filters);
     if (!rows) return [];
     return rows.map((r) => ({ label: r.tipologia, value: r.cantidad }));
 }
 
-export async function getAgendadosVsNoAgendados(from: string, to: string): Promise<ChartRow[]> {
-    const rows = await rpc<{ status: string; cantidad: number }[]>("get_agendados_vs_no_agendados", from, to);
+export async function getAgendadosVsNoAgendados(from: string, to: string, filters: AnalyticsFilters = {}): Promise<ChartRow[]> {
+    const rows = await rpc<{ status: string; cantidad: number }[]>("get_agendados_vs_no_agendados", from, to, filters);
     if (!rows) return [];
     return rows.map((r) => ({ label: r.status, value: r.cantidad }));
 }
 
-export async function getOptInWhatsapp(from: string, to: string): Promise<ChartRow[]> {
-    const rows = await rpc<{ optin: string; cantidad: number }[]>("get_opt_in_whatsapp", from, to);
+export async function getOptInWhatsapp(from: string, to: string, filters: AnalyticsFilters = {}): Promise<ChartRow[]> {
+    const rows = await rpc<{ optin: string; cantidad: number }[]>("get_opt_in_whatsapp", from, to, filters);
     if (!rows) return [];
     return rows.map((r) => ({ label: r.optin, value: r.cantidad }));
 }
 
-export async function getMasterInteres(from: string, to: string): Promise<ChartRow[]> {
-    const rows = await rpc<{ interes: string; cantidad: number }[]>("get_master_interes", from, to);
+export async function getMasterInteres(from: string, to: string, filters: AnalyticsFilters = {}): Promise<ChartRow[]> {
+    const rows = await rpc<{ interes: string; cantidad: number }[]>("get_master_interes", from, to, filters);
     if (!rows) return [];
     return rows.map((r) => ({ label: r.interes, value: r.cantidad }));
 }
 
-export async function getLeadsNoCualificados(from: string, to: string): Promise<ChartRow[]> {
-    const rows = await rpc<{ motivo: string; cantidad: number }[]>("get_leads_no_cualificados", from, to);
+export async function getLeadsNoCualificados(from: string, to: string, filters: AnalyticsFilters = {}): Promise<ChartRow[]> {
+    const rows = await rpc<{ motivo: string; cantidad: number }[]>("get_leads_no_cualificados", from, to, filters);
     if (!rows) return [];
     return rows.map((r) => ({ label: r.motivo, value: r.cantidad }));
 }
 
-export async function getAreaHistorico(from: string, to: string): Promise<{ date: string; totales: number; facturados: number }[]> {
-    const data = await rpc<{ date: string; totales: number; facturados: number }[]>("get_area_historico", from, to);
+export async function getAreaHistorico(from: string, to: string, filters: AnalyticsFilters = {}): Promise<{ date: string; totales: number; facturados: number }[]> {
+    const data = await rpc<{ date: string; totales: number; facturados: number }[]>("get_area_historico", from, to, filters);
     return data || [];
 }

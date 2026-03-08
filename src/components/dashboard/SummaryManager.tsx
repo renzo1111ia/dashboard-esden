@@ -7,11 +7,32 @@ import { SummaryCard } from "@/components/charts/DashboardCharts";
 import {
     Phone, PhoneCall, PhoneMissed, Users, UserX, PhoneOff, Voicemail,
     UserMinus, ThumbsDown, Star, Calendar, Clock, TrendingUp, Activity,
-    Maximize2, Edit3, Save, X, ChevronUp, ChevronDown, EyeOff, Eye
+    Maximize2, Edit3, Save, X, ChevronUp, ChevronDown, EyeOff, Eye, GripVertical
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { updateTenant } from "@/lib/actions/tenant";
 import { useRouter } from "next/navigation";
+
+// DND Kit Imports
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent,
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+    rectSortingStrategy,
+    useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { restrictToFirstScrollableAncestor } from '@dnd-kit/modifiers';
 
 const ICON_MAP: Record<string, ReactNode> = {
     "Phone": <Phone className="h-6 w-6 text-white" />,
@@ -30,6 +51,16 @@ const ICON_MAP: Record<string, ReactNode> = {
     "Activity": <Activity className="h-6 w-6 text-white" />,
 };
 
+const COL_SPAN_MAP: Record<string, string> = {
+    "1": "md:col-span-1",
+    "2": "md:col-span-2",
+    "3": "md:col-span-3",
+    "4": "md:col-span-4",
+    "5": "md:col-span-5",
+    "6": "md:col-span-6",
+    "12": "md:col-span-12",
+};
+
 interface Props {
     tenant: Tenant;
     initialKpis: KpiConfig[];
@@ -40,11 +71,136 @@ interface Props {
     title?: ReactNode;
 }
 
+interface SortableKpiProps {
+    k: KpiConfig;
+    idx: number;
+    isEditing: boolean;
+    move: (index: number, direction: 'up' | 'down') => void;
+    cycleSize: (id: string, current: string) => void;
+    updateKpi: (id: string, updates: Partial<KpiConfig>) => void;
+    val: any;
+    totalCount: number;
+}
+
+function SortableKpi({ k, idx, isEditing, move, cycleSize, updateKpi, val, totalCount }: SortableKpiProps) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging
+    } = useSortable({ id: k.id, disabled: !isEditing });
+
+    const style = {
+        transform: CSS.Translate.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+    };
+
+    const colSpanClass = COL_SPAN_MAP[k.size || "4"] || "md:col-span-4";
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            className={cn(
+                colSpanClass,
+                "relative group transition-all duration-300 w-full min-w-0"
+            )}
+        >
+            <div className={cn(
+                "h-full transition-all duration-300",
+                isEditing && "ring-4 ring-blue-500/30 rounded-[32px] scale-[1.03] z-10 shadow-2xl relative bg-white",
+                isEditing && k.isVisible === false && "opacity-40 grayscale"
+            )}>
+                <SummaryCard
+                    label={k.label as string}
+                    value={typeof val === 'number' ? val.toLocaleString('es-ES') : val}
+                    icon={ICON_MAP[k.icon] || <Activity className="h-6 w-6 text-white" />}
+                    bgColor={k.color || "bg-slate-600"}
+                />
+
+                {/* Edit Overlays */}
+                {isEditing && (
+                    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-white/60 backdrop-blur-[4px] rounded-[32px] opacity-0 group-hover:opacity-100 transition-opacity border-2 border-blue-500/50">
+                        <div className="flex items-center gap-2 bg-white p-2 rounded-2xl shadow-xl border border-slate-100 scale-90">
+                            {/* Drag Handle */}
+                            <div {...attributes} {...listeners} className="p-2 text-slate-400 hover:text-blue-600 cursor-grab active:cursor-grabbing">
+                                <GripVertical className="h-5 w-5" />
+                            </div>
+
+                            <div className="w-px h-6 bg-slate-100 mx-1" />
+
+                            <button
+                                title="Mover Arriba"
+                                onClick={() => move(idx, 'up')}
+                                disabled={idx === 0}
+                                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-30"
+                            >
+                                <ChevronUp className="h-5 w-5" />
+                            </button>
+                            <button
+                                title="Mover Abajo"
+                                onClick={() => move(idx, 'down')}
+                                disabled={idx === totalCount - 1}
+                                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-30"
+                            >
+                                <ChevronDown className="h-5 w-5" />
+                            </button>
+                            <div className="w-px h-6 bg-slate-100 mx-1" />
+                            <button
+                                title="Cambiar Tamaño"
+                                onClick={() => cycleSize(k.id, k.size)}
+                                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            >
+                                <Maximize2 className="h-5 w-5" />
+                            </button>
+                            <button
+                                title={k.isVisible === false ? "Mostrar" : "Ocultar"}
+                                onClick={() => updateKpi(k.id, { isVisible: k.isVisible === false })}
+                                className={cn(
+                                    "p-2 rounded-lg transition-colors",
+                                    k.isVisible === false ? "text-amber-500 bg-amber-50" : "text-slate-400 hover:text-blue-600 hover:bg-blue-50"
+                                )}
+                            >
+                                {k.isVisible === false ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
+                            </button>
+                        </div>
+
+                        <div className="bg-white p-2 rounded-2xl shadow-xl border border-slate-100 flex items-center gap-2 scale-90">
+                            <Edit3 className="h-4 w-4 text-slate-400 ml-2" />
+                            <input
+                                type="text"
+                                value={k.label as string}
+                                onChange={(e) => updateKpi(k.id, { label: e.target.value })}
+                                className="text-xs font-black uppercase tracking-widest text-slate-700 bg-transparent outline-none w-40"
+                                placeholder="Nombre del KPI"
+                            />
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
 export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isAdmin, configKey = 'kpis', title }: Props) {
     const [isEditing, setIsEditing] = useState(false);
     const [kpis, setKpis] = useState<KpiConfig[]>(initialKpis);
     const [saving, setSaving] = useState(false);
     const router = useRouter();
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8,
+            },
+        }),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
 
     async function handleSave() {
         setSaving(true);
@@ -65,6 +221,18 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
             alert("Error inesperado al guardar");
         } finally {
             setSaving(false);
+        }
+    }
+
+    function handleDragEnd(event: DragEndEvent) {
+        const { active, over } = event;
+
+        if (over && active.id !== over.id) {
+            setKpis((items) => {
+                const oldIndex = items.findIndex(i => i.id === active.id);
+                const newIndex = items.findIndex(i => i.id === over.id);
+                return arrayMove(items, oldIndex, newIndex);
+            });
         }
     }
 
@@ -129,96 +297,48 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
                 )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8 text-left transition-all duration-500">
-                {kpis.filter(k => isEditing || k.isVisible !== false).map((k, idx) => {
-                    const colSpanClass = `md:col-span-${k.size || "4"}`;
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+                modifiers={[restrictToFirstScrollableAncestor]}
+            >
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8 text-left transition-all duration-500">
+                    <SortableContext
+                        items={kpis.filter(k => isEditing || k.isVisible !== false).map(k => k.id)}
+                        strategy={rectSortingStrategy}
+                    >
+                        {kpis.filter(k => isEditing || k.isVisible !== false).map((k, idx, filteredArr) => {
+                            // Determine value
+                            let val: any = 0;
+                            if (k.staticKey) {
+                                val = (values as any)[k.staticKey] || 0;
+                            } else {
+                                val = dynamicValues[k.id] || 0;
+                            }
 
-                    // Determine value
-                    let val: any = 0;
-                    if (k.staticKey) {
-                        val = (values as any)[k.staticKey] || 0;
-                    } else {
-                        val = dynamicValues[k.id] || 0;
-                    }
+                            if (k.calcType === "avg" || k.isPercentage) {
+                                val = Number(val || 0).toFixed(2);
+                            }
+                            if (k.isPercentage) val = val + "%";
 
-                    if (k.calcType === "avg" || k.isPercentage) {
-                        val = Number(val || 0).toFixed(2);
-                    }
-                    if (k.isPercentage) val = val + "%";
-
-                    return (
-                        <div
-                            key={k.id}
-                            className={cn(
-                                colSpanClass,
-                                "relative group transition-all duration-300",
-                                isEditing && "ring-2 ring-blue-400 ring-offset-4 rounded-3xl z-10 scale-[1.02] bg-white shadow-2xl",
-                                isEditing && k.isVisible === false && "opacity-40 grayscale"
-                            )}
-                        >
-                            <SummaryCard
-                                label={k.label as string}
-                                value={typeof val === 'number' ? val.toLocaleString('es-ES') : val}
-                                icon={ICON_MAP[k.icon] || <Activity className="h-6 w-6 text-white" />}
-                                bgColor={k.color || "bg-slate-600"}
-                            />
-
-                            {/* Edit Overlays */}
-                            {isEditing && (
-                                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-white/60 backdrop-blur-[2px] rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <div className="flex items-center gap-2 bg-white p-2 rounded-2xl shadow-xl border border-slate-100">
-                                        <button
-                                            title="Mover Arriba"
-                                            onClick={() => move(idx, 'up')}
-                                            disabled={idx === 0}
-                                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-30"
-                                        >
-                                            <ChevronUp className="h-5 w-5" />
-                                        </button>
-                                        <button
-                                            title="Mover Abajo"
-                                            onClick={() => move(idx, 'down')}
-                                            disabled={idx === kpis.length - 1}
-                                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-30"
-                                        >
-                                            <ChevronDown className="h-5 w-5" />
-                                        </button>
-                                        <div className="w-px h-6 bg-slate-100 mx-1" />
-                                        <button
-                                            title="Cambiar Tamaño"
-                                            onClick={() => cycleSize(k.id, k.size)}
-                                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                        >
-                                            <Maximize2 className="h-5 w-5" />
-                                        </button>
-                                        <button
-                                            title={k.isVisible === false ? "Mostrar" : "Ocultar"}
-                                            onClick={() => updateKpi(k.id, { isVisible: k.isVisible === false })}
-                                            className={cn(
-                                                "p-2 rounded-lg transition-colors",
-                                                k.isVisible === false ? "text-amber-500 bg-amber-50" : "text-slate-400 hover:text-blue-600 hover:bg-blue-50"
-                                            )}
-                                        >
-                                            {k.isVisible === false ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
-                                        </button>
-                                    </div>
-
-                                    <div className="bg-white p-2 rounded-2xl shadow-xl border border-slate-100 flex items-center gap-2">
-                                        <Edit3 className="h-4 w-4 text-slate-400 ml-2" />
-                                        <input
-                                            type="text"
-                                            value={k.label as string}
-                                            onChange={(e) => updateKpi(k.id, { label: e.target.value })}
-                                            className="text-xs font-black uppercase tracking-widest text-slate-700 bg-transparent outline-none w-40"
-                                            placeholder="Nombre del KPI"
-                                        />
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    );
-                })}
-            </div>
+                            return (
+                                <SortableKpi
+                                    key={k.id}
+                                    k={k}
+                                    idx={idx}
+                                    isEditing={isEditing}
+                                    move={move}
+                                    cycleSize={cycleSize}
+                                    updateKpi={updateKpi}
+                                    val={val}
+                                    totalCount={filteredArr.length}
+                                />
+                            );
+                        })}
+                    </SortableContext>
+                </div>
+            </DndContext>
         </div>
     );
 }
