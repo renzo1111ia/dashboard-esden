@@ -137,82 +137,86 @@ export function FilterBar() {
 
             {/* Row 2: Advanced filters (Colapsible) */}
             {isExpanded && (
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 pt-4 border-t border-slate-100 animate-in fade-in slide-in-from-top-2 duration-200">
-                    {/* Custom Dates */}
-                    <div className="space-y-1.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-6 gap-y-4 pt-5 border-t border-slate-100 animate-in fade-in slide-in-from-top-2 duration-200">
+                    {/* Custom Dates - Takes 2 columns on larger screens */}
+                    <div className="flex flex-col space-y-1.5 sm:col-span-2 lg:col-span-2">
                         <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 ml-1">Rango Personalizado</label>
                         <div className="flex items-center gap-2">
-                            <input
-                                type="date"
-                                title="Fecha desde"
-                                aria-label="Fecha desde"
-                                value={draftFrom}
-                                onChange={(e) => { setDraftFrom(e.target.value); setDraftPreset(""); }}
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
-                            />
-                            <span className="text-slate-300">-</span>
-                            <input
-                                type="date"
-                                title="Fecha hasta"
-                                aria-label="Fecha hasta"
-                                value={draftTo}
-                                onChange={(e) => { setDraftTo(e.target.value); setDraftPreset(""); }}
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
-                            />
+                            <div className="relative flex-1">
+                                <input
+                                    type="date"
+                                    title="Fecha desde"
+                                    aria-label="Fecha desde"
+                                    value={draftFrom}
+                                    onChange={(e) => { setDraftFrom(e.target.value); setDraftPreset(""); }}
+                                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-700 outline-none focus:border-blue-500 focus:bg-white transition-all shadow-sm"
+                                />
+                            </div>
+                            <span className="text-slate-300 font-bold">/</span>
+                            <div className="relative flex-1">
+                                <input
+                                    type="date"
+                                    title="Fecha hasta"
+                                    aria-label="Fecha hasta"
+                                    value={draftTo}
+                                    onChange={(e) => { setDraftTo(e.target.value); setDraftPreset(""); }}
+                                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-700 outline-none focus:border-blue-500 focus:bg-white transition-all shadow-sm"
+                                />
+                            </div>
                         </div>
                     </div>
 
                     {/* Curso */}
-                    <div className="space-y-1.5">
+                    <div className="flex flex-col space-y-1.5">
                         <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 ml-1">Curso / Master</label>
                         <input
                             type="text"
                             placeholder="Ej: MBA..."
                             value={curso}
                             onChange={(e) => setCurso(e.target.value)}
-                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium outline-none focus:border-blue-500"
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition-all placeholder:text-slate-400 shadow-sm"
                         />
                     </div>
 
                     {/* País */}
-                    <div className="space-y-1.5">
+                    <div className="flex flex-col space-y-1.5">
                         <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 ml-1">País</label>
                         <input
                             type="text"
                             placeholder="Ej: España..."
                             value={pais}
                             onChange={(e) => setPais(e.target.value)}
-                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium outline-none focus:border-blue-500"
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition-all placeholder:text-slate-400 shadow-sm"
                         />
                     </div>
 
                     {/* Origen */}
-                    <div className="space-y-1.5">
+                    <div className="flex flex-col space-y-1.5">
                         <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 ml-1">Origen</label>
                         <input
                             type="text"
                             placeholder="Ej: Facebook..."
                             value={origen}
                             onChange={(e) => setOrigen(e.target.value)}
-                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium outline-none focus:border-blue-500"
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition-all placeholder:text-slate-400 shadow-sm"
                         />
                     </div>
 
                     {/* Campaña */}
-                    <div className="space-y-1.5 flex flex-col justify-between">
-                        <div>
+                    <div className="flex flex-col justify-between space-y-1.5">
+                        <div className="space-y-1.5">
                             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 ml-1">Campaña</label>
                             <input
                                 type="text"
                                 placeholder="Ej: Invierno 2024..."
                                 value={campana}
                                 onChange={(e) => setCampana(e.target.value)}
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium outline-none focus:border-blue-500"
+                                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition-all placeholder:text-slate-400 shadow-sm"
                             />
                         </div>
                         <button
                             onClick={clearFilters}
-                            className="flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-red-500 transition-colors mt-2"
+                            className="flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-red-500 transition-colors mt-2"
                         >
                             <RotateCcw className="h-3 w-3" />
                             Limpiar Filtros
