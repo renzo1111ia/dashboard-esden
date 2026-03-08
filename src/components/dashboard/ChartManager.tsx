@@ -19,9 +19,11 @@ interface Props {
     initialCharts: ChartConfig[];
     data: Record<string, any>;
     isAdmin: boolean;
+    configKey?: string;
+    title?: string;
 }
 
-export function ChartManager({ tenant, initialCharts, data, isAdmin }: Props) {
+export function ChartManager({ tenant, initialCharts, data, isAdmin, configKey = 'charts', title = 'Métricas Detalladas' }: Props) {
     const [isEditing, setIsEditing] = useState(false);
     const [charts, setCharts] = useState<ChartConfig[]>(initialCharts);
     const [saving, setSaving] = useState(false);
@@ -32,7 +34,7 @@ export function ChartManager({ tenant, initialCharts, data, isAdmin }: Props) {
         try {
             const newConfig = {
                 ...(tenant.config as any),
-                charts: charts
+                [configKey]: charts
             };
             const res = await updateTenant(tenant.id, { config: newConfig });
             if (res.success) {
@@ -70,7 +72,7 @@ export function ChartManager({ tenant, initialCharts, data, isAdmin }: Props) {
             <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2">
                     <span className="w-8 h-1 bg-blue-600 rounded-full" />
-                    Métricas Detalladas
+                    {title}
                 </h2>
                 {isAdmin && !isEditing && (
                     <button

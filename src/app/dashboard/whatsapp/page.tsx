@@ -1,38 +1,63 @@
 import { Suspense } from "react";
-import { getKpiTotals } from "@/lib/actions/analytics";
-import { KpiCard, KpiSkeleton } from "@/components/charts/DashboardCharts";
+import { getKpiTotals, getDynamicKpis } from "@/lib/actions/analytics";
+import { getActiveTenantConfig } from "@/lib/actions/tenant";
+import { getAdminStatus } from "@/lib/actions/auth";
+import { KpiSkeleton } from "@/components/charts/DashboardCharts";
+import { SummaryManager } from "@/components/dashboard/SummaryManager";
+import { WHATSAPP_KPIS } from "@/lib/constants/kpi-defaults";
+import { KpiConfig } from "@/types/tenant";
 
 export const dynamic = "force-dynamic";
 
-async function WhatsAppModule({ from, to }: { from: string; to: string }) {
+async function WhatsAppModule({ from, to, isAdmin }: { from: string; to: string; isAdmin: boolean }) {
     const kpi = await getKpiTotals(from, to);
+    const tenantConfig = await getActiveTenantConfig();
+
+    if (!tenantConfig) return null;
+
+    const currentConfigKpis = (tenantConfig.config as any)?.kpis_whatsapp as KpiConfig[] || [];
+
+    let mergedKpis = currentConfigKpis;
+    if (currentConfigKpis.length === 0) {
+        mergedKpis = WHATSAPP_KPIS;
+    }
+
+    const dynamicValues = await getDynamicKpis(from, to, mergedKpis.filter(k => !k.staticKey));
+
     return (
-        <div className="mb-8">
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Total Leads <span className="text-blue-600">WhatsApp</span></h1>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">Resumen de leads gestionados por WhatsApp</p>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mb-4">
-                <KpiCard label="Total Efectivos WhatsApp (Cualificados o anulados)" value={kpi.efectivos_whatsapp?.toLocaleString() || 0} />
-                <KpiCard label="Whatsapp ilocalizables" value={kpi.whatsapp_ilocalizables?.toLocaleString() || 0} />
-            </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3 mb-4">
-                <KpiCard label="Leads cualificados" value={kpi.leads_cualificados_wsp?.toLocaleString() || 0} color="text-blue-500" />
-                <KpiCard label="Lead no cualificado" value={kpi.lead_no_cualificado_wsp?.toLocaleString() || 0} color="text-blue-500" />
-                <KpiCard label="No interesados" value={kpi.no_interesados_wsp?.toLocaleString() || 0} color="text-blue-500" />
-            </div>
-            <div className="grid grid-cols-1 gap-4">
-                <KpiCard label="Total Agendas" value={kpi.total_agendas_wsp?.toLocaleString() || 0} />
-            </div>
-        </div>
+        <SummaryManager
+            tenant={tenantConfig}
+            initialKpis={mergedKpis}
+            values={kpi}
+            dynamicValues={dynamicValues}
+            isAdmin={isAdmin}
+            configKey="kpis_whatsapp"
+            title={
+                <div>
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Total Leads <span className="text-blue-600">WhatsApp</span></h1>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">Resumen de leads gestionados por WhatsApp</p>
+                </div>
+            }
+        />
     );
 }
 
-export default async function WhatsappPage() {
-    const now = () => Date.now();
-    const to = new Date().toISOString();
-    const from = new Date(now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+export default async function WhatsappPage({ searchParams }: { searchParams: Promise<any> }) {
+    const params = await searchParams;
+    const range = (params.range as string) || "30d";
+    const isAdmin = await getAdminStatus();
+
+    const now = new Date();
+    let fromDate = new Date();
+    if (range === "7d") fromDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    else if (range === "90d") fromDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    else fromDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const from = fromDate.toISOString();
+    const to = now.toISOString();
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
             <Suspense
                 fallback={
                     <div className="mb-8">
@@ -43,7 +68,7 @@ export default async function WhatsappPage() {
                     </div>
                 }
             >
-                <WhatsAppModule from={from} to={to} />
+                <WhatsAppModule from={from} to={to} isAdmin={isAdmin} />
             </Suspense>
         </div>
     );

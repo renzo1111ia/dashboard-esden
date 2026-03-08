@@ -36,9 +36,11 @@ interface Props {
     values: KpiTotals;
     dynamicValues: Record<string, number>;
     isAdmin: boolean;
+    configKey?: string;
+    title?: ReactNode;
 }
 
-export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isAdmin }: Props) {
+export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isAdmin, configKey = 'kpis', title }: Props) {
     const [isEditing, setIsEditing] = useState(false);
     const [kpis, setKpis] = useState<KpiConfig[]>(initialKpis);
     const [saving, setSaving] = useState(false);
@@ -49,7 +51,7 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
         try {
             const newConfig = {
                 ...(tenant.config as any),
-                kpis: kpis
+                [configKey]: kpis
             };
             const res = await updateTenant(tenant.id, { config: newConfig });
             if (res.success) {
@@ -91,9 +93,11 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
     return (
         <div className="mb-10 relative">
             <div className="flex items-center justify-between mb-6">
-                <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-                    Panel <span className="text-blue-600">General</span>
-                </h1>
+                {title ? title : (
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+                        Panel <span className="text-blue-600">General</span>
+                    </h1>
+                )}
 
                 {isAdmin && (
                     <div className="flex items-center gap-2">

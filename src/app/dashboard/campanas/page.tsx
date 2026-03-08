@@ -1,66 +1,73 @@
 import { Suspense } from "react";
-import { getKpiTotals, getAreaHistorico } from "@/lib/actions/analytics";
+import { getKpiTotals, getAreaHistorico, getDynamicKpis } from "@/lib/actions/analytics";
+import { getActiveTenantConfig } from "@/lib/actions/tenant";
 import { getAdminStatus } from "@/lib/actions/auth";
-import { SummaryCard, AreaChartComponent, KpiSkeleton } from "@/components/charts/DashboardCharts";
+import { KpiSkeleton, ChartSkeleton } from "@/components/charts/DashboardCharts";
 import { TenantSetupBanner } from "@/components/layout/TenantSetupBanner";
-import {
-    Phone, PhoneCall, PhoneMissed, Users, UserX, UserMinus,
-    ThumbsDown, Star, Calendar
-} from "lucide-react";
+import { SummaryManager } from "@/components/dashboard/SummaryManager";
+import { ChartManager } from "@/components/dashboard/ChartManager";
+import { CAMPANAS_KPIS, CAMPANAS_CHARTS } from "@/lib/constants/kpi-defaults";
+import { KpiConfig, ChartConfig } from "@/types/tenant";
 
 export const dynamic = "force-dynamic";
 
-async function CampanasModule({ from, to }: { from: string; to: string }) {
+async function CampanasSummary({ from, to, isAdmin }: { from: string; to: string; isAdmin: boolean }) {
     const kpi = await getKpiTotals(from, to);
+    const tenantConfig = await getActiveTenantConfig();
 
-    // Obtenemos los mock data del gráfico
-    const areaHistorico = await getAreaHistorico(from, to);
+    if (!tenantConfig) return null;
+
+    const currentConfigKpis = (tenantConfig.config as any)?.kpis_campanas as KpiConfig[] || [];
+
+    let mergedKpis = currentConfigKpis;
+    if (currentConfigKpis.length === 0) {
+        mergedKpis = CAMPANAS_KPIS;
+    }
+
+    const dynamicValues = await getDynamicKpis(from, to, mergedKpis.filter(k => !k.staticKey));
 
     return (
-        <div className="mb-10">
-            <h1 className="text-3xl font-black text-slate-900 mb-6 tracking-tight">Total <span className="text-blue-600">Leads Campañas</span></h1>
+        <SummaryManager
+            tenant={tenantConfig}
+            initialKpis={mergedKpis}
+            values={kpi}
+            dynamicValues={dynamicValues}
+            isAdmin={isAdmin}
+            configKey="kpis_campanas"
+            title={
+                <h1 className="text-3xl font-black text-slate-900 mb-6 tracking-tight">Total <span className="text-blue-600">Leads Campañas</span></h1>
+            }
+        />
+    );
+}
 
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8">
-                {/* Row 1 */}
-                <div className="md:col-span-4">
-                    <SummaryCard label="Leads Contactados" value={kpi.leads_contactados?.toLocaleString('es-ES') || "0"} icon={<Phone className="h-6 w-6 text-white" />} bgColor="bg-blue-600" />
-                </div>
-                <div className="md:col-span-4">
-                    <SummaryCard label="Llamadas Atendidas" value={kpi.llamadas_atendidas_camp?.toLocaleString('es-ES') || "0"} icon={<PhoneCall className="h-6 w-6 text-white" />} bgColor="bg-emerald-600" />
-                </div>
-                <div className="md:col-span-4">
-                    <SummaryCard label="Fallidas" value={kpi.fallidas?.toLocaleString('es-ES') || "0"} icon={<PhoneMissed className="h-6 w-6 text-white" />} bgColor="bg-red-600" />
-                </div>
+async function CampanasCharts({ from, to, isAdmin }: { from: string; to: string; isAdmin: boolean }) {
+    const [areaHistorico, tenantConfig] = await Promise.all([
+        getAreaHistorico(from, to),
+        getActiveTenantConfig()
+    ]);
 
-                {/* Row 2 */}
-                <div className="md:col-span-3">
-                    <SummaryCard label={<>Leads totales<br />Alcanzados</>} value={kpi.leads_totales_alcanzados?.toLocaleString('es-ES') || "0"} icon={<Users className="h-6 w-6 text-white" />} bgColor="bg-indigo-600" />
-                </div>
-                <div className="md:col-span-3">
-                    <SummaryCard label={<>Leads<br />Ilocalizables</>} value={kpi.leads_ilocalizables?.toLocaleString('es-ES') || "0"} icon={<UserX className="h-6 w-6 text-white" />} bgColor="bg-orange-600" />
-                </div>
-                <div className="md:col-span-3">
-                    <SummaryCard label={<>Lead no<br />Cualificado</>} value={kpi.lead_no_cualificado?.toLocaleString('es-ES') || "0"} icon={<UserMinus className="h-6 w-6 text-white" />} bgColor="bg-rose-600" />
-                </div>
-                <div className="md:col-span-3">
-                    <SummaryCard label={<>No<br />Interesados</>} value={kpi.no_interesados?.toLocaleString('es-ES') || "0"} icon={<ThumbsDown className="h-6 w-6 text-white" />} bgColor="bg-slate-600" />
-                </div>
+    if (!tenantConfig) return null;
 
-                {/* Row 3 */}
-                <div className="md:col-span-6">
-                    <SummaryCard label="Leads Cualificados" value={kpi.leads_cualificados_camp?.toLocaleString('es-ES') || "0"} icon={<Star className="h-6 w-6 text-white" />} bgColor="bg-yellow-600" />
-                </div>
-                <div className="md:col-span-6">
-                    <SummaryCard label="Total Agendas" value={kpi.total_agendas_camp?.toLocaleString('es-ES') || "0"} icon={<Calendar className="h-6 w-6 text-white" />} bgColor="bg-teal-600" />
-                </div>
-            </div>
+    const currentCharts = (tenantConfig.config as any)?.charts_campanas as ChartConfig[] || [];
+    let mergedCharts = currentCharts;
+    if (currentCharts.length === 0) {
+        mergedCharts = CAMPANAS_CHARTS;
+    }
 
-            {/* Gráfico adicional solicitado por el cliente para el dashboard de campañas */}
-            <div className="grid grid-cols-1 mb-8">
-                <AreaChartComponent title="Desempeño Diario de Campañas" data={areaHistorico} />
-            </div>
+    const chartDataMap = {
+        areaHistorico
+    };
 
-        </div>
+    return (
+        <ChartManager
+            tenant={tenantConfig}
+            initialCharts={mergedCharts}
+            data={chartDataMap}
+            isAdmin={isAdmin}
+            configKey="charts_campanas"
+            title="Desempeño de Campañas"
+        />
     );
 }
 
@@ -79,8 +86,9 @@ export default async function CampanasPage({ searchParams }: { searchParams: Pro
     const to = now.toISOString();
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
             {isAdmin && <TenantSetupBanner />}
+
             <Suspense
                 fallback={
                     <div className="mb-8">
@@ -91,7 +99,17 @@ export default async function CampanasPage({ searchParams }: { searchParams: Pro
                     </div>
                 }
             >
-                <CampanasModule from={from} to={to} />
+                <CampanasSummary from={from} to={to} isAdmin={isAdmin} />
+            </Suspense>
+
+            <Suspense
+                fallback={
+                    <div className="grid grid-cols-1 gap-6">
+                        <ChartSkeleton />
+                    </div>
+                }
+            >
+                <CampanasCharts from={from} to={to} isAdmin={isAdmin} />
             </Suspense>
         </div>
     );

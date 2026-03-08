@@ -1,48 +1,54 @@
 import { Suspense } from "react";
-import { getKpiTotals } from "@/lib/actions/analytics";
-import { KpiCard, KpiSkeleton } from "@/components/charts/DashboardCharts";
+import { getKpiTotals, getDynamicKpis } from "@/lib/actions/analytics";
+import { getActiveTenantConfig } from "@/lib/actions/tenant";
+import { getAdminStatus } from "@/lib/actions/auth";
+import { KpiSkeleton } from "@/components/charts/DashboardCharts";
+import { SummaryManager } from "@/components/dashboard/SummaryManager";
+import { LLAMADAS_KPIS } from "@/lib/constants/kpi-defaults";
+import { KpiConfig } from "@/types/tenant";
 
 export const dynamic = "force-dynamic";
 
-async function MinutosModule({ from, to }: { from: string; to: string }) {
+async function LlamadasModule({ from, to, isAdmin }: { from: string; to: string; isAdmin: boolean }) {
     const kpi = await getKpiTotals(from, to);
+    const tenantConfig = await getActiveTenantConfig();
+
+    if (!tenantConfig) return null;
+
+    const currentConfigKpis = (tenantConfig.config as any)?.kpis_llamadas as KpiConfig[] || [];
+
+    let mergedKpis = currentConfigKpis;
+    if (currentConfigKpis.length === 0) {
+        mergedKpis = LLAMADAS_KPIS;
+    }
+
+    const dynamicValues = await getDynamicKpis(from, to, mergedKpis.filter(k => !k.staticKey));
+
     return (
-        <div className="mb-8">
-            <div className="mb-10">
-                <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Total <span className="text-blue-600">Minutos del Mes</span></h1>
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Contabilización de minutos consumidos en el periodo actual</p>
-                <div className="mt-4">
-                    <p className="text-6xl font-black text-slate-900 tracking-tighter">{kpi.total_mins_mes}</p>
+        <SummaryManager
+            tenant={tenantConfig}
+            initialKpis={mergedKpis}
+            values={kpi}
+            dynamicValues={dynamicValues}
+            isAdmin={isAdmin}
+            configKey="kpis_llamadas"
+            title={
+                <div className="mb-2">
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Total <span className="text-blue-600">Minutos del Mes</span></h1>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Contabilización de minutos consumidos en el periodo actual</p>
+                    <div className="mt-4">
+                        <p className="text-6xl font-black text-slate-900 tracking-tighter">{kpi.total_mins_mes}</p>
+                    </div>
                 </div>
-            </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3 mb-4">
-                <KpiCard label="Total de llamados" value={kpi.total_llamados?.toLocaleString() || 0} />
-                <KpiCard label="Llamadas atendidas" value={kpi.llamadas_atendidas_gen?.toLocaleString() || 0} />
-                <KpiCard label="Fallidas" value={kpi.fallidas_gen?.toLocaleString() || 0} />
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-5 mb-4">
-                <KpiCard label="Leads totales alcanzados" value={kpi.leads_totales_alcanzados_gen?.toLocaleString() || 0} color="text-blue-500" />
-                <KpiCard label="Leads totales ilocalizables" value={kpi.leads_totales_ilocalizables?.toLocaleString() || 0} color="text-blue-500" />
-                <KpiCard label="Ilocalizables teléfono erróneo" value={kpi.ilocalizables_telefono?.toLocaleString() || 0} />
-                <KpiCard label="Ilocalizables por buzón de voz" value={kpi.ilocalizables_buzon?.toLocaleString() || 0} />
-                <KpiCard label="No cumplen requisitos" value={kpi.no_cumplen_requisitos?.toLocaleString() || 0} />
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-4">
-                <KpiCard label="No interesados" value={kpi.no_interesados_gen?.toLocaleString() || 0} />
-                <KpiCard label="Leads cualificados" value={kpi.leads_cualificados_gen?.toLocaleString() || 0} />
-                <KpiCard label="Total de agendas" value={kpi.total_agendas_gen?.toLocaleString() || 0} />
-            </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <KpiCard label="Duración media de llamada" value={kpi.duracion_media || "0"} />
-                <KpiCard label="Total minutos" value={kpi.total_minutos_gen || "0"} />
-            </div>
-        </div>
+            }
+        />
     );
 }
 
 export default async function MinutosPage({ searchParams }: { searchParams: Promise<any> }) {
     const params = await searchParams;
     const range = (params.range as string) || "30d";
+    const isAdmin = await getAdminStatus();
 
     const now = new Date();
     let fromDate = new Date();
@@ -54,7 +60,7 @@ export default async function MinutosPage({ searchParams }: { searchParams: Prom
     const to = now.toISOString();
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
             <Suspense
                 fallback={
                     <div className="mb-8">
@@ -65,7 +71,7 @@ export default async function MinutosPage({ searchParams }: { searchParams: Prom
                     </div>
                 }
             >
-                <MinutosModule from={from} to={to} />
+                <LlamadasModule from={from} to={to} isAdmin={isAdmin} />
             </Suspense>
         </div>
     );
