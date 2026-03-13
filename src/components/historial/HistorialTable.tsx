@@ -279,67 +279,155 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
 
             {/* Popover: Ver detalle */}
             {popoverRow && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm"
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md px-4 py-10"
                     onClick={() => setPopoverRow(null)}>
-                    <div className="max-w-2xl w-full mx-4 rounded-3xl border border-slate-200 bg-white p-7 shadow-2xl animate-in fade-in zoom-in duration-200"
+                    <div className="max-w-4xl w-full max-h-full overflow-hidden flex flex-col rounded-[2.5rem] border border-white/20 bg-white shadow-2xl animate-in fade-in zoom-in duration-200"
                         onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-between mb-6">
-                            <div>
-                                <h3 className="text-base font-black text-slate-900">
-                                    {popoverRow.nombre} {popoverRow.apellido}
-                                </h3>
-                                <p className="text-xs text-slate-500 font-mono mt-0.5">{popoverRow.telefono}</p>
+                        
+                        {/* Modal Header */}
+                        <div className="flex items-center justify-between p-8 border-b border-slate-100 bg-slate-50/50">
+                            <div className="flex items-center gap-4">
+                                <div className="h-14 w-14 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-xl shadow-blue-200">
+                                    <User className="h-8 w-8" />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-black text-slate-900 leading-tight">
+                                        {popoverRow.nombre} {popoverRow.apellido}
+                                    </h3>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <span className="font-mono text-sm font-bold text-blue-600 tracking-tight">{popoverRow.telefono}</span>
+                                        <span className="h-1 w-1 rounded-full bg-slate-300" />
+                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{popoverRow.id.slice(0, 8)}</span>
+                                    </div>
+                                </div>
                             </div>
                             <button onClick={() => setPopoverRow(null)}
-                                className="h-9 w-9 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all font-bold">
+                                className="h-12 w-12 flex items-center justify-center rounded-2xl bg-white border border-slate-200 text-slate-400 hover:bg-rose-50 hover:text-rose-500 hover:border-rose-100 transition-all font-bold shadow-sm">
                                 ✕
                             </button>
                         </div>
-                        <div className="grid grid-cols-2 gap-4 text-sm max-h-[60vh] overflow-y-auto pr-2">
-                            {/* Left column */}
-                            <div className="space-y-3">
-                                <DetailItem icon={<Calendar className="h-3.5 w-3.5" />} label="Fecha ingreso CRM" value={formatDate(popoverRow.fecha_ingreso_crm ?? null)} />
-                                <DetailItem icon={<Phone className="h-3.5 w-3.5" />} label="Estado llamada" value={popoverRow.estado_llamada} badge statusColor={STATUS_COLORS[popoverRow.estado_llamada ?? ""] ?? ""} />
-                                <DetailItem icon={<AlertCircle className="h-3.5 w-3.5" />} label="Razón de término" value={popoverRow.razon_termino} />
-                                <DetailItem icon={<Clock className="h-3.5 w-3.5" />} label="Duración IA" value={popoverRow.duracion_segundos != null ? formatDuration(popoverRow.duracion_segundos) : null} />
-                                <DetailItem icon={<Timer className="h-3.5 w-3.5" />} label="T. Respuesta" value={formatTiempoRespuesta(popoverRow.tiempo_respuesta_minutos)} />
-                                <DetailItem icon={<Calendar className="h-3.5 w-3.5" />} label="Primer contacto" value={formatDate(popoverRow.fecha_primer_contacto ?? null)} />
-                            </div>
-                            {/* Right column */}
-                            <div className="space-y-3">
-                                <DetailItem icon={<MapPin className="h-3.5 w-3.5" />} label="País" value={popoverRow.pais} />
-                                <DetailItem icon={<Target className="h-3.5 w-3.5" />} label="Origen" value={popoverRow.origen} />
-                                <DetailItem icon={<User className="h-3.5 w-3.5" />} label="Tipo Lead" value={popoverRow.tipo_lead} />
-                                <DetailItem icon={<CheckCircle className="h-3.5 w-3.5" />} label="Cualificación" value={popoverRow.cualificacion} />
-                                <DetailItem icon={<XCircle className="h-3.5 w-3.5" />} label="Motivo Anulación" value={popoverRow.motivo_anulacion} />
-                                <DetailItem icon={<Calendar className="h-3.5 w-3.5" />} label="Cita agendada" value={popoverRow.fecha_agendada_cliente ? formatDate(popoverRow.fecha_agendada_cliente) + (popoverRow.confirmado ? " ✓" : " (pendiente)") : null} />
-                            </div>
-                            {/* Summary full width */}
-                            {popoverRow.resumen && (
-                                <div className="col-span-2 mt-2 p-4 rounded-xl bg-slate-50 border border-slate-100">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Resumen de la llamada</p>
-                                    <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">{popoverRow.resumen}</p>
+
+                        {/* Modal Body */}
+                        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                                
+                                {/* ── LEFT COLUMN: LEAD INFO ────────────────── */}
+                                <div className="lg:col-span-1 space-y-8">
+                                    <div>
+                                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4 flex items-center gap-2">
+                                            <Target className="h-3 w-3" /> Datos del Prospecto
+                                        </h4>
+                                        <div className="space-y-4 rounded-3xl border border-slate-100 bg-slate-50/30 p-5">
+                                            <DetailItem icon={<MapPin className="h-3.5 w-3.5" />} label="País" value={popoverRow.pais} />
+                                            <DetailItem icon={<Target className="h-3.5 w-3.5" />} label="Origen" value={popoverRow.origen} />
+                                            <DetailItem icon={<User className="h-3.5 w-3.5" />} label="Tipo Lead" value={popoverRow.tipo_lead} />
+                                            <DetailItem icon={<Calendar className="h-3.5 w-3.5" />} label="Ingreso CRM" value={formatDate(popoverRow.fecha_ingreso_crm ?? null)} />
+                                            <DetailItem icon={<Timer className="h-3.5 w-3.5" />} label="T. Respuesta" value={formatTiempoRespuesta(popoverRow.tiempo_respuesta_minutos)} />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4 flex items-center gap-2">
+                                            <CheckCircle className="h-3 w-3" /> Cualificación y Cita
+                                        </h4>
+                                        <div className="space-y-4 rounded-3xl border border-slate-100 bg-slate-50/30 p-5">
+                                            <DetailItem icon={<CheckCircle className="h-3.5 w-3.5" />} label="Cualificación" value={popoverRow.cualificacion} />
+                                            <DetailItem icon={<XCircle className="h-3.5 w-3.5" />} label="Motivo Anulación" value={popoverRow.motivo_anulacion} />
+                                            <DetailItem icon={<Calendar className="h-3.5 w-3.5" />} label="Cita Agendada" value={popoverRow.fecha_agendada_cliente ? formatDate(popoverRow.fecha_agendada_cliente) : null} />
+                                        </div>
+                                    </div>
                                 </div>
-                            )}
-                            {/* Audio */}
-                            {popoverRow.url_grabacion && (
-                                <div className="col-span-2 mt-2">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Grabación</p>
-                                    <AudioPlayer src={popoverRow.url_grabacion} />
+
+                                {/* ── RIGHT COLUMN: TIMELINE (REINTENTOS) ────── */}
+                                <div className="lg:col-span-2 space-y-6">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                                             <RotateCcw className="h-3 w-3" /> Historial de Reintentos
+                                        </h4>
+                                        <span className="text-[10px] font-black bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full border border-blue-100 uppercase tracking-widest">
+                                            {popoverRow.total_llamadas} Intentos
+                                        </span>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        {popoverRow.llamadas.map((llamada, idx) => (
+                                            <div key={llamada.id} className={cn(
+                                                "relative pl-8 pb-4 border-l-2 last:border-0 last:pb-0",
+                                                idx === 0 ? "border-blue-500" : "border-slate-100"
+                                            )}>
+                                                {/* Bullet */}
+                                                <div className={cn(
+                                                    "absolute -left-[11px] top-0 h-5 w-5 rounded-full border-4 border-white shadow-sm flex items-center justify-center",
+                                                    idx === 0 ? "bg-blue-600" : "bg-slate-300"
+                                                )} />
+
+                                                <div className={cn(
+                                                    "rounded-[1.5rem] border p-5 transition-all",
+                                                    idx === 0 ? "border-blue-100 bg-blue-50/30 shadow-sm" : "border-slate-100 bg-white"
+                                                )}>
+                                                    <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+                                                        <div>
+                                                            <div className="flex items-center gap-3 mb-1">
+                                                                <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md uppercase tracking-widest">
+                                                                    Intento {popoverRow.total_llamadas - idx}
+                                                                </span>
+                                                                <span className="text-xs font-black text-slate-700">
+                                                                    {formatDate(llamada.fecha_inicio ?? null)}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={cn("inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-widest",
+                                                                    STATUS_COLORS[llamada.estado_llamada ?? ""] ?? "bg-slate-50 text-slate-400 border-slate-100")}>
+                                                                    {llamada.estado_llamada}
+                                                                </span>
+                                                                <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                                                                    <Clock className="h-3 w-3" /> {formatDuration(llamada.duracion_segundos ?? 0)}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        {llamada.url_grabacion && (
+                                                            <div className="w-full sm:w-auto min-w-[200px]" onClick={e => e.stopPropagation()}>
+                                                                <AudioPlayer src={llamada.url_grabacion} />
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {llamada.resumen && (
+                                                        <div className="p-4 rounded-2xl bg-white/50 border border-black/[0.03]">
+                                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                                                <AlertCircle className="h-3 w-3" /> Resumen IA
+                                                            </p>
+                                                            <p className="text-xs text-slate-600 leading-relaxed italic line-clamp-3 hover:line-clamp-none transition-all cursor-pointer">
+                                                                "{llamada.resumen}"
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                            )}
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end">
+                            <button onClick={() => setPopoverRow(null)}
+                                className="px-8 py-3 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-600 hover:bg-slate-100 transition-all shadow-sm">
+                                Cerrar Detalle
+                            </button>
                         </div>
                     </div>
                 </div>
             )}
 
             {/* ── TABLE ───────────────────────────────────────────────────── */}
-            <div className="overflow-x-auto rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="overflow-x-auto rounded-[2.5rem] border border-slate-200 bg-white shadow-xl shadow-slate-200/50">
                 <table className="w-full text-sm">
                     <thead>
-                        <tr className="border-b border-slate-100 bg-slate-50/50">
+                        <tr className="border-b border-slate-100 bg-slate-50/70">
                             {COLUMNS.map((col) => (
-                                <th key={col.key} className="px-5 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">
+                                <th key={col.key} className="px-6 py-5 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">
                                     {col.label}
                                 </th>
                             ))}
@@ -348,35 +436,42 @@ export function HistorialTable({ initialData, fromDate, toDate }: Props) {
                     <tbody className={cn("divide-y divide-slate-100 transition-opacity", isPending && "opacity-50")}>
                         {result.data.length === 0 ? (
                             <tr>
-                                <td colSpan={COLUMNS.length} className="py-20 text-center text-sm font-bold text-slate-400">
-                                    No se encontraron registros
+                                <td colSpan={COLUMNS.length} className="py-24 text-center">
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="h-16 w-16 rounded-3xl bg-slate-50 flex items-center justify-center text-slate-200">
+                                            <Search className="h-8 w-8" />
+                                        </div>
+                                        <p className="text-sm font-bold text-slate-400">No se encontraron registros para los filtros aplicados</p>
+                                    </div>
                                 </td>
                             </tr>
                         ) : (
-                            deduplicateByPhone(result.data).map(({ row, count }) => (
-                                <tr key={row.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer"
+                            result.data.map((row) => (
+                                <tr key={row.id} className="group hover:bg-blue-50/30 transition-all cursor-pointer"
                                     onClick={() => setPopoverRow(row)}>
                                     {/* Fecha ingreso */}
-                                    <td className="px-5 py-4 whitespace-nowrap text-xs font-semibold text-slate-500">
+                                    <td className="px-6 py-5 whitespace-nowrap text-xs font-bold text-slate-500">
                                         {formatDate(row.fecha_ingreso_crm ?? null)}
                                     </td>
 
                                     {/* Lead (nombre + teléfono) */}
-                                    <td className="px-5 py-4 whitespace-nowrap"
+                                    <td className="px-6 py-5 whitespace-nowrap"
                                         onClick={(e) => { e.stopPropagation(); if (row.telefono) setDupPhone(row.telefono); }}>
                                         <div className="flex flex-col">
-                                            <span className="font-bold text-slate-900 text-xs hover:text-blue-600 transition-colors">
+                                            <span className="font-black text-slate-900 text-sm tracking-tight group-hover:text-blue-600 transition-colors">
                                                 {row.nombre} {row.apellido}
                                             </span>
-                                            <span className="font-mono text-[10px] text-blue-600 hover:underline">
-                                                {row.telefono ?? "—"}
-                                            </span>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <span className="font-mono text-[11px] font-bold text-blue-600 hover:underline">
+                                                    {row.telefono ?? "—"}
+                                                </span>
+                                                {row.total_llamadas > 1 && (
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 text-[9px] font-black uppercase tracking-tighter">
+                                                        <RotateCcw className="h-2 w-2" /> {row.total_llamadas}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
-                                        {count > 1 && (
-                                            <span className="mt-1 inline-flex items-center rounded-full bg-blue-50 border border-blue-100 px-2 py-0.5 text-[10px] font-black text-blue-600">
-                                                +{count - 1} llamadas
-                                            </span>
-                                        )}
                                     </td>
 
                                     {/* Origen */}

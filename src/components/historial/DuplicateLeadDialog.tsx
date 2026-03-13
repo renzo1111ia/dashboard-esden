@@ -194,8 +194,20 @@ export function DuplicateLeadDialog({ phone, onClose }: Props) {
         | { kind: "call"; date: string; data: HistorialRow }
         | { kind: "intento"; date: string; data: IntentoLlamada };
 
+    // Flattern calls from leads (consolidated objects)
+    const flatCalls: TimelineItem[] = [];
+    calls.forEach(lead => {
+        lead.llamadas.forEach(ll => {
+            flatCalls.push({
+                kind: "call",
+                date: ll.fecha_inicio ?? "",
+                data: { ...lead, ...ll, llamadas: lead.llamadas } as HistorialRow
+            });
+        });
+    });
+
     const timeline: TimelineItem[] = [
-        ...calls.map((c) => ({ kind: "call" as const, date: c.fecha_inicio ?? "", data: c })),
+        ...flatCalls,
         ...intentos.map((i) => ({ kind: "intento" as const, date: i.fecha_creacion ?? "", data: i })),
     ].sort((a, b) => b.date.localeCompare(a.date));
 

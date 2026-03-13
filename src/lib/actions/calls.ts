@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { HistorialRow, IntentoLlamada } from "@/types/database";
@@ -28,8 +28,8 @@ export interface FetchCallsResult {
 // ─── FETCH CALLS (HISTORIAL) ──────────────────────────────────────────────────
 
 /**
- * Fetches call history joining llamadas + lead + lead_cualificacion + agendamientos.
- * Computes derived fields: tiempo_respuesta_minutos, fecha_primer_contacto.
+ * Fetches leads with their activity consolidated.
+ * One Lead = One Row. No duplicates even if there are retries.
  */
 export async function fetchCalls({
     page = 1,
@@ -51,64 +51,70 @@ export async function fetchCalls({
         const from = (page - 1) * pageSize;
         const to = from + pageSize - 1;
 
+        // Query LEAD as the main entry point to ensure no duplicates.
         let query = supabase
-            .from("llamadas")
+            .from("lead")
             .select(`
                 id,
-                id_llamada_retell,
-                tipo_agente,
-                nombre_agente,
-                estado_llamada,
-                razon_termino,
-                fecha_inicio,
-                duracion_segundos,
-                url_grabacion,
-                transcripcion,
-                resumen,
-                lead (
+                nombre,
+                apellido,
+                telefono,
+                email,
+                pais,
+                tipo_lead,
+                origen,
+                campana,
+                fecha_ingreso_crm,
+                llamadas:llamadas (
                     id,
-                    nombre,
-                    apellido,
-                    telefono,
-                    email,
-                    pais,
-                    tipo_lead,
-                    origen,
-                    campana,
-                    fecha_ingreso_crm
+                    estado_llamada,
+                    razon_termino,
+                    fecha_inicio,
+                    duracion_segundos,
+                    url_grabacion,
+                    resumen,
+                    tipo_agente
                 ),
                 lead_cualificacion (
                     cualificacion,
                     motivo_anulacion,
                     anios_experiencia,
-                    nivel_estudios
+                    nivel_estudios,
+                    fecha_creacion
                 ),
-                agendamientos:agendamientos (
+                agendamientos (
                     fecha_agendada_cliente,
-                    confirmado
+                    confirmado,
+                    fecha_creacion
                 )
             `, { count: "exact" })
-            .order("fecha_inicio", { ascending: false })
+            .order("fecha_ingreso_crm", { ascending: false })
             .range(from, to);
 
-        // ── Filters ──────────────────────────────────────────────────────────
-        if (estadoLlamada && estadoLlamada !== "ALL") {
-            query = query.eq("estado_llamada", estadoLlamada);
-        }
-        if (fromDate) query = query.gte("fecha_inicio", fromDate);
-        if (toDate) query = query.lte("fecha_inicio", toDate);
+        // ── Lead Filters ─────────────────────────────────────────────────────
+        if (pais) query = query.eq("pais", pais);
+        if (origen) query = query.eq("origen", origen);
+        if (campana) query = query.eq("campana", campana);
+        if (tipoLead) query = query.eq("tipo_lead", tipoLead);
 
-        // Filters on the joined lead table
-        if (pais) query = query.eq("lead.pais", pais);
-        if (origen) query = query.eq("lead.origen", origen);
-        if (campana) query = query.eq("lead.campana", campana);
-        if (tipoLead) query = query.eq("lead.tipo_lead", tipoLead);
-        if (cualificacion) query = query.eq("lead_cualificacion.cualificacion", cualificacion);
+        // ── Filters on nested tables ─────────────────────────────────────────
+        if (estadoLlamada && estadoLlamada !== "ALL") {
+            query = query.filter("llamadas.estado_llamada", "eq", estadoLlamada);
+        }
+        if (fromDate) {
+            query = query.filter("llamadas.fecha_inicio", "gte", fromDate);
+        }
+        if (toDate) {
+            query = query.filter("llamadas.fecha_inicio", "lte", toDate);
+        }
+        if (cualificacion) {
+            query = query.filter("lead_cualificacion.cualificacion", "eq", cualificacion);
+        }
 
         // Search by phone or name
         if (search) {
             query = query.or(
-                `lead.telefono.ilike.%${search}%,lead.nombre.ilike.%${search}%,lead.apellido.ilike.%${search}%`
+                `telefono.ilike.%${search}%,nombre.ilike.%${search}%,apellido.ilike.%${search}%`
             );
         }
 
@@ -119,36 +125,31 @@ export async function fetchCalls({
             return emptyResult;
         }
 
-        // ── Map to flat HistorialRow + compute derived fields ─────────────
-        const rows: HistorialRow[] = (data ?? []).map((row: any) => {
-            const lead = row.lead ?? {};
-            const cual = Array.isArray(row.lead_cualificacion)
-                ? row.lead_cualificacion[0]
-                : row.lead_cualificacion ?? {};
-            const agenda = Array.isArray(row.agendamientos)
-                ? row.agendamientos[0]
-                : row.agendamientos ?? {};
+        // ── Map results to lead-centric HistorialRow ──────────────────────────
+        const rows: HistorialRow[] = (data ?? []).map((lead: any) => {
+            const sortedLlamadas = (lead.llamadas ?? []).sort((a: any, b: any) =>
+                new Date(b.fecha_inicio).getTime() - new Date(a.fecha_inicio).getTime()
+            );
 
-            // Tiempo de respuesta: diferencia en minutos entre fecha_ingreso_crm y fecha_inicio de primera llamada
+            const latestCall = sortedLlamadas[0] || {};
+            const firstCall = sortedLlamadas[sortedLlamadas.length - 1] || {};
+
+            const latestCual = (lead.lead_cualificacion ?? []).sort((a: any, b: any) =>
+                new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime()
+            )[0] || {};
+
+            const latestAgenda = (lead.agendamientos ?? []).sort((a: any, b: any) =>
+                new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime()
+            )[0] || {};
+
             let tiempo_respuesta_minutos: number | null = null;
-            if (lead.fecha_ingreso_crm && row.fecha_inicio) {
-                const diff = new Date(row.fecha_inicio).getTime() - new Date(lead.fecha_ingreso_crm).getTime();
+            if (lead.fecha_ingreso_crm && firstCall.fecha_inicio) {
+                const diff = new Date(firstCall.fecha_inicio).getTime() - new Date(lead.fecha_ingreso_crm).getTime();
                 tiempo_respuesta_minutos = Math.round(diff / 1000 / 60);
             }
 
             return {
-                id: row.id,
-                id_llamada_retell: row.id_llamada_retell,
-                tipo_agente: row.tipo_agente,
-                nombre_agente: row.nombre_agente,
-                estado_llamada: row.estado_llamada,
-                razon_termino: row.razon_termino,
-                fecha_inicio: row.fecha_inicio,
-                duracion_segundos: row.duracion_segundos,
-                url_grabacion: row.url_grabacion,
-                transcripcion: row.transcripcion,
-                resumen: row.resumen,
-                // Lead fields
+                id: lead.id,
                 nombre: lead.nombre,
                 apellido: lead.apellido,
                 telefono: lead.telefono,
@@ -158,17 +159,23 @@ export async function fetchCalls({
                 origen: lead.origen,
                 campana: lead.campana,
                 fecha_ingreso_crm: lead.fecha_ingreso_crm,
-                // Cualificacion fields
-                cualificacion: cual.cualificacion,
-                motivo_anulacion: cual.motivo_anulacion,
-                anios_experiencia: cual.anios_experiencia,
-                nivel_estudios: cual.nivel_estudios,
-                // Agendamiento fields
-                fecha_agendada_cliente: agenda.fecha_agendada_cliente,
-                confirmado: agenda.confirmado,
-                // Computed
+                estado_llamada: latestCall.estado_llamada,
+                razon_termino: latestCall.razon_termino,
+                fecha_inicio: latestCall.fecha_inicio,
+                duracion_segundos: latestCall.duracion_segundos,
+                url_grabacion: latestCall.url_grabacion,
+                resumen: latestCall.resumen,
+                tipo_agente: latestCall.tipo_agente,
+                cualificacion: latestCual.cualificacion,
+                motivo_anulacion: latestCual.motivo_anulacion,
+                anios_experiencia: latestCual.anios_experiencia,
+                nivel_estudios: latestCual.nivel_estudios,
+                fecha_agendada_cliente: latestAgenda.fecha_agendada_cliente,
+                confirmado: latestAgenda.confirmado,
                 tiempo_respuesta_minutos,
-                fecha_primer_contacto: row.fecha_inicio, // se enriquece abajo si hay WhatsApp
+                fecha_primer_contacto: firstCall.fecha_inicio,
+                llamadas: sortedLlamadas,
+                total_llamadas: sortedLlamadas.length,
             };
         });
 
@@ -186,46 +193,73 @@ export async function fetchCalls({
 // ─── GET CALLS BY PHONE ───────────────────────────────────────────────────────
 
 /**
- * Returns all calls for a given phone number via the joined lead table.
+ * Returns leads associated with a phone number, including their full call timeline.
  */
 export async function getCallsByPhone(phone: string): Promise<HistorialRow[]> {
     try {
         const supabase = await getSupabaseServerClient();
         const { data, error } = await supabase
-            .from("llamadas")
+            .from("lead")
             .select(`
-                id,
-                id_llamada_retell,
-                estado_llamada,
-                razon_termino,
-                fecha_inicio,
-                duracion_segundos,
-                url_grabacion,
-                transcripcion,
-                resumen,
-                lead!inner ( id, nombre, apellido, telefono, pais, origen, campana, fecha_ingreso_crm, tipo_lead ),
-                lead_cualificacion ( cualificacion, motivo_anulacion ),
-                agendamientos ( fecha_agendada_cliente, confirmado )
+                id, nombre, apellido, telefono, email, pais, tipo_lead, origen, campana, fecha_ingreso_crm,
+                llamadas:llamadas (
+                    id, estado_llamada, razon_termino, fecha_inicio, duracion_segundos, url_grabacion, resumen, tipo_agente
+                ),
+                lead_cualificacion (
+                    cualificacion, motivo_anulacion, anios_experiencia, nivel_estudios, fecha_creacion
+                ),
+                agendamientos (
+                    fecha_agendada_cliente, confirmado, fecha_creacion
+                )
             `)
-            .eq("lead.telefono", phone)
-            .order("fecha_inicio", { ascending: false });
+            .eq("telefono", phone)
+            .order("fecha_ingreso_crm", { ascending: false });
 
         if (error) throw new Error(error.message);
 
-        return (data ?? []).map((row: any) => {
-            const lead = row.lead ?? {};
-            const cual = Array.isArray(row.lead_cualificacion) ? row.lead_cualificacion[0] : row.lead_cualificacion ?? {};
-            const agenda = Array.isArray(row.agendamientos) ? row.agendamientos[0] : row.agendamientos ?? {};
+        return (data ?? []).map((lead: any) => {
+            const sortedLlamadas = (lead.llamadas ?? []).sort((a: any, b: any) =>
+                new Date(b.fecha_inicio).getTime() - new Date(a.fecha_inicio).getTime()
+            );
+            const latestCall = sortedLlamadas[0] || {};
+            const firstCall = sortedLlamadas[sortedLlamadas.length - 1] || {};
+
+            const latestCual = (lead.lead_cualificacion ?? []).sort((a: any, b: any) =>
+                new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime()
+            )[0] || {};
+
+            const latestAgenda = (lead.agendamientos ?? []).sort((a: any, b: any) =>
+                new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime()
+            )[0] || {};
+
             return {
-                id: row.id, id_llamada_retell: row.id_llamada_retell,
-                estado_llamada: row.estado_llamada, razon_termino: row.razon_termino,
-                fecha_inicio: row.fecha_inicio, duracion_segundos: row.duracion_segundos,
-                url_grabacion: row.url_grabacion, transcripcion: row.transcripcion, resumen: row.resumen,
-                nombre: lead.nombre, apellido: lead.apellido, telefono: lead.telefono,
-                pais: lead.pais, origen: lead.origen, campana: lead.campana,
-                fecha_ingreso_crm: lead.fecha_ingreso_crm, tipo_lead: lead.tipo_lead,
-                cualificacion: cual.cualificacion, motivo_anulacion: cual.motivo_anulacion,
-                fecha_agendada_cliente: agenda.fecha_agendada_cliente, confirmado: agenda.confirmado,
+                id: lead.id,
+                nombre: lead.nombre,
+                apellido: lead.apellido,
+                telefono: lead.telefono,
+                email: lead.email,
+                pais: lead.pais,
+                tipo_lead: lead.tipo_lead,
+                origen: lead.origen,
+                campana: lead.campana,
+                fecha_ingreso_crm: lead.fecha_ingreso_crm,
+                estado_llamada: latestCall.estado_llamada,
+                razon_termino: latestCall.razon_termino,
+                fecha_inicio: latestCall.fecha_inicio,
+                duracion_segundos: latestCall.duracion_segundos,
+                url_grabacion: latestCall.url_grabacion,
+                resumen: latestCall.resumen,
+                tipo_agente: latestCall.tipo_agente,
+                cualificacion: latestCual.cualificacion,
+                motivo_anulacion: latestCual.motivo_anulacion,
+                anios_experiencia: latestCual.anios_experiencia,
+                nivel_estudios: latestCual.nivel_estudios,
+                fecha_agendada_cliente: latestAgenda.fecha_agendada_cliente,
+                confirmado: latestAgenda.confirmado,
+                tiempo_respuesta_minutos: null,
+                fecha_primer_contacto: firstCall.fecha_inicio,
+                llamadas: sortedLlamadas,
+                total_llamadas: sortedLlamadas.length,
             };
         });
     } catch (e) {

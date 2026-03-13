@@ -15,7 +15,12 @@ export interface Lead {
     telefono?: string | null;
     email?: string | null;
     pais?: string | null;
-    tipo_lead?: string | null;  // "ilocalizable" | "nuevo" | "localizable"
+    /**
+     * Tipo de lead: campo libre (string), no enum cerrado.
+     * Valores actuales: "nuevo", "ilocalizable", "localizable".
+     * Pueden añadirse nuevos tipos según el tipo de campaña sin cambiar código.
+     */
+    tipo_lead?: string | null;
     origen?: string | null;
     campana?: string | null;
     fecha_ingreso_crm?: string | null;
@@ -23,7 +28,7 @@ export interface Lead {
     fecha_actualizacion?: string | null;
 }
 
-// ─── LLAMADAS ─────────────────────────────────────────────────────────────────
+// ─── LLAMADA (resumen de una llamada individual) ──────────────────────────────
 
 export interface Llamada {
     id: string;
@@ -31,7 +36,7 @@ export interface Llamada {
     id_llamada_retell?: string | null;
     tipo_agente?: string | null;
     nombre_agente?: string | null;
-    estado_llamada?: string | null;   // "CONTACTED" | "NO_CONTACT" | "VOICEMAIL" | etc.
+    estado_llamada?: string | null;
     razon_termino?: string | null;
     fecha_inicio?: string | null;
     duracion_segundos?: number | null;
@@ -43,8 +48,23 @@ export interface Llamada {
     lead?: Lead;
 }
 
-// Llamada con lead siempre presente (resultado de JOIN)
 export type LlamadaConLead = Llamada & { lead: Lead };
+
+/**
+ * Resumen de una llamada individual dentro del timeline de un lead.
+ * Se usa en HistorialRow.llamadas[].
+ */
+export interface LlamadaResumen {
+    id: string;
+    estado_llamada?: string | null;
+    razon_termino?: string | null;
+    fecha_inicio?: string | null;
+    duracion_segundos?: number | null;
+    url_grabacion?: string | null;
+    resumen?: string | null;
+    tipo_agente?: string | null;
+    numero_intento?: number | null;   // si existe en intentos_llamadas
+}
 
 // ─── INTENTOS LLAMADAS ────────────────────────────────────────────────────────
 
@@ -69,7 +89,8 @@ export interface ConversacionWhatsapp {
     id: string;
     id_lead: string;
     id_conversacion_chatwoot?: string | null;
-    acepta_whatsapp?: boolean | null;
+    opt_in_whatsapp?: boolean | null;
+    estado?: string | null;
     fecha_ultimo_mensaje?: string | null;
     fecha_creacion?: string | null;
     // Joined
@@ -140,43 +161,55 @@ export interface Notificacion {
 // ─── COMBINED / VIEW TYPES ────────────────────────────────────────────────────
 
 /**
- * Full view of a call row as it will be displayed in the Historial table.
- * Combines llamada + lead + lead_cualificacion + agendamiento.
+ * Una fila del Historial = UN LEAD con toda su actividad consolidada.
+ *
+ * DESIGN DECISION: La entidad central es el LEAD, no la llamada.
+ * Un lead puede tener N reintentos (llamadas). En `llamadas` se incluye
+ * el historial completo ordenado por fecha. La columna principal muestra
+ * la última llamada relevante, pero el detalle expande todo el historial.
+ *
+ * tipo_lead es string libre (no enum) para soportar nuevos tipos de campaña
+ * sin cambios de código.
  */
 export interface HistorialRow {
-    // From llamadas
-    id: string;
-    id_llamada_retell?: string | null;
-    tipo_agente?: string | null;
-    nombre_agente?: string | null;
-    estado_llamada?: string | null;
-    razon_termino?: string | null;
-    fecha_inicio?: string | null;
-    duracion_segundos?: number | null;
-    url_grabacion?: string | null;
-    transcripcion?: string | null;
-    resumen?: string | null;
-    // From lead
+    // ── Identidad del lead ──
+    id: string;             // lead.id (clave única, sin duplicados)
     nombre?: string | null;
     apellido?: string | null;
     telefono?: string | null;
     email?: string | null;
     pais?: string | null;
-    tipo_lead?: string | null;
+    tipo_lead?: string | null;  // string libre: "nuevo", "ilocalizable", "localizable", ...
     origen?: string | null;
     campana?: string | null;
     fecha_ingreso_crm?: string | null;
-    // From lead_cualificacion
+
+    // ── Resumen de la ÚLTIMA llamada (o la más relevante) ──
+    estado_llamada?: string | null;
+    razon_termino?: string | null;
+    fecha_inicio?: string | null;       // fecha de la última llamada
+    duracion_segundos?: number | null;
+    url_grabacion?: string | null;
+    resumen?: string | null;
+    tipo_agente?: string | null;
+
+    // ── Cualificación (la más reciente) ──
     cualificacion?: string | null;
     motivo_anulacion?: string | null;
     anios_experiencia?: number | null;
     nivel_estudios?: string | null;
-    // From agendamiento
+
+    // ── Agendamiento confirmado (el más próximo) ──
     fecha_agendada_cliente?: string | null;
     confirmado?: boolean | null;
-    // Computed
-    tiempo_respuesta_minutos?: number | null;  // fecha_inicio - fecha_ingreso_crm
-    fecha_primer_contacto?: string | null;     // MIN(llamada.fecha_inicio, whatsapp.fecha_creacion)
+
+    // ── Computed ──
+    tiempo_respuesta_minutos?: number | null;  // primera llamada - fecha_ingreso_crm
+    fecha_primer_contacto?: string | null;     // MIN(llamada, whatsapp)
+
+    // ── Historial completo de llamadas/reintentos de este lead ──
+    llamadas: LlamadaResumen[];        // todas las llamadas, orden desc
+    total_llamadas: number;            // = llamadas.length
 }
 
 /** Supabase database shape (for createClient generic) */
