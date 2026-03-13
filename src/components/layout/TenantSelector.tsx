@@ -18,7 +18,8 @@ export function TenantSelector({ collapsed, isAdmin }: { collapsed: boolean; isA
     useEffect(() => {
         async function loadTenants() {
             const data = await getTenants();
-            setTenants(data);
+            // Filter out admins from the selector, it's only for clients
+            setTenants(data.filter(t => !t.is_admin));
             setLoading(false);
         }
         loadTenants();

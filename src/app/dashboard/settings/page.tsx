@@ -218,12 +218,14 @@ export default function SettingsPage() {
                                                 </div>
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                     <div className="space-y-2">
-                                                        <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Nombre del Proyecto</Label>
+                                                        <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">
+                                                            {editForm.is_admin ? "Asignar a Proyecto (Identificador)" : "Nombre del Proyecto"}
+                                                        </Label>
                                                         <Input
                                                             value={editForm.name}
                                                             onChange={e => setEditForm({ ...editForm, name: e.target.value })}
                                                             className="h-12 bg-white border-slate-200 text-slate-900 rounded-xl focus:ring-blue-100"
-                                                            placeholder="Ej: Proyecto México"
+                                                            placeholder={editForm.is_admin ? "Ej: Proyecto México (Solo para identificar)" : "Ej: Proyecto México"}
                                                             required
                                                         />
                                                     </div>
@@ -402,7 +404,17 @@ export default function SettingsPage() {
                                                 </div>
                                             </div>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nombre del Proyecto</Label><Input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} className="h-11 bg-white rounded-xl text-slate-900 font-bold" /></div>
+                                                <div className="space-y-2">
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                                        {editForm.is_admin ? "Asignar a Proyecto" : "Nombre del Proyecto"}
+                                                    </Label>
+                                                    <Input
+                                                        value={editForm.name}
+                                                        onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                                                        className="h-11 bg-white rounded-xl text-slate-900 font-bold"
+                                                        placeholder={editForm.is_admin ? "Identificador del proyecto" : ""}
+                                                    />
+                                                </div>
                                                 <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nombre de Usuario</Label><Input value={editForm.username} onChange={e => setEditForm({ ...editForm, username: e.target.value })} className="h-11 bg-white rounded-xl text-slate-900 font-bold" /></div>
 
                                                 {!editForm.is_admin && (
