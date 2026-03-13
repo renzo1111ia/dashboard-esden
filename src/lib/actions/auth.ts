@@ -28,7 +28,12 @@ export async function loginAction(email: string, password: string) {
         return { error: "Credenciales incorrectas. Verificá tu email y contraseña." };
     }
 
-    const isAdmin = data.user?.user_metadata?.is_admin === true || data.user?.user_metadata?.is_admin === "true";
+    // Check both 'admin' (set by our createTenant) and 'is_admin' for backward compatibility
+    const isAdmin =
+        data.user?.user_metadata?.admin === true ||
+        data.user?.user_metadata?.admin === "true" ||
+        data.user?.user_metadata?.is_admin === true ||
+        data.user?.user_metadata?.is_admin === "true";
 
     // ⚡ AUTO-CONFIG FOR CLIENTS
     // If not admin, find their tenant and set cookies automatically
@@ -79,7 +84,11 @@ export async function getAdminStatus(): Promise<boolean> {
 
     const { data } = await supabase.auth.getUser();
     const user = data.user;
-    const isAdm = user?.user_metadata?.is_admin === true ||
+    // Check both 'admin' (set by our createTenant) and 'is_admin' for backward compatibility
+    const isAdm =
+        user?.user_metadata?.admin === true ||
+        user?.user_metadata?.admin === "true" ||
+        user?.user_metadata?.is_admin === true ||
         user?.user_metadata?.is_admin === "true" ||
         user?.app_metadata?.is_admin === true ||
         user?.app_metadata?.is_admin === "true";
