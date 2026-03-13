@@ -16,7 +16,8 @@ export function formatDuration(seconds: number | null): string {
 }
 
 /** Format a date string to locale display */
-export function formatDate(dateStr: string): string {
+export function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "—";
   return new Date(dateStr).toLocaleDateString("es-ES", {
     day: "2-digit",
     month: "short",

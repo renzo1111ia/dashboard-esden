@@ -40,12 +40,12 @@ export function parseFilters(params: any) {
         from: fromDateObj.toISOString(),
         to: toDateObj.toISOString(),
         filters: {
-            curso: params.curso || undefined,
+            search: params.q || undefined,
             pais: params.pais || undefined,
             origen: params.origen || undefined,
             campana: params.campana || undefined,
-            search: params.q || undefined,
-            callStatus: params.status || undefined
+            tipoLead: params.tipoLead || undefined,
+            cualificacion: params.cualificacion || undefined,
         }
     };
 }

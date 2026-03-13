@@ -2,13 +2,13 @@
 
 import { ReactNode, useState } from "react";
 import { KpiConfig, Tenant } from "@/types/tenant";
-import { KpiTotals } from "@/lib/actions/analytics";
+import { KpiGenerales } from "@/lib/actions/analytics";
 import { SummaryCard } from "@/components/charts/DashboardCharts";
 import {
     Phone, PhoneCall, PhoneMissed, Users, UserX, PhoneOff, Voicemail,
     UserMinus, ThumbsDown, Star, Calendar, Clock, TrendingUp, Activity,
     Maximize2, Edit3, Save, X, ChevronUp, ChevronDown, EyeOff, Eye, GripVertical,
-    Plus, Trash2
+    Plus, Trash2, Zap, Timer
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { updateTenant } from "@/lib/actions/tenant";
@@ -65,7 +65,7 @@ const COL_SPAN_MAP: Record<string, string> = {
 interface Props {
     tenant: Tenant;
     initialKpis: KpiConfig[];
-    values: KpiTotals;
+    values: KpiGenerales;
     dynamicValues: Record<string, number>;
     isAdmin: boolean;
     configKey?: string;
@@ -347,16 +347,24 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
                             // Determine value
                             let val: any = 0;
                             if (k.staticKey) {
-                                val = (values as any)[k.staticKey] || 0;
+                                val = (values as any)[k.staticKey] ?? 0;
                             } else {
                                 val = dynamicValues[k.id] || 0;
                             }
 
-                            if (k.calcType === "avg" || k.isPercentage) {
-                                val = Number(val || 0).toFixed(2);
+                            // Format numeric values
+                            if (typeof val === 'number') {
+                                if (k.calcType === "avg" || k.isPercentage) {
+                                    val = Number(val).toFixed(1);
+                                } else {
+                                    val = Number(val).toLocaleString('es-ES');
+                                }
                             }
-                            if (k.isPercentage) val = val + "%";
-
+                            // Append suffix (e.g. ' min', ' seg', '%')
+                            if (k.suffix && val !== null && val !== undefined) {
+                                val = `${val}${k.suffix}`;
+                            }
+                            if (k.isPercentage && !k.suffix) val = `${val}%`;
                             return (
                                 <SortableKpi
                                     key={k.id}
