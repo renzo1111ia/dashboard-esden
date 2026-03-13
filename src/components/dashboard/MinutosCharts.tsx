@@ -1,6 +1,7 @@
 "use client";
 
 import type { KpiMinutos } from "@/lib/actions/analytics";
+import { cn } from "@/lib/utils";
 import {
     AreaChart, Area,
     BarChart, Bar,
@@ -11,10 +12,11 @@ import {
 
 // ─── PALETTE ──────────────────────────────────────────────────────────────────
 
-const PALETTE = [
-    "#3b82f6", "#6366f1", "#0ea5e9", "#8b5cf6",
-    "#10b981", "#f59e0b", "#ef4444", "#ec4899",
-];
+const PALETTE = ["#3b82f6", "#6366f1", "#0ea5e9", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#ec4899"];
+const TEXT_PALETTE: Record<string, string> = {
+    "#3b82f6": "text-[#3b82f6]", "#6366f1": "text-[#6366f1]", "#0ea5e9": "text-[#0ea5e9]", "#8b5cf6": "text-[#8b5cf6]",
+    "#10b981": "text-[#10b981]", "#f59e0b": "text-[#f59e0b]", "#ef4444": "text-[#ef4444]", "#ec4899": "text-[#ec4899]"
+};
 
 // ─── CUSTOM TOOLTIPS ──────────────────────────────────────────────────────────
 
@@ -24,7 +26,7 @@ function TooltipBase({ active, payload, label }: any) {
         <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xl text-xs">
             <p className="font-bold text-slate-700 mb-1">{label}</p>
             {payload.map((p: any, i: number) => (
-                <p key={i} className="font-black" style={{ color: p.color ?? "#3b82f6" }}>
+                <p key={i} className={cn("font-black", TEXT_PALETTE[p.color] || "text-blue-600")}>
                     {p.name}: {p.value?.toLocaleString("es-ES")} min
                 </p>
             ))}

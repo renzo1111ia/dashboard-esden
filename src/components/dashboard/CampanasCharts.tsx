@@ -1,7 +1,7 @@
 "use client";
 
 import type { KpiCampanas, CampanaRow } from "@/lib/actions/analytics";
-import { formatDuration } from "@/lib/utils";
+import { formatDuration, cn } from "@/lib/utils";
 import {
     AreaChart, Area,
     BarChart, Bar,
@@ -12,6 +12,7 @@ import {
 // ─── PALETTE ──────────────────────────────────────────────────────────────────
 
 const PALETTE = ["#3b82f6", "#6366f1", "#0ea5e9", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#ec4899"];
+const PALETTE_CLASSES = ["bg-[#3b82f6]", "bg-[#6366f1]", "bg-[#0ea5e9]", "bg-[#8b5cf6]", "bg-[#10b981]", "bg-[#f59e0b]", "bg-[#ef4444]", "bg-[#ec4899]"];
 
 // ─── TOOLTIPS ─────────────────────────────────────────────────────────────────
 
@@ -79,8 +80,7 @@ function CampanasTable({ campanas }: { campanas: CampanaRow[] }) {
                         <tr key={c.nombre} className="hover:bg-slate-50/60 transition-colors">
                             <td className="py-3 pr-4 font-bold text-slate-800 max-w-[160px] truncate">
                                 <div className="flex items-center gap-2">
-                                    <span className="h-2 w-2 rounded-full flex-shrink-0"
-                                        style={{ backgroundColor: PALETTE[i % PALETTE.length] }} />
+                                    <span className={cn("h-2 w-2 rounded-full flex-shrink-0", PALETTE_CLASSES[i % PALETTE_CLASSES.length])} />
                                     {c.nombre}
                                 </div>
                             </td>
