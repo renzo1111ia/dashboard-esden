@@ -4,6 +4,7 @@ export interface Tenant {
     supabase_url: string;
     supabase_anon_key: string;
     client_email?: string;
+    is_admin?: boolean;
     auth_user_id?: string;
     config: Record<string, unknown>;
     created_at?: string;

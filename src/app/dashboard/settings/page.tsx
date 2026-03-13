@@ -31,6 +31,7 @@ export default function SettingsPage() {
         supabase_anon_key: "",
         client_email: "",
         password: "",
+        is_admin: false,
         config: {}
     });
     const [showNewForm, setShowNewForm] = useState(false);
@@ -60,7 +61,7 @@ export default function SettingsPage() {
             }
 
             setShowNewForm(false);
-            setEditForm({ name: "", supabase_url: "", supabase_anon_key: "", client_email: "", password: "", config: {} });
+            setEditForm({ name: "", supabase_url: "", supabase_anon_key: "", client_email: "", password: "", is_admin: false, config: {} });
             await loadTenants();
         } catch (err: any) {
             console.error("SAVE TENANT ERROR:", err);
@@ -121,6 +122,7 @@ export default function SettingsPage() {
             supabase_anon_key: t.supabase_anon_key,
             client_email: t.client_email || "",
             password: "",
+            is_admin: !!t.is_admin,
             config: JSON.stringify(t.config, null, 2) as unknown as Record<string, unknown>
         });
     }
@@ -142,7 +144,7 @@ export default function SettingsPage() {
                         <Button
                             onClick={() => {
                                 setShowNewForm(true);
-                                setEditForm({ name: "", supabase_url: "", supabase_anon_key: "", client_email: "", password: "", config: {} });
+                                setEditForm({ name: "", supabase_url: "", supabase_anon_key: "", client_email: "", password: "", is_admin: false, config: {} });
                             }}
                             className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-200"
                         >
@@ -158,6 +160,7 @@ export default function SettingsPage() {
                                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-900">Cliente</th>
                                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-900">Infraestructura (Link)</th>
                                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-900">Email de Acceso</th>
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-900">Nivel</th>
                                 <th className="px-6 py-4 text-right px-8 text-[10px] font-black uppercase tracking-widest text-slate-900">Acciones</th>
                             </tr>
                         </thead>
@@ -249,6 +252,29 @@ export default function SettingsPage() {
                                                             type="password"
                                                             required
                                                         />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">¿Es Administrador?</Label>
+                                                        <div className="flex items-center gap-3">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setEditForm({ ...editForm, is_admin: !editForm.is_admin })}
+                                                                className={cn(
+                                                                    "flex items-center gap-3 px-6 h-12 rounded-xl border-2 transition-all font-black text-[11px] uppercase tracking-widest",
+                                                                    editForm.is_admin
+                                                                        ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-100"
+                                                                        : "bg-white border-slate-200 text-slate-400 hover:border-slate-300"
+                                                                )}
+                                                            >
+                                                                <Shield className={cn("h-4 w-4", editForm.is_admin ? "text-blue-100" : "text-slate-300")} />
+                                                                {editForm.is_admin ? "Nuevo Admin Activo" : "Usuario / Cliente Normal"}
+                                                            </button>
+                                                            <p className="text-[10px] font-medium text-slate-400 max-w-[200px] leading-tight">
+                                                                {editForm.is_admin
+                                                                    ? "Se asignará metadato admin=true en Supabase Principal."
+                                                                    : "Se asignará metadato admin=false (Usuario estándar)."}
+                                                            </p>
+                                                        </div>
                                                     </div>
                                                     <div className="md:col-span-2 space-y-4">
                                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -350,6 +376,26 @@ export default function SettingsPage() {
                                                     <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">URL Supabase</Label><Input value={editForm.supabase_url} onChange={e => setEditForm({ ...editForm, supabase_url: e.target.value })} className="h-11 bg-white font-mono text-xs rounded-xl text-slate-900" /></div>
                                                     <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Email Acceso</Label><Input value={editForm.client_email} onChange={e => setEditForm({ ...editForm, client_email: e.target.value })} className="h-11 bg-white rounded-xl text-slate-900 font-bold" /></div>
                                                     <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Cambiar Contraseña</Label><Input value={editForm.password} onChange={e => setEditForm({ ...editForm, password: e.target.value })} className="h-11 bg-white rounded-xl text-slate-900" type="password" placeholder="Solo para cambiarla" /></div>
+                                                    <div className="md:col-span-2 space-y-2">
+                                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nivel de Acceso</Label>
+                                                        <div className="flex items-center gap-4">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setEditForm({ ...editForm, is_admin: !editForm.is_admin })}
+                                                                className={cn(
+                                                                    "flex items-center gap-2 px-4 h-10 rounded-xl border transition-all text-[10px] font-black uppercase tracking-widest",
+                                                                    editForm.is_admin
+                                                                        ? "bg-blue-600 border-blue-600 text-white"
+                                                                        : "bg-white border-slate-200 text-slate-400"
+                                                                )}
+                                                            >
+                                                                {editForm.is_admin ? "Admin" : "Cliente"}
+                                                            </button>
+                                                            <span className="text-[10px] font-bold text-slate-400">
+                                                                {editForm.is_admin ? "Se guardará como administrador del sistema" : "Acceso limitado a dashboard"}
+                                                            </span>
+                                                        </div>
+                                                    </div>
                                                     <div className="md:col-span-2 space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Service Role / Key</Label><Input value={editForm.supabase_anon_key} onChange={e => setEditForm({ ...editForm, supabase_anon_key: e.target.value })} className="h-11 bg-white font-mono text-xs rounded-xl text-slate-900" type="password" /></div>
 
                                                     <div className="md:col-span-2 space-y-4 pt-4">
@@ -383,6 +429,17 @@ export default function SettingsPage() {
                                             </td>
                                             <td className="px-6 py-4 text-sm font-bold text-slate-900">
                                                 {t.client_email || "No asignado"}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {t.is_admin ? (
+                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-[10px] font-black uppercase tracking-widest text-blue-600 border border-blue-100">
+                                                        <Shield className="h-3 w-3" /> Admin
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-500 border border-slate-100">
+                                                        Cliente
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2">
