@@ -1,16 +1,8 @@
 import { Suspense } from "react";
 import {
-    getKpiTotals,
-    getMejoresHoras,
-    getMotivoNoContacto,
-    getTipologiaLlamadas,
-    getAgendadosVsNoAgendados,
-    getOptInWhatsapp,
-    getMasterInteres,
-    getLeadsNoCualificados,
-    getAreaHistorico,
+    getKpiGenerales,
     getDynamicKpis,
-    AnalyticsFilters
+    AnalyticsFilters,
 } from "@/lib/actions/analytics";
 import { getActiveTenantConfig } from "@/lib/actions/tenant";
 import { getAdminStatus } from "@/lib/actions/auth";
@@ -26,71 +18,83 @@ import { DEFAULT_SUMMARY_KPIS, DEFAULT_CHARTS } from "@/lib/constants/kpi-defaul
 import { FilterBar } from "@/components/dashboard/FilterBar";
 import { parseFilters } from "@/lib/utils/date-filters";
 
-async function SummarySection({ from, to, isAdmin, filters }: { from: string; to: string; isAdmin: boolean; filters: AnalyticsFilters }) {
-    const kpi = await getKpiTotals(from, to, filters);
-    const tenantConfig = await getActiveTenantConfig();
+// ─── KPI SUMMARY SECTION ──────────────────────────────────────────────────────
+
+async function SummarySection({
+    from,
+    to,
+    isAdmin,
+    filters,
+}: {
+    from: string;
+    to: string;
+    isAdmin: boolean;
+    filters: AnalyticsFilters;
+}) {
+    const [kpi, tenantConfig] = await Promise.all([
+        getKpiGenerales(from, to, filters),
+        getActiveTenantConfig(),
+    ]);
 
     if (!tenantConfig) return null;
 
+    // Use per-client KPIs from config, fallback to defaults
     const currentConfigKpis = (tenantConfig.config as any)?.kpis as KpiConfig[] || [];
+    const mergedKpis = currentConfigKpis.length > 0 ? currentConfigKpis : DEFAULT_SUMMARY_KPIS;
 
-    let mergedKpis = currentConfigKpis;
-    if (currentConfigKpis.length === 0) {
-        mergedKpis = DEFAULT_SUMMARY_KPIS;
-    }
-
-    const dynamicValues = await getDynamicKpis(from, to, mergedKpis.filter(k => !k.staticKey), filters);
+    // Dynamic (custom) KPIs that aren't in the static KpiGenerales
+    const dynamicValues = await getDynamicKpis(
+        from,
+        to,
+        mergedKpis.filter(k => !k.staticKey),
+        filters
+    );
 
     return (
         <SummaryManager
             tenant={tenantConfig}
             initialKpis={mergedKpis}
-            values={kpi}
+            values={kpi as any}
             dynamicValues={dynamicValues}
             isAdmin={isAdmin}
         />
     );
 }
 
-async function ChartsSection({ from, to, isAdmin, filters }: { from: string; to: string; isAdmin: boolean; filters: AnalyticsFilters }) {
-    const [
-        mejoresHoras,
-        motivoNoContacto,
-        tipologia,
-        agendados,
-        optIn,
-        masterInteres,
-        leadsAnulados,
-        areaHistorico
-    ] = await Promise.all([
-        getMejoresHoras(from, to, filters),
-        getMotivoNoContacto(from, to, filters),
-        getTipologiaLlamadas(from, to, filters),
-        getAgendadosVsNoAgendados(from, to, filters),
-        getOptInWhatsapp(from, to, filters),
-        getMasterInteres(from, to, filters),
-        getLeadsNoCualificados(from, to, filters),
-        getAreaHistorico(from, to, filters)
+// ─── CHARTS SECTION ───────────────────────────────────────────────────────────
+
+async function ChartsSection({
+    from,
+    to,
+    isAdmin,
+    filters,
+}: {
+    from: string;
+    to: string;
+    isAdmin: boolean;
+    filters: AnalyticsFilters;
+}) {
+    const [kpi, tenantConfig] = await Promise.all([
+        getKpiGenerales(from, to, filters),
+        getActiveTenantConfig(),
     ]);
 
-    const tenantConfig = await getActiveTenantConfig();
     if (!tenantConfig) return null;
 
     const currentCharts = (tenantConfig.config as any)?.charts as ChartConfig[] || [];
-    let mergedCharts = currentCharts;
-    if (currentCharts.length === 0) {
-        mergedCharts = DEFAULT_CHARTS;
-    }
+    const mergedCharts = currentCharts.length > 0 ? currentCharts : DEFAULT_CHARTS;
 
+    // Map all chart data from the single KpiGenerales call
+    // dataKey in ChartConfig matches these keys
     const chartDataMap = {
-        mejoresHoras,
-        motivoNoContacto,
-        tipologia,
-        agendados,
-        optIn,
-        masterInteres,
-        leadsAnulados,
-        areaHistorico
+        porEstadoLlamada: kpi.por_estado_llamada,
+        porRazonTermino: kpi.por_razon_termino,
+        porOrigen: kpi.por_origen,
+        porTipoLead: kpi.por_tipo_lead,
+        porCualificacion: kpi.por_cualificacion,
+        porMotivoAnulacion: kpi.por_motivo_anulacion,
+        agendadosPorFecha: kpi.agendados_por_fecha,
+        primerContactoPorFecha: kpi.primer_contacto_por_fecha,
     };
 
     return (
@@ -103,7 +107,13 @@ async function ChartsSection({ from, to, isAdmin, filters }: { from: string; to:
     );
 }
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<any> }) {
+// ─── PAGE ─────────────────────────────────────────────────────────────────────
+
+export default async function DashboardPage({
+    searchParams,
+}: {
+    searchParams: Promise<any>;
+}) {
     const params = await searchParams;
     const { from, to, filters } = parseFilters(params);
     const isAdmin = await getAdminStatus();

@@ -1,69 +1,116 @@
 ﻿"use server";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import type { PostCallAnalisis, Reintento } from "@/types/database";
+import type { HistorialRow, IntentoLlamada } from "@/types/database";
+
+// ─── FETCH PARAMS ─────────────────────────────────────────────────────────────
 
 export interface FetchCallsParams {
     page: number;
     pageSize: number;
     search?: string;
-    callStatus?: string;
+    estadoLlamada?: string;
     fromDate?: string;
     toDate?: string;
-    curso?: string;
     pais?: string;
     origen?: string;
     campana?: string;
+    tipoLead?: string;
+    cualificacion?: string;
 }
 
 export interface FetchCallsResult {
-    data: PostCallAnalisis[];
+    data: HistorialRow[];
     count: number;
     totalPages: number;
 }
 
+// ─── FETCH CALLS (HISTORIAL) ──────────────────────────────────────────────────
+
+/**
+ * Fetches call history joining llamadas + lead + lead_cualificacion + agendamientos.
+ * Computes derived fields: tiempo_respuesta_minutos, fecha_primer_contacto.
+ */
 export async function fetchCalls({
     page = 1,
     pageSize = 50,
     search,
-    callStatus,
+    estadoLlamada,
     fromDate,
     toDate,
-    curso,
     pais,
     origen,
     campana,
+    tipoLead,
+    cualificacion,
 }: FetchCallsParams): Promise<FetchCallsResult> {
     const emptyResult: FetchCallsResult = { data: [], count: 0, totalPages: 0 };
+
     try {
         const supabase = await getSupabaseServerClient();
         const from = (page - 1) * pageSize;
         const to = from + pageSize - 1;
 
         let query = supabase
-            .from("post_call_analisis")
-            .select("*", { count: "exact" })
-            .order("created_at", { ascending: false })
+            .from("llamadas")
+            .select(`
+                id,
+                id_llamada_retell,
+                tipo_agente,
+                nombre_agente,
+                estado_llamada,
+                razon_termino,
+                fecha_inicio,
+                duracion_segundos,
+                url_grabacion,
+                transcripcion,
+                resumen,
+                lead (
+                    id,
+                    nombre,
+                    apellido,
+                    telefono,
+                    email,
+                    pais,
+                    tipo_lead,
+                    origen,
+                    campana,
+                    fecha_ingreso_crm
+                ),
+                lead_cualificacion (
+                    cualificacion,
+                    motivo_anulacion,
+                    anios_experiencia,
+                    nivel_estudios
+                ),
+                agendamientos:agendamientos (
+                    fecha_agendada_cliente,
+                    confirmado
+                )
+            `, { count: "exact" })
+            .order("fecha_inicio", { ascending: false })
             .range(from, to);
 
+        // ── Filters ──────────────────────────────────────────────────────────
+        if (estadoLlamada && estadoLlamada !== "ALL") {
+            query = query.eq("estado_llamada", estadoLlamada);
+        }
+        if (fromDate) query = query.gte("fecha_inicio", fromDate);
+        if (toDate) query = query.lte("fecha_inicio", toDate);
+
+        // Filters on the joined lead table
+        if (pais) query = query.eq("lead.pais", pais);
+        if (origen) query = query.eq("lead.origen", origen);
+        if (campana) query = query.eq("lead.campana", campana);
+        if (tipoLead) query = query.eq("lead.tipo_lead", tipoLead);
+        if (cualificacion) query = query.eq("lead_cualificacion.cualificacion", cualificacion);
+
+        // Search by phone or name
         if (search) {
             query = query.or(
-                `lead_id.ilike.%${search}%,phone_number.ilike.%${search}%`
+                `lead.telefono.ilike.%${search}%,lead.nombre.ilike.%${search}%,lead.apellido.ilike.%${search}%`
             );
         }
-
-        if (callStatus && callStatus !== "ALL") {
-            query = query.eq("call_status", callStatus);
-        }
-
-        if (fromDate) query = query.gte("created_at", fromDate);
-        if (toDate) query = query.lte("created_at", toDate);
-
-        // Advanced filters
-        if (curso) query = query.ilike("master_interes", `%${curso}%`);
-        if (pais) query = query.contains("extra_data", { pais: pais });
-        if (origen) query = query.contains("extra_data", { origen: origen });
-        if (campana) query = query.contains("extra_data", { campana: campana });
 
         const { data, error, count } = await query;
 
@@ -72,8 +119,61 @@ export async function fetchCalls({
             return emptyResult;
         }
 
+        // ── Map to flat HistorialRow + compute derived fields ─────────────
+        const rows: HistorialRow[] = (data ?? []).map((row: any) => {
+            const lead = row.lead ?? {};
+            const cual = Array.isArray(row.lead_cualificacion)
+                ? row.lead_cualificacion[0]
+                : row.lead_cualificacion ?? {};
+            const agenda = Array.isArray(row.agendamientos)
+                ? row.agendamientos[0]
+                : row.agendamientos ?? {};
+
+            // Tiempo de respuesta: diferencia en minutos entre fecha_ingreso_crm y fecha_inicio de primera llamada
+            let tiempo_respuesta_minutos: number | null = null;
+            if (lead.fecha_ingreso_crm && row.fecha_inicio) {
+                const diff = new Date(row.fecha_inicio).getTime() - new Date(lead.fecha_ingreso_crm).getTime();
+                tiempo_respuesta_minutos = Math.round(diff / 1000 / 60);
+            }
+
+            return {
+                id: row.id,
+                id_llamada_retell: row.id_llamada_retell,
+                tipo_agente: row.tipo_agente,
+                nombre_agente: row.nombre_agente,
+                estado_llamada: row.estado_llamada,
+                razon_termino: row.razon_termino,
+                fecha_inicio: row.fecha_inicio,
+                duracion_segundos: row.duracion_segundos,
+                url_grabacion: row.url_grabacion,
+                transcripcion: row.transcripcion,
+                resumen: row.resumen,
+                // Lead fields
+                nombre: lead.nombre,
+                apellido: lead.apellido,
+                telefono: lead.telefono,
+                email: lead.email,
+                pais: lead.pais,
+                tipo_lead: lead.tipo_lead,
+                origen: lead.origen,
+                campana: lead.campana,
+                fecha_ingreso_crm: lead.fecha_ingreso_crm,
+                // Cualificacion fields
+                cualificacion: cual.cualificacion,
+                motivo_anulacion: cual.motivo_anulacion,
+                anios_experiencia: cual.anios_experiencia,
+                nivel_estudios: cual.nivel_estudios,
+                // Agendamiento fields
+                fecha_agendada_cliente: agenda.fecha_agendada_cliente,
+                confirmado: agenda.confirmado,
+                // Computed
+                tiempo_respuesta_minutos,
+                fecha_primer_contacto: row.fecha_inicio, // se enriquece abajo si hay WhatsApp
+            };
+        });
+
         return {
-            data: (data as PostCallAnalisis[]) ?? [],
+            data: rows,
             count: count ?? 0,
             totalPages: Math.ceil((count ?? 0) / pageSize),
         };
@@ -83,72 +183,103 @@ export async function fetchCalls({
     }
 }
 
-export async function upsertExtraField(
-    id: string,
-    key: string,
-    value: string
-) {
-    const supabase = await getSupabaseServerClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any).rpc("upsert_extra_field", {
-        p_id: id,
-        p_key: key,
-        p_value: value,
-    });
-    if (error) throw new Error((error as { message: string }).message);
-}
+// ─── GET CALLS BY PHONE ───────────────────────────────────────────────────────
 
 /**
- * Adds a new column header to ALL records in post_call_analisis.
- * Sets the key with an empty string so it appears as a column in the table.
+ * Returns all calls for a given phone number via the joined lead table.
  */
-export async function addColumnHeader(key: string) {
-    // Sanitize key: lowercase, only letters, numbers and underscores
-    const sanitized = key.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_");
-    if (!sanitized) throw new Error("Nombre de campo inválido.");
+export async function getCallsByPhone(phone: string): Promise<HistorialRow[]> {
+    try {
+        const supabase = await getSupabaseServerClient();
+        const { data, error } = await supabase
+            .from("llamadas")
+            .select(`
+                id,
+                id_llamada_retell,
+                estado_llamada,
+                razon_termino,
+                fecha_inicio,
+                duracion_segundos,
+                url_grabacion,
+                transcripcion,
+                resumen,
+                lead!inner ( id, nombre, apellido, telefono, pais, origen, campana, fecha_ingreso_crm, tipo_lead ),
+                lead_cualificacion ( cualificacion, motivo_anulacion ),
+                agendamientos ( fecha_agendada_cliente, confirmado )
+            `)
+            .eq("lead.telefono", phone)
+            .order("fecha_inicio", { ascending: false });
 
-    const supabase = await getSupabaseServerClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any).rpc("add_column_header_to_all", {
-        p_key: sanitized,
-    });
-    if (error) throw new Error((error as { message: string }).message);
-    return sanitized;
+        if (error) throw new Error(error.message);
+
+        return (data ?? []).map((row: any) => {
+            const lead = row.lead ?? {};
+            const cual = Array.isArray(row.lead_cualificacion) ? row.lead_cualificacion[0] : row.lead_cualificacion ?? {};
+            const agenda = Array.isArray(row.agendamientos) ? row.agendamientos[0] : row.agendamientos ?? {};
+            return {
+                id: row.id, id_llamada_retell: row.id_llamada_retell,
+                estado_llamada: row.estado_llamada, razon_termino: row.razon_termino,
+                fecha_inicio: row.fecha_inicio, duracion_segundos: row.duracion_segundos,
+                url_grabacion: row.url_grabacion, transcripcion: row.transcripcion, resumen: row.resumen,
+                nombre: lead.nombre, apellido: lead.apellido, telefono: lead.telefono,
+                pais: lead.pais, origen: lead.origen, campana: lead.campana,
+                fecha_ingreso_crm: lead.fecha_ingreso_crm, tipo_lead: lead.tipo_lead,
+                cualificacion: cual.cualificacion, motivo_anulacion: cual.motivo_anulacion,
+                fecha_agendada_cliente: agenda.fecha_agendada_cliente, confirmado: agenda.confirmado,
+            };
+        });
+    } catch (e) {
+        console.error("getCallsByPhone ERROR:", e);
+        return [];
+    }
 }
 
-export async function getCallsByPhone(phone: string): Promise<PostCallAnalisis[]> {
-    const supabase = await getSupabaseServerClient();
-    const { data, error } = await supabase
-        .from("post_call_analisis")
-        .select("*")
-        .eq("phone_number", phone)
-        .order("created_at", { ascending: false });
+// ─── FETCH INTENTOS BY PHONE ──────────────────────────────────────────────────
 
-    if (error) throw new Error(error.message);
-    return (data as PostCallAnalisis[]) ?? [];
-}
+/**
+ * Returns call/whatsapp attempt history for a given phone number.
+ */
+export async function fetchIntentosByPhone(phone: string): Promise<IntentoLlamada[]> {
+    try {
+        const supabase = await getSupabaseServerClient();
+        const { data, error } = await supabase
+            .from("intentos_llamadas")
+            .select(`
+                *,
+                lead!inner ( id, nombre, apellido, telefono )
+            `)
+            .eq("lead.telefono", phone)
+            .order("fecha_creacion", { ascending: false });
 
-export async function fetchReintentosByPhone(phone: string): Promise<Reintento[]> {
-    const supabase = await getSupabaseServerClient();
-    // Try filtering by telefono OR phone_number columns (both may be used)
-    const { data, error } = await supabase
-        .from("reintentos")
-        .select("*")
-        .or(`telefono.eq.${phone},phone_number.eq.${phone}`)
-        .order("created_at", { ascending: false });
-
-    if (error) {
-        // If phone_number column doesn't exist, fall back to telefono only
-        const { data: data2, error: error2 } = await supabase
-            .from("reintentos")
-            .select("*")
-            .eq("telefono", phone)
-            .order("created_at", { ascending: false });
-        if (error2) {
-            console.error("fetchReintentosByPhone ERROR:", error2.message);
+        if (error) {
+            console.error("fetchIntentosByPhone ERROR:", error.message);
             return [];
         }
-        return (data2 as Reintento[]) ?? [];
+        return (data ?? []) as IntentoLlamada[];
+    } catch (e) {
+        console.error("fetchIntentosByPhone EXCEPTION:", e);
+        return [];
     }
-    return (data as Reintento[]) ?? [];
+}
+
+// ─── FETCH CONVERSACIONES WHATSAPP BY PHONE ───────────────────────────────────
+
+export async function fetchWhatsappByPhone(phone: string) {
+    try {
+        const supabase = await getSupabaseServerClient();
+        const { data, error } = await supabase
+            .from("conversaciones_whatsapp")
+            .select(`*, lead!inner ( id, nombre, apellido, telefono )`)
+            .eq("lead.telefono", phone)
+            .order("fecha_creacion", { ascending: false });
+
+        if (error) {
+            console.error("fetchWhatsappByPhone ERROR:", error.message);
+            return [];
+        }
+        return data ?? [];
+    } catch (e) {
+        console.error("fetchWhatsappByPhone EXCEPTION:", e);
+        return [];
+    }
 }
