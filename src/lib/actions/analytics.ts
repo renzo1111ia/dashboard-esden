@@ -669,3 +669,222 @@ export async function getKpiWhatsapp(
         return empty;
     }
 }
+
+// ─── CAMPAÑAS MODULE ──────────────────────────────────────────────────────────
+
+/** Un resumen de una campaña individual */
+export interface CampanaRow {
+    nombre: string;
+    total_leads: number;
+    contactados: number;
+    no_contacto: number;
+    tasa_contacto: number;           // %
+    cualificados: number;
+    no_cualificados: number;
+    agendados: number;
+    total_llamadas: number;
+    total_minutos: number;
+    duracion_media_seg: number;
+}
+
+export interface KpiCampanas {
+    // Totales globales (suma de todas las campañas)
+    total_leads: number;
+    total_llamadas: number;
+    total_contactados: number;
+    total_agendados: number;
+    total_cualificados: number;
+    total_minutos: number;
+
+    // Por campaña (tabla maestra)
+    campanas: CampanaRow[];
+
+    // Gráficos comparativos
+    leads_por_campana: ChartRow[];       // label = campaña, value = leads
+    contactados_por_campana: ChartRow[]; // label = campaña, value = contactados
+    cualif_por_campana: ChartRow[];      // label = campaña, value = cualificados
+    agendados_por_campana: ChartRow[];   // label = campaña, value = agendados
+    minutos_por_campana: ChartRow[];     // label = campaña, value = minutos
+
+    // Evolución diaria de leads
+    leads_por_dia: ChartRow[];
+}
+
+/**
+ * KPIs del módulo Campañas.
+ * Agrupa leads, llamadas, agendamientos y cualificación por campaña.
+ */
+export async function getKpiCampanas(
+    from: string,
+    to: string,
+    filters: AnalyticsFilters = {}
+): Promise<KpiCampanas> {
+    const supabase = await getSupabaseServerClient();
+
+    const empty: KpiCampanas = {
+        total_leads: 0, total_llamadas: 0, total_contactados: 0,
+        total_agendados: 0, total_cualificados: 0, total_minutos: 0,
+        campanas: [], leads_por_campana: [], contactados_por_campana: [],
+        cualif_por_campana: [], agendados_por_campana: [], minutos_por_campana: [],
+        leads_por_dia: [],
+    };
+
+    try {
+        // ── 1. Leads en rango (con filtros) ──────────────────────────────────
+        let leadsQ = supabase
+            .from("lead")
+            .select("id, campana, tipo_lead, fecha_ingreso_crm")
+            .gte("fecha_ingreso_crm", from)
+            .lte("fecha_ingreso_crm", to);
+
+        if (filters.pais)     leadsQ = leadsQ.eq("pais",     filters.pais);
+        if (filters.origen)   leadsQ = leadsQ.eq("origen",   filters.origen);
+        if (filters.campana)  leadsQ = leadsQ.eq("campana",  filters.campana);
+        if (filters.tipoLead) leadsQ = leadsQ.eq("tipo_lead", filters.tipoLead);
+
+        const { data: leads } = await leadsQ;
+        const leadsData = (leads ?? []) as any[];
+
+        // ── 2. Llamadas en rango ──────────────────────────────────────────────
+        let llamQ = supabase
+            .from("llamadas")
+            .select(`
+                id, estado_llamada, duracion_segundos, fecha_inicio,
+                lead!inner ( id, campana, pais, origen, tipo_lead )
+            `)
+            .gte("fecha_inicio", from)
+            .lte("fecha_inicio", to);
+
+        llamQ = applyLeadFilters(llamQ, filters);
+        const { data: llamadas } = await llamQ;
+        const llamData = (llamadas ?? []) as any[];
+
+        // ── 3. Agendamientos en rango ─────────────────────────────────────────
+        let agQ = supabase
+            .from("agendamientos")
+            .select(`
+                id, fecha_agendada_cliente, confirmado,
+                lead!inner ( id, campana, pais, origen, tipo_lead )
+            `)
+            .eq("confirmado", true)
+            .gte("fecha_creacion", from)
+            .lte("fecha_creacion", to);
+
+        agQ = applyLeadFilters(agQ, filters);
+        const { data: agendamientos } = await agQ;
+        const agData = (agendamientos ?? []) as any[];
+
+        // ── 4. Cualificaciones ────────────────────────────────────────────────
+        let cualQ = supabase
+            .from("lead_cualificacion")
+            .select(`
+                id_lead, cualificacion,
+                lead!inner ( id, campana, pais, origen, tipo_lead )
+            `)
+            .gte("fecha_creacion", from)
+            .lte("fecha_creacion", to);
+
+        cualQ = applyLeadFilters(cualQ, filters);
+        const { data: cualificaciones } = await cualQ;
+        const cualData = (cualificaciones ?? []) as any[];
+
+        // ── Agrupa por campaña ────────────────────────────────────────────────
+        const campMap: Record<string, CampanaRow> = {};
+
+        const getCamp = (nombre: string): CampanaRow => {
+            if (!campMap[nombre]) {
+                campMap[nombre] = {
+                    nombre,
+                    total_leads: 0, contactados: 0, no_contacto: 0,
+                    tasa_contacto: 0, cualificados: 0, no_cualificados: 0,
+                    agendados: 0, total_llamadas: 0, total_minutos: 0, duracion_media_seg: 0,
+                };
+            }
+            return campMap[nombre];
+        };
+
+        // Leads
+        for (const l of leadsData) {
+            const c = getCamp(l.campana ?? "Sin campaña");
+            c.total_leads++;
+        }
+
+        // Llamadas
+        const llamPorCamp: Record<string, { secs: number; count: number }> = {};
+        for (const l of llamData) {
+            const campana = (l.lead as any)?.campana ?? "Sin campaña";
+            const c = getCamp(campana);
+            c.total_llamadas++;
+            const secs = l.duracion_segundos ?? 0;
+            c.total_minutos += Math.round(secs / 60);
+            if (!llamPorCamp[campana]) llamPorCamp[campana] = { secs: 0, count: 0 };
+            llamPorCamp[campana].secs  += secs;
+            llamPorCamp[campana].count += 1;
+            if (l.estado_llamada === "CONTACTED") c.contactados++;
+            else c.no_contacto++;
+        }
+
+        // Agendamientos
+        for (const a of agData) {
+            const campana = (a.lead as any)?.campana ?? "Sin campaña";
+            getCamp(campana).agendados++;
+        }
+
+        // Cualificaciones
+        for (const q of cualData) {
+            const campana = (q.lead as any)?.campana ?? "Sin campaña";
+            const c = getCamp(campana);
+            if (q.cualificacion && q.cualificacion !== "NO") c.cualificados++;
+            else c.no_cualificados++;
+        }
+
+        // Post-calc tasa contacto y duracion media
+        for (const [nombre, c] of Object.entries(campMap)) {
+            c.tasa_contacto = c.total_llamadas > 0
+                ? Math.round((c.contactados / c.total_llamadas) * 100) : 0;
+            const p = llamPorCamp[nombre];
+            c.duracion_media_seg = p && p.count > 0 ? Math.round(p.secs / p.count) : 0;
+        }
+
+        const campanas = Object.values(campMap).sort((a, b) => b.total_leads - a.total_leads);
+
+        // ── Totales globales ──────────────────────────────────────────────────
+        const total_leads      = campanas.reduce((s, c) => s + c.total_leads, 0);
+        const total_llamadas   = campanas.reduce((s, c) => s + c.total_llamadas, 0);
+        const total_contactados = campanas.reduce((s, c) => s + c.contactados, 0);
+        const total_agendados  = campanas.reduce((s, c) => s + c.agendados, 0);
+        const total_cualificados = campanas.reduce((s, c) => s + c.cualificados, 0);
+        const total_minutos    = campanas.reduce((s, c) => s + c.total_minutos, 0);
+
+        // ── Gráficos ──────────────────────────────────────────────────────────
+        const leads_por_campana       = campanas.map(c => ({ label: c.nombre, value: c.total_leads }));
+        const contactados_por_campana = campanas.map(c => ({ label: c.nombre, value: c.contactados }));
+        const cualif_por_campana      = campanas.map(c => ({ label: c.nombre, value: c.cualificados }));
+        const agendados_por_campana   = campanas.map(c => ({ label: c.nombre, value: c.agendados }));
+        const minutos_por_campana     = campanas.map(c => ({ label: c.nombre, value: c.total_minutos }));
+
+        // Leads por día
+        const byDayMap: Record<string, number> = {};
+        for (const l of leadsData) {
+            if (!l.fecha_ingreso_crm) continue;
+            const day = (l.fecha_ingreso_crm as string).slice(0, 10);
+            byDayMap[day] = (byDayMap[day] || 0) + 1;
+        }
+        const leads_por_dia: ChartRow[] = Object.entries(byDayMap)
+            .map(([label, value]) => ({ label, value }))
+            .sort((a, b) => a.label.localeCompare(b.label));
+
+        return {
+            total_leads, total_llamadas, total_contactados,
+            total_agendados, total_cualificados, total_minutos,
+            campanas, leads_por_campana, contactados_por_campana,
+            cualif_por_campana, agendados_por_campana, minutos_por_campana,
+            leads_por_dia,
+        };
+
+    } catch (e) {
+        console.error("getKpiCampanas EXCEPTION:", e);
+        return empty;
+    }
+}
+
