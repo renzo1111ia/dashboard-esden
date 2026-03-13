@@ -549,3 +549,123 @@ export async function getKpiMinutos(
         return empty;
     }
 }
+
+// ─── WHATSAPP MODULE ──────────────────────────────────────────────────────────
+
+export interface KpiWhatsapp {
+    // Conteos base
+    total_conversaciones: number;       // total filas en conversaciones_whatsapp
+    total_leads_unicos: number;         // COUNT DISTINCT id_lead
+    con_opt_in: number;                 // opt_in_whatsapp = true
+    sin_opt_in: number;
+    tasa_opt_in: number;                // porcentaje
+
+    // Desglose de estado de conversación
+    por_estado_conversacion: ChartRow[]; // label = estado, value = count
+
+    // Leads por tipo (ilocalizable / nuevo / localizable)
+    por_tipo_lead: ChartRow[];
+
+    // Leads por origen
+    por_origen: ChartRow[];
+
+    // Conversaciones por día
+    conversaciones_por_dia: ChartRow[]; // label = YYYY-MM-DD, value = count
+
+    // Opt-in por campaña
+    opt_in_por_campana: ChartRow[];     // label = campaña, value = count opt-in
+}
+
+/**
+ * KPIs del módulo WhatsApp.
+ * Queries conversaciones_whatsapp JOIN lead.
+ */
+export async function getKpiWhatsapp(
+    from: string,
+    to: string,
+    filters: AnalyticsFilters = {}
+): Promise<KpiWhatsapp> {
+    const supabase = await getSupabaseServerClient();
+
+    const empty: KpiWhatsapp = {
+        total_conversaciones: 0, total_leads_unicos: 0,
+        con_opt_in: 0, sin_opt_in: 0, tasa_opt_in: 0,
+        por_estado_conversacion: [], por_tipo_lead: [],
+        por_origen: [], conversaciones_por_dia: [], opt_in_por_campana: [],
+    };
+
+    try {
+        let q = supabase
+            .from("conversaciones_whatsapp")
+            .select(`
+                id,
+                id_lead,
+                estado,
+                opt_in_whatsapp,
+                fecha_creacion,
+                lead!inner ( id, pais, origen, campana, tipo_lead )
+            `)
+            .gte("fecha_creacion", from)
+            .lte("fecha_creacion", to);
+
+        q = applyLeadFilters(q, filters);
+
+        const { data: conversaciones } = await q;
+        const rows = (conversaciones ?? []) as any[];
+
+        if (rows.length === 0) return empty;
+
+        // ── Conteos base ──────────────────────────────────────────────────────
+        const total_conversaciones = rows.length;
+        const leadIds = new Set(rows.map((r: any) => r.id_lead).filter(Boolean));
+        const total_leads_unicos = leadIds.size;
+
+        const con_opt_in  = rows.filter((r: any) => r.opt_in_whatsapp === true).length;
+        const sin_opt_in  = total_conversaciones - con_opt_in;
+        const tasa_opt_in = total_conversaciones > 0
+            ? Math.round((con_opt_in / total_conversaciones) * 100)
+            : 0;
+
+        // ── Por estado de conversación ─────────────────────────────────────────
+        const por_estado_conversacion = groupBy(rows, "estado");
+
+        // ── Por tipo lead ─────────────────────────────────────────────────────
+        const por_tipo_lead = groupBy(rows.map((r: any) => r.lead), "tipo_lead");
+
+        // ── Por origen ────────────────────────────────────────────────────────
+        const por_origen = groupBy(rows.map((r: any) => r.lead), "origen");
+
+        // ── Conversaciones por día ─────────────────────────────────────────────
+        const byDayMap: Record<string, number> = {};
+        for (const r of rows) {
+            if (!r.fecha_creacion) continue;
+            const day = (r.fecha_creacion as string).slice(0, 10);
+            byDayMap[day] = (byDayMap[day] || 0) + 1;
+        }
+        const conversaciones_por_dia: ChartRow[] = Object.entries(byDayMap)
+            .map(([label, value]) => ({ label, value }))
+            .sort((a, b) => a.label.localeCompare(b.label));
+
+        // ── Opt-in por campaña ────────────────────────────────────────────────
+        const byOptCampanaMap: Record<string, number> = {};
+        for (const r of rows) {
+            if (!r.opt_in_whatsapp) continue;
+            const campana = (r.lead as any)?.campana ?? "Sin campaña";
+            byOptCampanaMap[campana] = (byOptCampanaMap[campana] || 0) + 1;
+        }
+        const opt_in_por_campana: ChartRow[] = Object.entries(byOptCampanaMap)
+            .map(([label, value]) => ({ label, value }))
+            .sort((a, b) => b.value - a.value);
+
+        return {
+            total_conversaciones, total_leads_unicos,
+            con_opt_in, sin_opt_in, tasa_opt_in,
+            por_estado_conversacion, por_tipo_lead, por_origen,
+            conversaciones_por_dia, opt_in_por_campana,
+        };
+
+    } catch (e) {
+        console.error("getKpiWhatsapp EXCEPTION:", e);
+        return empty;
+    }
+}
