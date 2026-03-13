@@ -20,6 +20,7 @@ export interface KpiConfig {
     size: "3" | "4" | "6" | "8" | "9" | "12";
     staticKey?: string; // If present, it's a hardcoded KPI from getKpiTotals
     isVisible?: boolean;
+    suffix?: string; // Unit label displayed after value, e.g. ' min', ' seg', '%'
 
     // Main calculation (Numerator)
     calcType?: "count" | "sum" | "avg";

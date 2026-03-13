@@ -153,7 +153,7 @@ export async function getKpiGenerales(
 
         cualQuery = applyLeadFilters(cualQuery, filters);
         const { data: cualificaciones } = await cualQuery;
-        const cualesData = cualificaciones ?? [];
+        const cualesData = (cualificaciones ?? []) as any[];
 
         // ── 3. Agendamientos ─────────────────────────────────────────────────
         let agendaQuery = supabase
@@ -169,7 +169,7 @@ export async function getKpiGenerales(
 
         agendaQuery = applyLeadFilters(agendaQuery, filters);
         const { data: agendamientos } = await agendaQuery;
-        const agendaData = agendamientos ?? [];
+        const agendaData = (agendamientos ?? []) as any[];
 
         // ── 4. Primer contacto (llamadas + whatsapp) ─────────────────────────
         let wpQuery = supabase
@@ -184,6 +184,7 @@ export async function getKpiGenerales(
 
         wpQuery = applyLeadFilters(wpQuery, filters);
         const { data: wpData } = await wpQuery;
+        const wpDataArr = (wpData ?? []) as any[];
 
         // ── 5. Leads únicos en el rango ──────────────────────────────────────
         let leadsQuery = supabase
@@ -197,19 +198,20 @@ export async function getKpiGenerales(
         if (filters.campana) leadsQuery = leadsQuery.eq("campana", filters.campana);
         if (filters.tipoLead) leadsQuery = leadsQuery.eq("tipo_lead", filters.tipoLead);
         const { data: leads } = await leadsQuery;
-        const leadsData = leads ?? [];
+        const leadsData = (leads ?? []) as any[];
 
         // ── Compute numeric KPIs ─────────────────────────────────────────────
 
-        const total_llamadas = llamadasData.length;
+        const llamadasDataTyped = llamadasData as any[];
+        const total_llamadas = llamadasDataTyped.length;
         const total_leads = leadsData.length;
 
-        const contactados = llamadasData.filter(l => l.estado_llamada === "CONTACTED");
-        const noContacto = llamadasData.filter(l =>
+        const contactados = llamadasDataTyped.filter((l: any) => l.estado_llamada === "CONTACTED");
+        const noContacto = llamadasDataTyped.filter((l: any) =>
             l.estado_llamada === "NO_CONTACT" || l.estado_llamada === "VOICEMAIL"
         );
 
-        const totalSecs = llamadasData.reduce((sum, l) => sum + (l.duracion_segundos ?? 0), 0);
+        const totalSecs = llamadasDataTyped.reduce((sum: number, l: any) => sum + (l.duracion_segundos ?? 0), 0);
         const total_minutos = Math.round(totalSecs / 60);
         const duracion_media_segundos = total_llamadas > 0 ? Math.round(totalSecs / total_llamadas) : 0;
         const tasa_contacto = total_llamadas > 0
@@ -228,15 +230,15 @@ export async function getKpiGenerales(
                 ? Math.round(tiempos.reduce((a: number, b: number) => a + b, 0) / tiempos.length)
                 : null;
 
-        const total_cualificados = cualesData.filter(c => c.cualificacion && c.cualificacion !== "NO").length;
-        const total_no_cualificados = cualesData.filter(c => !c.cualificacion || c.cualificacion === "NO").length;
+        const total_cualificados = cualesData.filter((c: any) => c.cualificacion && c.cualificacion !== "NO").length;
+        const total_no_cualificados = cualesData.filter((c: any) => !c.cualificacion || c.cualificacion === "NO").length;
 
         // ── Compute chart data ───────────────────────────────────────────────
 
-        const por_estado_llamada = groupBy(llamadasData, "estado_llamada");
-        const por_razon_termino = groupBy(llamadasData, "razon_termino");
-        const por_origen = groupBy(llamadasData.map((l: any) => l.lead), "origen");
-        const por_tipo_lead = groupBy(llamadasData.map((l: any) => l.lead), "tipo_lead");
+        const por_estado_llamada = groupBy(llamadasDataTyped, "estado_llamada");
+        const por_razon_termino = groupBy(llamadasDataTyped, "razon_termino");
+        const por_origen = groupBy(llamadasDataTyped.map((l: any) => l.lead), "origen");
+        const por_tipo_lead = groupBy(llamadasDataTyped.map((l: any) => l.lead), "tipo_lead");
         const por_cualificacion = groupBy(cualesData, "cualificacion");
         const por_motivo_anulacion = groupBy(
             cualesData.filter((c: any) => !!c.motivo_anulacion),
@@ -246,8 +248,9 @@ export async function getKpiGenerales(
         // Agendados por fecha (groupBy day)
         const agendadosFechaMap: Record<string, number> = {};
         for (const a of agendaData) {
-            if (!a.fecha_agendada_cliente) continue;
-            const day = a.fecha_agendada_cliente.slice(0, 10);
+            const fa = (a as any).fecha_agendada_cliente;
+            if (!fa) continue;
+            const day = (fa as string).slice(0, 10);
             agendadosFechaMap[day] = (agendadosFechaMap[day] || 0) + 1;
         }
         const agendados_por_fecha: ChartRow[] = Object.entries(agendadosFechaMap)
@@ -256,18 +259,20 @@ export async function getKpiGenerales(
 
         // Primer contacto por fecha (combina llamadas + whatsapp, toma el mínimo por lead)
         const firstContactMap: Record<string, string> = {};
-        for (const l of llamadasData) {
-            const leadId = (l.lead as any)?.id;
-            if (!leadId || !l.fecha_inicio) continue;
-            if (!firstContactMap[leadId] || l.fecha_inicio < firstContactMap[leadId]) {
-                firstContactMap[leadId] = l.fecha_inicio;
+        for (const l of llamadasDataTyped) {
+            const leadId = (l as any).lead?.id;
+            const fi = (l as any).fecha_inicio;
+            if (!leadId || !fi) continue;
+            if (!firstContactMap[leadId] || fi < firstContactMap[leadId]) {
+                firstContactMap[leadId] = fi;
             }
         }
-        for (const w of (wpData ?? [])) {
+        for (const w of wpDataArr) {
             const leadId = (w as any).id_lead;
-            if (!leadId || !w.fecha_creacion) continue;
-            if (!firstContactMap[leadId] || w.fecha_creacion < firstContactMap[leadId]) {
-                firstContactMap[leadId] = w.fecha_creacion;
+            const fc = (w as any).fecha_creacion;
+            if (!leadId || !fc) continue;
+            if (!firstContactMap[leadId] || fc < firstContactMap[leadId]) {
+                firstContactMap[leadId] = fc;
             }
         }
         const primerContactoFechaMap: Record<string, number> = {};
@@ -340,23 +345,27 @@ export async function getDynamicKpis(
                 .lte("fecha_creacion", to);
 
             // Apply condition if specified
+            // condOp values from KpiConfig: "=" | "!=" | "ILIKE" | ">" | "<"
             if (c.condCol && c.condOp && c.condVal) {
-                if (c.condOp === "eq") query = query.eq(c.condCol, c.condVal);
-                if (c.condOp === "neq") query = query.neq(c.condCol, c.condVal);
-                if (c.condOp === "ilike") query = query.ilike(c.condCol, `%${c.condVal}%`);
+                if (c.condOp === "=") query = query.eq(c.condCol, c.condVal);
+                if (c.condOp === "!=") query = query.neq(c.condCol, c.condVal);
+                if (c.condOp === "ILIKE") query = query.ilike(c.condCol, `%${c.condVal}%`);
+                if (c.condOp === ">") query = query.gt(c.condCol, c.condVal);
+                if (c.condOp === "<") query = query.lt(c.condCol, c.condVal);
             }
 
             const { data, error, count } = await query;
 
             if (error) { results[c.id] = 0; return; }
 
-            if (c.calcType === "COUNT") {
+            // calcType values from KpiConfig: "count" | "sum" | "avg"
+            if (c.calcType === "count") {
                 results[c.id] = count ?? 0;
-            } else if (c.calcType === "SUM" && data) {
-                results[c.id] = (data as any[]).reduce((sum, row) => sum + (Number(row[colName]) || 0), 0);
-            } else if (c.calcType === "AVG" && data && data.length > 0) {
-                const sum = (data as any[]).reduce((s, row) => s + (Number(row[colName]) || 0), 0);
-                results[c.id] = Math.round(sum / data.length);
+            } else if (c.calcType === "sum" && data) {
+                results[c.id] = (data as any[]).reduce((sum: number, row: any) => sum + (Number(row[colName]) || 0), 0);
+            } else if (c.calcType === "avg" && data && (data as any[]).length > 0) {
+                const sum = (data as any[]).reduce((s: number, row: any) => s + (Number(row[colName]) || 0), 0);
+                results[c.id] = Math.round(sum / (data as any[]).length);
             } else {
                 results[c.id] = count ?? 0;
             }
