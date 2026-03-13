@@ -188,16 +188,31 @@ export default function SettingsPage() {
                                     <td colSpan={4} className="p-0">
                                         <div className="bg-blue-50/30 p-8 border-b border-blue-100 animate-in slide-in-from-top duration-300">
                                             <form onSubmit={handleSaveNew} className="space-y-6">
-                                                <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center justify-between mb-4">
                                                     <h3 className="text-sm font-black uppercase tracking-widest text-blue-600">Configurar Nuevo Entorno</h3>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setShowNewForm(false)}
-                                                        className="h-8 w-8 flex items-center justify-center rounded-full bg-white text-slate-400 hover:text-red-500 shadow-sm transition-all"
-                                                        aria-label="Cerrar"
-                                                    >
-                                                        <X className="h-5 w-5" />
-                                                    </button>
+                                                    <div className="flex items-center gap-3">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setEditForm({ ...editForm, is_admin: !editForm.is_admin })}
+                                                            className={cn(
+                                                                "flex items-center gap-2 px-4 h-9 rounded-xl border-2 transition-all font-black text-[10px] uppercase tracking-widest shadow-sm",
+                                                                editForm.is_admin
+                                                                    ? "bg-blue-600 border-blue-600 text-white"
+                                                                    : "bg-white border-slate-200 text-slate-400 hover:border-slate-300"
+                                                            )}
+                                                        >
+                                                            <Shield className={cn("h-3.5 w-3.5", editForm.is_admin ? "text-blue-100" : "text-slate-300")} />
+                                                            {editForm.is_admin ? "Nuevo Admin" : "Nuevo Cliente"}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setShowNewForm(false)}
+                                                            className="h-9 w-9 flex items-center justify-center rounded-xl bg-white text-slate-400 hover:text-red-500 border border-slate-100 shadow-sm transition-all"
+                                                            aria-label="Cerrar"
+                                                        >
+                                                            <X className="h-5 w-5" />
+                                                        </button>
+                                                    </div>
                                                 </div>
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                     <div className="space-y-2">
@@ -210,27 +225,31 @@ export default function SettingsPage() {
                                                             required
                                                         />
                                                     </div>
-                                                    <div className="space-y-2">
-                                                        <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Supabase API URL</Label>
-                                                        <Input
-                                                            value={editForm.supabase_url}
-                                                            onChange={e => setEditForm({ ...editForm, supabase_url: e.target.value })}
-                                                            className="h-12 bg-white border-slate-200 text-slate-900 font-mono text-xs rounded-xl focus:ring-blue-100"
-                                                            placeholder="https://xxx.supabase.co"
-                                                            required
-                                                        />
-                                                    </div>
-                                                    <div className="md:col-span-2 space-y-2">
-                                                        <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Supabase Service Role / Anon Key</Label>
-                                                        <Input
-                                                            value={editForm.supabase_anon_key}
-                                                            onChange={e => setEditForm({ ...editForm, supabase_anon_key: e.target.value })}
-                                                            className="h-12 bg-white border-slate-200 text-slate-900 font-mono text-xs rounded-xl focus:ring-blue-100"
-                                                            placeholder="Acceso de solo lectura o administrador"
-                                                            type="password"
-                                                            required
-                                                        />
-                                                    </div>
+                                                    {!editForm.is_admin && (
+                                                        <div className="space-y-2">
+                                                            <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Supabase API URL</Label>
+                                                            <Input
+                                                                value={editForm.supabase_url}
+                                                                onChange={e => setEditForm({ ...editForm, supabase_url: e.target.value })}
+                                                                className="h-12 bg-white border-slate-200 text-slate-900 font-mono text-xs rounded-xl focus:ring-blue-100"
+                                                                placeholder="https://xxx.supabase.co"
+                                                                required
+                                                            />
+                                                        </div>
+                                                    )}
+                                                    {!editForm.is_admin && (
+                                                        <div className="md:col-span-2 space-y-2">
+                                                            <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Supabase Service Role / Anon Key</Label>
+                                                            <Input
+                                                                value={editForm.supabase_anon_key}
+                                                                onChange={e => setEditForm({ ...editForm, supabase_anon_key: e.target.value })}
+                                                                className="h-12 bg-white border-slate-200 text-slate-900 font-mono text-xs rounded-xl focus:ring-blue-100"
+                                                                placeholder="Acceso de solo lectura o administrador"
+                                                                type="password"
+                                                                required
+                                                            />
+                                                        </div>
+                                                    )}
                                                     <div className="space-y-2">
                                                         <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Email de Acceso (Dashboard)</Label>
                                                         <Input
@@ -250,102 +269,81 @@ export default function SettingsPage() {
                                                             className="h-12 bg-white border-slate-200 text-slate-900 rounded-xl focus:ring-blue-100"
                                                             placeholder="••••••••"
                                                             type="password"
-                                                            required
+                                                            required={!isEditing}
                                                         />
                                                     </div>
-                                                    <div className="space-y-2">
-                                                        <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">¿Es Administrador?</Label>
-                                                        <div className="flex items-center gap-3">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setEditForm({ ...editForm, is_admin: !editForm.is_admin })}
-                                                                className={cn(
-                                                                    "flex items-center gap-3 px-6 h-12 rounded-xl border-2 transition-all font-black text-[11px] uppercase tracking-widest",
-                                                                    editForm.is_admin
-                                                                        ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-100"
-                                                                        : "bg-white border-slate-200 text-slate-400 hover:border-slate-300"
-                                                                )}
-                                                            >
-                                                                <Shield className={cn("h-4 w-4", editForm.is_admin ? "text-blue-100" : "text-slate-300")} />
-                                                                {editForm.is_admin ? "Nuevo Admin Activo" : "Usuario / Cliente Normal"}
-                                                            </button>
-                                                            <p className="text-[10px] font-medium text-slate-400 max-w-[200px] leading-tight">
-                                                                {editForm.is_admin
-                                                                    ? "Se asignará metadato admin=true en Supabase Principal."
-                                                                    : "Se asignará metadato admin=false (Usuario estándar)."}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="md:col-span-2 space-y-4">
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                            <div className="space-y-2">
-                                                                <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Título del Dashboard</Label>
-                                                                <Input
-                                                                    value={(() => {
-                                                                        try {
-                                                                            const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {});
-                                                                            return conf.dashboard_title || "";
-                                                                        } catch (e) { return ""; }
-                                                                    })()}
-                                                                    onChange={e => {
-                                                                        try {
-                                                                            const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {});
-                                                                            conf.dashboard_title = e.target.value;
-                                                                            setEditForm({ ...editForm, config: JSON.stringify(conf, null, 2) as any });
-                                                                        } catch (e) { }
-                                                                    }}
-                                                                    className="h-11 bg-white border-slate-200 text-slate-900 rounded-xl"
-                                                                    placeholder="Ej: App Automatiza"
-                                                                />
-                                                            </div>
-                                                            <div className="space-y-2">
-                                                                <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Encabezados Extra (Separados por coma)</Label>
-                                                                <Input
-                                                                    value={(() => {
-                                                                        try {
-                                                                            const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {});
-                                                                            return (conf.headers || []).join(", ");
-                                                                        } catch (e) { return ""; }
-                                                                    })()}
-                                                                    onChange={e => {
-                                                                        try {
-                                                                            const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {});
-                                                                            conf.headers = e.target.value.split(",").map(s => s.trim()).filter(s => s !== "");
-                                                                            setEditForm({ ...editForm, config: JSON.stringify(conf, null, 2) as any });
-                                                                        } catch (e) { }
-                                                                    }}
-                                                                    className="h-11 bg-white border-slate-200 text-slate-900 rounded-xl"
-                                                                    placeholder="Ej: Ventas, Marketing"
-                                                                />
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm">
-                                                            <KpiBuilder
-                                                                kpis={(typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}").kpis : (editForm.config as any)?.kpis) || []}
-                                                                onChange={(kpis) => {
-                                                                    try {
-                                                                        const current = typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : (editForm.config || {});
-                                                                        current.kpis = kpis;
-                                                                        setEditForm({ ...editForm, config: JSON.stringify(current, null, 2) as any });
-                                                                    } catch (e) { }
-                                                                }}
-                                                            />
-
-                                                            <details className="mt-8 border-t border-slate-100 pt-6">
-                                                                <summary className="text-[10px] font-black uppercase tracking-widest text-slate-400 cursor-pointer hover:text-blue-600 transition-colors">Configuración Avanzada (JSON Raw)</summary>
-                                                                <div className="mt-4">
-                                                                    <textarea
-                                                                        title="Configuracion JSON"
-                                                                        value={typeof editForm.config === 'string' ? editForm.config : JSON.stringify(editForm.config, null, 2)}
-                                                                        onChange={e => setEditForm({ ...editForm, config: e.target.value as unknown as Record<string, unknown> })}
-                                                                        className="w-full min-h-[120px] rounded-xl bg-slate-50 border border-slate-100 p-3 text-[10px] text-slate-900 font-mono focus:border-blue-500 outline-none"
-                                                                        placeholder='{ "headers": [], "dashboard_title": "" }'
+                                                    {!editForm.is_admin && (
+                                                        <div className="md:col-span-2 space-y-4">
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                                <div className="space-y-2">
+                                                                    <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Título del Dashboard</Label>
+                                                                    <Input
+                                                                        value={(() => {
+                                                                            try {
+                                                                                const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {});
+                                                                                return conf.dashboard_title || "";
+                                                                            } catch (e) { return ""; }
+                                                                        })()}
+                                                                        onChange={e => {
+                                                                            try {
+                                                                                const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {});
+                                                                                conf.dashboard_title = e.target.value;
+                                                                                setEditForm({ ...editForm, config: JSON.stringify(conf, null, 2) as any });
+                                                                            } catch (e) { }
+                                                                        }}
+                                                                        className="h-11 bg-white border-slate-200 text-slate-900 rounded-xl"
+                                                                        placeholder="Ej: App Automatiza"
                                                                     />
                                                                 </div>
-                                                            </details>
+                                                                <div className="space-y-2">
+                                                                    <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Encabezados Extra (Separados por coma)</Label>
+                                                                    <Input
+                                                                        value={(() => {
+                                                                            try {
+                                                                                const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {});
+                                                                                return (conf.headers || []).join(", ");
+                                                                            } catch (e) { return ""; }
+                                                                        })()}
+                                                                        onChange={e => {
+                                                                            try {
+                                                                                const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {});
+                                                                                conf.headers = e.target.value.split(",").map(s => s.trim()).filter(s => s !== "");
+                                                                                setEditForm({ ...editForm, config: JSON.stringify(conf, null, 2) as any });
+                                                                            } catch (e) { }
+                                                                        }}
+                                                                        className="h-11 bg-white border-slate-200 text-slate-900 rounded-xl"
+                                                                        placeholder="Ej: Ventas, Marketing"
+                                                                    />
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm">
+                                                                <KpiBuilder
+                                                                    kpis={(typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}").kpis : (editForm.config as any)?.kpis) || []}
+                                                                    onChange={(kpis) => {
+                                                                        try {
+                                                                            const current = typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : (editForm.config || {});
+                                                                            current.kpis = kpis;
+                                                                            setEditForm({ ...editForm, config: JSON.stringify(current, null, 2) as any });
+                                                                        } catch (e) { }
+                                                                    }}
+                                                                />
+
+                                                                <details className="mt-8 border-t border-slate-100 pt-6">
+                                                                    <summary className="text-[10px] font-black uppercase tracking-widest text-slate-400 cursor-pointer hover:text-blue-600 transition-colors">Configuración Avanzada (JSON Raw)</summary>
+                                                                    <div className="mt-4">
+                                                                        <textarea
+                                                                            title="Configuracion JSON"
+                                                                            value={typeof editForm.config === 'string' ? editForm.config : JSON.stringify(editForm.config, null, 2)}
+                                                                            onChange={e => setEditForm({ ...editForm, config: e.target.value as unknown as Record<string, unknown> })}
+                                                                            className="w-full min-h-[120px] rounded-xl bg-slate-50 border border-slate-100 p-3 text-[10px] text-slate-900 font-mono focus:border-blue-500 outline-none"
+                                                                            placeholder='{ "headers": [], "dashboard_title": "" }'
+                                                                        />
+                                                                    </div>
+                                                                </details>
+                                                            </div>
                                                         </div>
-                                                    </div>
+                                                    )}
                                                 </div>
                                                 <div className="flex gap-3 pt-4">
                                                     <Button
@@ -370,48 +368,52 @@ export default function SettingsPage() {
                                 )}>
                                     {isEditing === t.id ? (
                                         <td colSpan={4} className="p-8">
-                                            <div className="space-y-6">
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nombre</Label><Input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} className="h-11 bg-white rounded-xl text-slate-900 font-bold" /></div>
-                                                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">URL Supabase</Label><Input value={editForm.supabase_url} onChange={e => setEditForm({ ...editForm, supabase_url: e.target.value })} className="h-11 bg-white font-mono text-xs rounded-xl text-slate-900" /></div>
-                                                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Email Acceso</Label><Input value={editForm.client_email} onChange={e => setEditForm({ ...editForm, client_email: e.target.value })} className="h-11 bg-white rounded-xl text-slate-900 font-bold" /></div>
-                                                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Cambiar Contraseña</Label><Input value={editForm.password} onChange={e => setEditForm({ ...editForm, password: e.target.value })} className="h-11 bg-white rounded-xl text-slate-900" type="password" placeholder="Solo para cambiarla" /></div>
-                                                    <div className="md:col-span-2 space-y-2">
-                                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nivel de Acceso</Label>
-                                                        <div className="flex items-center gap-4">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setEditForm({ ...editForm, is_admin: !editForm.is_admin })}
-                                                                className={cn(
-                                                                    "flex items-center gap-2 px-4 h-10 rounded-xl border transition-all text-[10px] font-black uppercase tracking-widest",
-                                                                    editForm.is_admin
-                                                                        ? "bg-blue-600 border-blue-600 text-white"
-                                                                        : "bg-white border-slate-200 text-slate-400"
-                                                                )}
-                                                            >
-                                                                {editForm.is_admin ? "Admin" : "Cliente"}
-                                                            </button>
-                                                            <span className="text-[10px] font-bold text-slate-400">
-                                                                {editForm.is_admin ? "Se guardará como administrador del sistema" : "Acceso limitado a dashboard"}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="md:col-span-2 space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Service Role / Key</Label><Input value={editForm.supabase_anon_key} onChange={e => setEditForm({ ...editForm, supabase_anon_key: e.target.value })} className="h-11 bg-white font-mono text-xs rounded-xl text-slate-900" type="password" /></div>
+                                            <div className="flex items-center justify-between gap-6 mb-6">
+                                                <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 flex items-center gap-2">
+                                                    <Edit2 className="h-4 w-4 text-blue-600" /> Editando: <span className="text-blue-600">{t.name}</span>
+                                                </h3>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setEditForm({ ...editForm, is_admin: !editForm.is_admin })}
+                                                        className={cn(
+                                                            "flex items-center gap-2 px-3 h-8 rounded-lg border transition-all text-[10px] font-black uppercase tracking-widest shadow-sm",
+                                                            editForm.is_admin
+                                                                ? "bg-blue-600 border-blue-600 text-white"
+                                                                : "bg-white border-slate-200 text-slate-400"
+                                                        )}
+                                                    >
+                                                        {editForm.is_admin ? "Admin" : "Cliente"}
+                                                    </button>
+                                                    <button onClick={() => handleUpdate(t.id)} className="h-8 px-4 bg-emerald-600 text-white font-bold text-[10px] uppercase tracking-widest rounded-lg shadow-lg shadow-emerald-100 flex items-center gap-2 hover:bg-emerald-700 transition-all"><Check className="h-3 w-3" /> Guardar</button>
+                                                    <button onClick={() => setIsEditing(null)} className="h-8 px-4 bg-white text-slate-400 font-bold text-[10px] uppercase tracking-widest rounded-lg border border-slate-100 hover:bg-slate-50 transition-all flex items-center gap-2"><X className="h-3 w-3" /> Cancelar</button>
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nombre del Proyecto</Label><Input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} className="h-11 bg-white rounded-xl text-slate-900 font-bold" /></div>
 
-                                                    <div className="md:col-span-2 space-y-4 pt-4">
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                            <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Título</Label><Input value={(() => { try { const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {}); return conf.dashboard_title || ""; } catch (e) { return ""; } })()} onChange={e => { try { const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {}); conf.dashboard_title = e.target.value; setEditForm({ ...editForm, config: JSON.stringify(conf, null, 2) as any }); } catch (e) { } }} className="h-10 bg-white rounded-xl text-slate-900" /></div>
-                                                            <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Headers</Label><Input value={(() => { try { const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {}); return (conf.headers || []).join(", "); } catch (e) { return ""; } })()} onChange={e => { try { const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {}); conf.headers = e.target.value.split(",").map(s => s.trim()).filter(s => s !== ""); setEditForm({ ...editForm, config: JSON.stringify(conf, null, 2) as any }); } catch (e) { } }} className="h-10 bg-white rounded-xl text-slate-900" /></div>
+                                                {!editForm.is_admin && (
+                                                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">URL Supabase</Label><Input value={editForm.supabase_url} onChange={e => setEditForm({ ...editForm, supabase_url: e.target.value })} className="h-11 bg-white font-mono text-xs rounded-xl text-slate-900" /></div>
+                                                )}
+
+                                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Email Acceso</Label><Input value={editForm.client_email} onChange={e => setEditForm({ ...editForm, client_email: e.target.value })} className="h-11 bg-white rounded-xl text-slate-900 font-bold" /></div>
+                                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Cambiar Contraseña</Label><Input value={editForm.password} onChange={e => setEditForm({ ...editForm, password: e.target.value })} className="h-11 bg-white rounded-xl text-slate-900" type="password" placeholder="Solo para cambiarla" /></div>
+
+                                                {!editForm.is_admin && (
+                                                    <>
+                                                        <div className="md:col-span-2 space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Service Role / Key</Label><Input value={editForm.supabase_anon_key} onChange={e => setEditForm({ ...editForm, supabase_anon_key: e.target.value })} className="h-11 bg-white font-mono text-xs rounded-xl text-slate-900" type="password" /></div>
+
+                                                        <div className="md:col-span-2 space-y-4 pt-4">
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Título</Label><Input value={(() => { try { const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {}); return conf.dashboard_title || ""; } catch (e) { return ""; } })()} onChange={e => { try { const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {}); conf.dashboard_title = e.target.value; setEditForm({ ...editForm, config: JSON.stringify(conf, null, 2) as any }); } catch (e) { } }} className="h-10 bg-white rounded-xl text-slate-900" /></div>
+                                                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Headers</Label><Input value={(() => { try { const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {}); return (conf.headers || []).join(", "); } catch (e) { return ""; } })()} onChange={e => { try { const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {}); conf.headers = e.target.value.split(",").map(s => s.trim()).filter(s => s !== ""); setEditForm({ ...editForm, config: JSON.stringify(conf, null, 2) as any }); } catch (e) { } }} className="h-10 bg-white rounded-xl text-slate-900" /></div>
+                                                            </div>
+                                                            <div className="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm">
+                                                                <KpiBuilder kpis={(typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}").kpis : (editForm.config as any)?.kpis) || []} onChange={(kpis) => { try { const current = typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : (editForm.config || {}); current.kpis = kpis; setEditForm({ ...editForm, config: JSON.stringify(current, null, 2) as any }); } catch (e) { } }} />
+                                                            </div>
                                                         </div>
-                                                        <div className="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm">
-                                                            <KpiBuilder kpis={(typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}").kpis : (editForm.config as any)?.kpis) || []} onChange={(kpis) => { try { const current = typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : (editForm.config || {}); current.kpis = kpis; setEditForm({ ...editForm, config: JSON.stringify(current, null, 2) as any }); } catch (e) { } }} />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="flex gap-3">
-                                                    <Button onClick={() => handleUpdate(t.id)} className="bg-emerald-600 text-white font-bold h-10 px-6 rounded-xl shadow-lg shadow-emerald-100"><Check className="mr-2 h-4 w-4" /> Sincronizar</Button>
-                                                    <Button onClick={() => setIsEditing(null)} variant="ghost" className="text-slate-400 font-bold h-10 px-6 rounded-xl hover:bg-slate-100"><X className="mr-2 h-4 w-4" /> Cancelar</Button>
-                                                </div>
+                                                    </>
+                                                )}
                                             </div>
                                         </td>
                                     ) : (
