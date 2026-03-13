@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { KpiConfig } from "@/types/tenant";
@@ -412,4 +412,140 @@ export async function getPorOrigen(from: string, to: string, filters: AnalyticsF
 export async function getPrimerContactoPorFecha(from: string, to: string, filters: AnalyticsFilters = {}): Promise<ChartRow[]> {
     const kpis = await getKpiGenerales(from, to, filters);
     return kpis.primer_contacto_por_fecha;
+}
+
+// ─── MINUTOS MODULE ───────────────────────────────────────────────────────────
+
+export interface KpiMinutos {
+    // Totales
+    total_minutos: number;          // SUM duracion_segundos / 60
+    duracion_media_segundos: number; // AVG duracion_segundos
+    total_llamadas: number;
+    total_contactadas: number;       // solo CONTACTED
+
+    // Minutos por día (para el gráfico de área)
+    minutos_por_dia: ChartRow[];     // label = YYYY-MM-DD, value = minutos ese día
+
+    // Minutos por campaña
+    minutos_por_campana: ChartRow[]; // label = campaña, value = minutos
+
+    // Minutos por estado de llamada
+    minutos_por_estado: ChartRow[];  // label = estado, value = minutos
+
+    // Distribución de duraciones (rangos)
+    distribucion_duracion: ChartRow[]; // '<30s' | '30s-1m' | '1m-3m' | '3m-5m' | '>5m'
+}
+
+/**
+ * Data específica del módulo Minutos.
+ * Calcula minutos totales, promedio, y evolución temporal.
+ */
+export async function getKpiMinutos(
+    from: string,
+    to: string,
+    filters: AnalyticsFilters = {}
+): Promise<KpiMinutos> {
+    const supabase = await getSupabaseServerClient();
+
+    const empty: KpiMinutos = {
+        total_minutos: 0, duracion_media_segundos: 0,
+        total_llamadas: 0, total_contactadas: 0,
+        minutos_por_dia: [], minutos_por_campana: [],
+        minutos_por_estado: [], distribucion_duracion: [],
+    };
+
+    try {
+        // Query llamadas con lead para filtros
+        let q = supabase
+            .from("llamadas")
+            .select(`
+                id,
+                estado_llamada,
+                duracion_segundos,
+                fecha_inicio,
+                lead!inner ( id, pais, origen, campana, tipo_lead )
+            `)
+            .gte("fecha_inicio", from)
+            .lte("fecha_inicio", to)
+            .not("duracion_segundos", "is", null);
+
+        q = applyLeadFilters(q, filters);
+
+        const { data: llamadas } = await q;
+        const rows = (llamadas ?? []) as any[];
+
+        if (rows.length === 0) return empty;
+
+        // ── Totales ──────────────────────────────────────────────────────────
+        const totalSecs = rows.reduce((s: number, l: any) => s + (l.duracion_segundos ?? 0), 0);
+        const total_minutos = Math.round(totalSecs / 60);
+        const duracion_media_segundos = Math.round(totalSecs / rows.length);
+        const total_llamadas = rows.length;
+        const total_contactadas = rows.filter((l: any) => l.estado_llamada === "CONTACTED").length;
+
+        // ── Minutos por día ───────────────────────────────────────────────────
+        const byDayMap: Record<string, number> = {};
+        for (const l of rows) {
+            if (!l.fecha_inicio) continue;
+            const day = (l.fecha_inicio as string).slice(0, 10);
+            byDayMap[day] = (byDayMap[day] || 0) + Math.round((l.duracion_segundos ?? 0) / 60);
+        }
+        const minutos_por_dia: ChartRow[] = Object.entries(byDayMap)
+            .map(([label, value]) => ({ label, value }))
+            .sort((a, b) => a.label.localeCompare(b.label));
+
+        // ── Minutos por campaña ───────────────────────────────────────────────
+        const byCampanaMap: Record<string, number> = {};
+        for (const l of rows) {
+            const campana = (l.lead as any)?.campana ?? "Sin campaña";
+            byCampanaMap[campana] = (byCampanaMap[campana] || 0) + Math.round((l.duracion_segundos ?? 0) / 60);
+        }
+        const minutos_por_campana: ChartRow[] = Object.entries(byCampanaMap)
+            .map(([label, value]) => ({ label, value }))
+            .sort((a, b) => b.value - a.value);
+
+        // ── Minutos por estado ────────────────────────────────────────────────
+        const byEstadoMap: Record<string, number> = {};
+        for (const l of rows) {
+            const estado = (l.estado_llamada as string) ?? "SIN_ESTADO";
+            byEstadoMap[estado] = (byEstadoMap[estado] || 0) + Math.round((l.duracion_segundos ?? 0) / 60);
+        }
+        const minutos_por_estado: ChartRow[] = Object.entries(byEstadoMap)
+            .map(([label, value]) => ({ label, value }))
+            .sort((a, b) => b.value - a.value);
+
+        // ── Distribución de duración por rangos ───────────────────────────────
+        const ranges: Record<string, number> = {
+            "< 30 seg": 0,
+            "30s – 1 min": 0,
+            "1 – 3 min": 0,
+            "3 – 5 min": 0,
+            "> 5 min": 0,
+        };
+        for (const l of rows) {
+            const s = l.duracion_segundos ?? 0;
+            if      (s < 30)  ranges["< 30 seg"]++;
+            else if (s < 60)  ranges["30s – 1 min"]++;
+            else if (s < 180) ranges["1 – 3 min"]++;
+            else if (s < 300) ranges["3 – 5 min"]++;
+            else              ranges["> 5 min"]++;
+        }
+        const distribucion_duracion: ChartRow[] = Object.entries(ranges)
+            .map(([label, value]) => ({ label, value }));
+
+        return {
+            total_minutos,
+            duracion_media_segundos,
+            total_llamadas,
+            total_contactadas,
+            minutos_por_dia,
+            minutos_por_campana,
+            minutos_por_estado,
+            distribucion_duracion,
+        };
+
+    } catch (e) {
+        console.error("getKpiMinutos EXCEPTION:", e);
+        return empty;
+    }
 }
