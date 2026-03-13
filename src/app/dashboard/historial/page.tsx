@@ -14,10 +14,11 @@ export default async function HistorialPage({ searchParams }: { searchParams: Pr
         fromDate: from,
         toDate: to,
         search: filters.search,
-        curso: filters.curso,
         pais: filters.pais,
         origen: filters.origen,
-        campana: filters.campana
+        campana: filters.campana,
+        tipoLead: filters.tipoLead,
+        cualificacion: filters.cualificacion,
     });
 
     return (
@@ -26,16 +27,12 @@ export default async function HistorialPage({ searchParams }: { searchParams: Pr
                 <div>
                     <h2 className="text-lg font-black text-slate-800 tracking-tight">Historial de Llamadas</h2>
                     <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-0.5">
-                        {initialData.count.toLocaleString()} registros totales · Paginación servidor
+                        {initialData.count.toLocaleString()} registros · Paginación servidor
                     </p>
                 </div>
             </div>
 
-            <HistorialTable
-                initialData={initialData}
-                fromDate={from}
-                toDate={to}
-            />
+            <HistorialTable initialData={initialData} fromDate={from} toDate={to} />
         </div>
     );
 }

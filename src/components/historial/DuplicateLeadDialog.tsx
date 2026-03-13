@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { X, Phone, Clock, Calendar, PhoneCall, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
-import { getCallsByPhone, fetchReintentosByPhone } from "@/lib/actions/calls";
-import type { PostCallAnalisis, Reintento } from "@/types/database";
+import { getCallsByPhone, fetchIntentosByPhone } from "@/lib/actions/calls";
+import type { HistorialRow, IntentoLlamada } from "@/types/database";
 import { formatDuration, formatDate, cn } from "@/lib/utils";
+import { AudioPlayer } from "./AudioPlayer";
+
+// ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<string, string> = {
     CONTACTED: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
@@ -18,215 +21,92 @@ const STATUS_COLORS: Record<string, string> = {
     INVALID_NUMBER: "bg-rose-500/15 text-rose-400 border-rose-500/20",
 };
 
-/** A unified timeline item */
-type TimelineItem =
-    | { kind: "call"; date: string; data: PostCallAnalisis }
-    | { kind: "reintento"; date: string; data: Reintento };
+// ─── CALL CARD ────────────────────────────────────────────────────────────────
 
-function getItemDate(item: TimelineItem): string {
-    if (item.kind === "call") return item.data.created_at;
-    const r = item.data;
-    return r.fecha_y_hora ?? r.created_at ?? "";
-}
-
-/** Small collapsible section for showing all fields of a reintento */
-function ReintentoCard({ reintento }: { reintento: Reintento }) {
+function CallCard({ call }: { call: HistorialRow }) {
     const [expanded, setExpanded] = useState(false);
-
-    const mainFields: [string, string | number | null | undefined][] = [
-        ["Estado lead", reintento.estado_del_lead],
-        ["Motivo estado", reintento.motivo_de_estado_de_lead],
-        ["Nº intento llamada", reintento.numero_de_intento],
-        ["Nº intento WhatsApp", reintento.numero_de_intento_whatsapp],
-        ["Agendado", reintento.agendado],
-        ["Razón desconexión", reintento.razon_de_desconexion],
-        ["Duración", reintento.duracion_llamada != null ? formatDuration(reintento.duracion_llamada) : null],
-        ["Opt-in WhatsApp", reintento.opt_in_whatsapp],
-    ];
-
-    const extraFields: [string, string | number | null | undefined][] = [
-        ["Lead ID", reintento.lead_id],
-        ["Nombre", reintento.nombre_del_lead],
-        ["Apellido", reintento.apellido_del_lead],
-        ["País", reintento.pais_del_lead],
-        ["Call ID", reintento.call_id],
-        ["Reintento llamada", reintento.reintento_de_llamada],
-        ["Reintento WhatsApp", reintento.reintento_de_whatsapp],
-        ["Estado reintento", reintento.estado_de_reintento],
-        ["Llamada asesor", reintento.llamada_de_asesor],
-        ["Origen", reintento.origen],
-        ["Confirmar cita", reintento.confirmacion_cita_enviada],
-        ["Recordatorio 24h", reintento.recordatorio_24hs],
-        ["Recordatorio 1h", reintento.recordatorio_1_h],
-        ["Aviso WA intento", reintento.aviso_whatsapp_de_intento_llamada],
-        ["Seguimiento AgIA", reintento.tiene_seguimiento_agente_ia],
-        ["Post WA análisis", reintento.post_whatsapp_analisis_realizado],
-        ["Campaña", reintento.campana],
-        ["Tipo lead", reintento.tipo_lead],
-        ["Master interés", reintento.master_de_interes],
-        ["1ª llamada", reintento.momento_de_primera_llamada],
-        ["Último envío WA", reintento.ultimo_envio_whatsapp],
-        ["Conversation Chatwoot", reintento.conversartion_id_chatwoot],
-        ["Teléfono", reintento.telefono ?? reintento.phone_number],
-        ["Nº formato erróneo", reintento.numero_formato_erroneo],
-        ["Recording", reintento.recording],
-    ];
-
-    return (
-        <div className="rounded-xl border border-indigo-500/20 bg-indigo-950/20 p-4 relative overflow-hidden group hover:border-indigo-500/40 transition-colors">
-            <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500/30 group-hover:bg-indigo-500/60 transition-colors" />
-
-            {/* Header row */}
-            <div className="flex flex-wrap items-center gap-2 mb-3 pl-2">
-                <span className="flex items-center gap-1.5 text-xs font-medium text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 rounded-full px-2.5 py-0.5">
-                    <RefreshCw className="h-3 w-3" /> Reintento
-                </span>
-                {reintento.estado_de_reintento && (
-                    <span className="text-xs px-2 py-0.5 rounded-full border bg-white/5 text-white/50 border-white/10">
-                        {reintento.estado_de_reintento}
-                    </span>
-                )}
-                <span className="ml-auto flex items-center gap-1 text-xs text-white/30">
-                    <Calendar className="h-3 w-3" />
-                    {formatDate(reintento.fecha_y_hora ?? reintento.created_at ?? "")}
-                </span>
-            </div>
-
-            {/* Main fields grid */}
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs pl-2">
-                {mainFields.map(([label, val]) =>
-                    val != null && val !== "" ? (
-                        <div key={label}>
-                            <span className="text-white/35 block">{label}</span>
-                            <span className="text-white/75">{String(val)}</span>
-                        </div>
-                    ) : null
-                )}
-            </div>
-
-            {/* Expand toggle */}
-            <button
-                onClick={() => setExpanded((v) => !v)}
-                className="mt-3 pl-2 flex items-center gap-1 text-xs text-indigo-400/60 hover:text-indigo-400 transition"
-            >
-                {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                {expanded ? "Ocultar detalle" : "Ver todos los campos"}
-            </button>
-
-            {expanded && (
-                <div className="mt-3 pt-3 border-t border-white/[0.06] grid grid-cols-2 gap-x-4 gap-y-2 text-xs pl-2">
-                    {extraFields.map(([label, val]) =>
-                        val != null && val !== "" ? (
-                            <div key={label}>
-                                <span className="text-white/35 block">{label}</span>
-                                <span className="text-white/60 break-all">{String(val)}</span>
-                            </div>
-                        ) : null
-                    )}
-                </div>
-            )}
-        </div>
-    );
-}
-
-/** Card for a post_call_analisis record */
-function CallCard({ call }: { call: PostCallAnalisis }) {
-    const [expanded, setExpanded] = useState(false);
-    const extraKeys = Object.keys(call.extra_data ?? {}).filter(
-        (k) => call.extra_data[k] != null && call.extra_data[k] !== ""
-    );
 
     return (
         <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 relative overflow-hidden group hover:border-white/20 transition-colors">
             <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500/20 group-hover:bg-emerald-500/50 transition-colors" />
 
-            {/* Header row */}
+            {/* Header */}
             <div className="flex flex-wrap items-center gap-2 mb-3 pl-2">
                 <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-2.5 py-0.5">
                     <PhoneCall className="h-3 w-3" /> Llamada
                 </span>
-                <span className={cn(
-                    "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium",
-                    STATUS_COLORS[call.call_status] ?? "bg-white/5 text-white/40 border-white/10"
-                )}>
-                    {call.call_status}
-                </span>
-                {call.duration_seconds != null && (
+                {call.estado_llamada && (
+                    <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium",
+                        STATUS_COLORS[call.estado_llamada] ?? "bg-white/5 text-white/40 border-white/10")}>
+                        {call.estado_llamada}
+                    </span>
+                )}
+                {call.duracion_segundos != null && (
                     <span className="flex items-center gap-1 text-xs text-white/40 bg-white/5 px-2 py-0.5 rounded">
                         <Clock className="h-3 w-3" />
-                        {formatDuration(call.duration_seconds)}
+                        {formatDuration(call.duracion_segundos)}
                     </span>
                 )}
                 <span className="ml-auto flex items-center gap-1 text-xs text-white/30">
                     <Calendar className="h-3 w-3" />
-                    {formatDate(call.created_at)}
+                    {formatDate(call.fecha_inicio ?? null)}
                 </span>
             </div>
 
-            {/* Main fields grid */}
+            {/* Main fields */}
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs pl-2">
-                {call.lead_id && (
+                {call.razon_termino && (
                     <div>
-                        <span className="text-white/35 block">Lead ID</span>
-                        <span className="text-white/75 font-mono">{call.lead_id}</span>
+                        <span className="text-white/35 block">Razón término</span>
+                        <span className="text-white/75">{call.razon_termino}</span>
                     </div>
                 )}
-                {call.tipologia_llamada && (
+                {call.cualificacion && (
                     <div>
-                        <span className="text-white/35 block">Tipología</span>
-                        <span className="text-white/75">{call.tipologia_llamada}</span>
+                        <span className="text-white/35 block">Cualificación</span>
+                        <span className={call.cualificacion === "SI" || call.cualificacion === "CUALIFICADO"
+                            ? "text-emerald-400" : "text-white/60"}>
+                            {call.cualificacion}
+                        </span>
                     </div>
                 )}
-                {call.master_interes && (
-                    <div>
-                        <span className="text-white/35 block">Master interés</span>
-                        <span className="text-white/75">{call.master_interes}</span>
-                    </div>
-                )}
-                <div>
-                    <span className="text-white/35 block">Cualificado</span>
-                    <span className={call.is_qualified ? "text-emerald-400" : "text-white/50"}>
-                        {call.is_qualified ? "Sí" : "No"}
-                    </span>
-                </div>
-                {call.agendado_con_asesor && (
-                    <div>
-                        <span className="text-white/35 block">Agendado con</span>
-                        <span className="text-white/75">{call.agendado_con_asesor}</span>
-                    </div>
-                )}
-                {(call.motivo_anulacion || call.motivo_no_contacto) && (
+                {call.motivo_anulacion && (
                     <div className="col-span-2">
-                        <span className="text-white/35 block">Motivo</span>
-                        <span className="text-white/75">{call.motivo_anulacion ?? call.motivo_no_contacto}</span>
+                        <span className="text-white/35 block">Motivo anulación</span>
+                        <span className="text-white/75">{call.motivo_anulacion}</span>
                     </div>
                 )}
-                {call.opt_in_whatsapp && (
+                {call.fecha_agendada_cliente && (
                     <div>
-                        <span className="text-white/35 block">Opt-in WA</span>
-                        <span className="text-white/75">{call.opt_in_whatsapp}</span>
+                        <span className="text-white/35 block">Cita agendada</span>
+                        <span className="text-teal-300">{formatDate(call.fecha_agendada_cliente)}</span>
+                    </div>
+                )}
+                {call.tipo_agente && (
+                    <div>
+                        <span className="text-white/35 block">Tipo agente</span>
+                        <span className="text-white/60">{call.tipo_agente}</span>
                     </div>
                 )}
             </div>
 
-            {/* Extra data */}
-            {extraKeys.length > 0 && (
+            {/* Expand: resumen + audio */}
+            {(call.resumen || call.url_grabacion) && (
                 <>
-                    <button
-                        onClick={() => setExpanded((v) => !v)}
-                        className="mt-3 pl-2 flex items-center gap-1 text-xs text-white/30 hover:text-white/60 transition"
-                    >
+                    <button onClick={() => setExpanded((v) => !v)}
+                        className="mt-3 pl-2 flex items-center gap-1 text-xs text-white/30 hover:text-white/60 transition">
                         {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                        {expanded ? "Ocultar campos extra" : `Ver ${extraKeys.length} campos adicionales`}
+                        {expanded ? "Ocultar detalle" : "Ver resumen / audio"}
                     </button>
                     {expanded && (
-                        <div className="mt-3 pt-3 border-t border-white/[0.06] grid grid-cols-2 gap-x-4 gap-y-2 text-xs pl-2">
-                            {extraKeys.map((k) => (
-                                <div key={k}>
-                                    <span className="text-indigo-400/50 block">⚡ {k}</span>
-                                    <span className="text-indigo-300/70 break-all">{String(call.extra_data[k])}</span>
+                        <div className="mt-3 pt-3 border-t border-white/[0.06] pl-2 space-y-3">
+                            {call.resumen && (
+                                <div>
+                                    <span className="text-white/35 text-xs block mb-1">Resumen</span>
+                                    <p className="text-xs text-white/55 leading-relaxed whitespace-pre-wrap">{call.resumen}</p>
                                 </div>
-                            ))}
+                            )}
+                            {call.url_grabacion && <AudioPlayer src={call.url_grabacion} />}
                         </div>
                     )}
                 </>
@@ -235,47 +115,89 @@ function CallCard({ call }: { call: PostCallAnalisis }) {
     );
 }
 
+// ─── INTENTO CARD ─────────────────────────────────────────────────────────────
+
+function IntentoCard({ intento }: { intento: IntentoLlamada }) {
+    const [expanded, setExpanded] = useState(false);
+
+    const fields: [string, string | number | null | undefined][] = [
+        ["Tipo intento", intento.tipo_intento],
+        ["Nº intento", intento.numero_intento],
+        ["Estado", intento.estado],
+        ["Fecha reintento", formatDate(intento.fecha_reintento ?? null)],
+        ["Fecha ejecución", formatDate(intento.fecha_ejecucion ?? null)],
+    ];
+
+    return (
+        <div className="rounded-xl border border-indigo-500/20 bg-indigo-950/20 p-4 relative overflow-hidden group hover:border-indigo-500/40 transition-colors">
+            <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500/30 group-hover:bg-indigo-500/60 transition-colors" />
+
+            <div className="flex flex-wrap items-center gap-2 mb-3 pl-2">
+                <span className="flex items-center gap-1.5 text-xs font-medium text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 rounded-full px-2.5 py-0.5">
+                    <RefreshCw className="h-3 w-3" /> Intento
+                </span>
+                {intento.tipo_intento && (
+                    <span className="text-xs px-2 py-0.5 rounded-full border bg-white/5 text-white/50 border-white/10">
+                        {intento.tipo_intento}
+                    </span>
+                )}
+                <span className="ml-auto flex items-center gap-1 text-xs text-white/30">
+                    <Calendar className="h-3 w-3" />
+                    {formatDate(intento.fecha_creacion ?? null)}
+                </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs pl-2">
+                {fields.map(([label, val]) =>
+                    val != null && val !== "" && val !== "—" ? (
+                        <div key={label}>
+                            <span className="text-white/35 block">{label}</span>
+                            <span className="text-white/75">{String(val)}</span>
+                        </div>
+                    ) : null
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ─── DIALOG ───────────────────────────────────────────────────────────────────
+
 interface Props {
     phone: string;
     onClose: () => void;
 }
 
 export function DuplicateLeadDialog({ phone, onClose }: Props) {
-    const [calls, setCalls] = useState<PostCallAnalisis[]>([]);
-    const [reintentos, setReintentos] = useState<Reintento[]>([]);
+    const [calls, setCalls] = useState<HistorialRow[]>([]);
+    const [intentos, setIntentos] = useState<IntentoLlamada[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         let mounted = true;
         setLoading(true);
         Promise.all([
-            getCallsByPhone(phone).catch(() => [] as PostCallAnalisis[]),
-            fetchReintentosByPhone(phone).catch(() => [] as Reintento[]),
-        ]).then(([callsData, reintentosData]) => {
+            getCallsByPhone(phone).catch(() => [] as HistorialRow[]),
+            fetchIntentosByPhone(phone).catch(() => [] as IntentoLlamada[]),
+        ]).then(([callsData, intentosData]) => {
             if (mounted) {
                 setCalls(callsData);
-                setReintentos(reintentosData);
+                setIntentos(intentosData);
                 setLoading(false);
             }
         });
         return () => { mounted = false; };
     }, [phone]);
 
-    // Build unified, sorted timeline
-    const timeline: TimelineItem[] = [
-        ...calls.map((c) => ({ kind: "call" as const, date: c.created_at, data: c })),
-        ...reintentos.map((r) => ({
-            kind: "reintento" as const,
-            date: r.fecha_y_hora ?? r.created_at ?? "",
-            data: r,
-        })),
-    ].sort((a, b) => {
-        const da = getItemDate(a);
-        const db = getItemDate(b);
-        return db.localeCompare(da); // most recent first
-    });
+    // Unified timeline sorted by date desc
+    type TimelineItem =
+        | { kind: "call"; date: string; data: HistorialRow }
+        | { kind: "intento"; date: string; data: IntentoLlamada };
 
-    const totalItems = timeline.length;
+    const timeline: TimelineItem[] = [
+        ...calls.map((c) => ({ kind: "call" as const, date: c.fecha_inicio ?? "", data: c })),
+        ...intentos.map((i) => ({ kind: "intento" as const, date: i.fecha_creacion ?? "", data: i })),
+    ].sort((a, b) => b.date.localeCompare(a.date));
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/60 backdrop-blur-sm sm:p-4">
@@ -292,32 +214,24 @@ export function DuplicateLeadDialog({ phone, onClose }: Props) {
                             <p className="text-xs text-indigo-300 font-mono mt-0.5">{phone}</p>
                         </div>
                     </div>
-                    <button
-                        onClick={onClose}
-                        title="Cerrar"
-                        aria-label="Cerrar"
-                        className="rounded-full p-2 text-white/50 hover:bg-white/10 hover:text-white transition"
-                    >
+                    <button onClick={onClose} title="Cerrar" aria-label="Cerrar"
+                        className="rounded-full p-2 text-white/50 hover:bg-white/10 hover:text-white transition">
                         <X className="h-5 w-5" />
                     </button>
                 </div>
 
                 {/* Summary badges */}
-                {!loading && totalItems > 0 && (
+                {!loading && timeline.length > 0 && (
                     <div className="px-6 py-3 border-b border-white/[0.06] bg-white/[0.01] flex items-center gap-3 text-xs flex-wrap">
-                        <span className="text-white/40">
-                            {totalItems} {totalItems === 1 ? "interacción" : "interacciones"} encontradas
-                        </span>
+                        <span className="text-white/40">{timeline.length} interacciones encontradas</span>
                         {calls.length > 0 && (
                             <span className="flex items-center gap-1.5 text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-2.5 py-0.5">
-                                <PhoneCall className="h-3 w-3" />
-                                {calls.length} {calls.length === 1 ? "llamada" : "llamadas"}
+                                <PhoneCall className="h-3 w-3" /> {calls.length} llamada{calls.length !== 1 && "s"}
                             </span>
                         )}
-                        {reintentos.length > 0 && (
+                        {intentos.length > 0 && (
                             <span className="flex items-center gap-1.5 text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 rounded-full px-2.5 py-0.5">
-                                <RefreshCw className="h-3 w-3" />
-                                {reintentos.length} {reintentos.length === 1 ? "reintento" : "reintentos"}
+                                <RefreshCw className="h-3 w-3" /> {intentos.length} intento{intentos.length !== 1 && "s"}
                             </span>
                         )}
                     </div>
@@ -329,17 +243,15 @@ export function DuplicateLeadDialog({ phone, onClose }: Props) {
                         <div className="flex justify-center py-20">
                             <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
                         </div>
-                    ) : totalItems === 0 ? (
+                    ) : timeline.length === 0 ? (
                         <div className="text-center text-white/40 py-20">
                             No se encontraron registros para este número.
                         </div>
                     ) : (
                         timeline.map((item, idx) =>
-                            item.kind === "call" ? (
-                                <CallCard key={`call-${item.data.id}`} call={item.data} />
-                            ) : (
-                                <ReintentoCard key={`reintento-${item.data.id ?? idx}`} reintento={item.data} />
-                            )
+                            item.kind === "call"
+                                ? <CallCard key={`call-${item.data.id}`} call={item.data} />
+                                : <IntentoCard key={`intento-${item.data.id ?? idx}`} intento={item.data} />
                         )
                     )}
                 </div>
