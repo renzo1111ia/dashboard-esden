@@ -91,10 +91,11 @@ export async function getTenants(): Promise<Tenant[]> {
             return [];
         }
 
-        // Map is_admin from config to top level for UI convenience
+        // Map is_admin and username from config to top level for UI convenience
         return (data || []).map(t => ({
             ...t,
-            is_admin: !!(t.config as any)?.is_admin
+            is_admin: !!(t.config as any)?.is_admin,
+            username: (t.config as any)?.username || ""
         }));
     } catch (e) {
         console.error("CRITICAL ERROR IN getTenants:", e);
@@ -114,7 +115,8 @@ export async function getActiveTenantConfig(): Promise<Tenant | null> {
 
     return {
         ...data,
-        is_admin: !!(data.config as any)?.is_admin
+        is_admin: !!(data.config as any)?.is_admin,
+        username: (data.config as any)?.username || ""
     } as Tenant;
 }
 
@@ -125,7 +127,8 @@ export async function getTenantByUserId(userId: string): Promise<Tenant | null> 
 
     return {
         ...data,
-        is_admin: !!(data.config as any)?.is_admin
+        is_admin: !!(data.config as any)?.is_admin,
+        username: (data.config as any)?.username || ""
     } as Tenant;
 }
 
@@ -142,7 +145,11 @@ export async function createTenant(tenant: Partial<Tenant> & { password?: string
                 email: tenant.client_email,
                 password: tenant.password,
                 email_confirm: true,
-                user_metadata: { admin: !!tenant.is_admin, tenant_name: tenant.name }
+                user_metadata: {
+                    admin: !!tenant.is_admin,
+                    tenant_name: tenant.name,
+                    username: tenant.username || ""
+                }
             });
 
             if (authError) {
@@ -153,9 +160,13 @@ export async function createTenant(tenant: Partial<Tenant> & { password?: string
         }
 
         // 2. Insert into tenants table
-        // We move is_admin into config to avoid needing a new column in the table
-        const { password, is_admin, ...tenantData } = tenant;
-        const config = { ...(tenantData.config || {}), is_admin: !!is_admin };
+        // We move is_admin and username into config to avoid needing a new column in the table
+        const { password, is_admin, username, ...tenantData } = tenant;
+        const config = {
+            ...(tenantData.config || {}),
+            is_admin: !!is_admin,
+            username: username || ""
+        };
 
         const { data, error } = await supabase
             .from("tenants")
@@ -189,19 +200,25 @@ export async function updateTenant(id: string, updates: Partial<Tenant> & { pass
                 updates.auth_user_id,
                 {
                     password: updates.password,
-                    user_metadata: { admin: !!updates.is_admin }
+                    user_metadata: {
+                        admin: !!updates.is_admin,
+                        username: updates.username
+                    }
                 }
             );
             if (authError) {
                 console.error("AUTH USER UPDATE ERROR:", authError.message);
                 return { error: `Error actualizando usuario en Auth: ${authError.message}` };
             }
-        } else if (updates.is_admin !== undefined && updates.auth_user_id) {
+        } else if ((updates.is_admin !== undefined || updates.username !== undefined) && updates.auth_user_id) {
             // Update metadata even if password is not provided
             const { error: authError } = await serviceSupabase.auth.admin.updateUserById(
                 updates.auth_user_id,
                 {
-                    user_metadata: { admin: !!updates.is_admin }
+                    user_metadata: {
+                        admin: !!updates.is_admin,
+                        username: updates.username
+                    }
                 }
             );
             if (authError) {
@@ -211,15 +228,14 @@ export async function updateTenant(id: string, updates: Partial<Tenant> & { pass
         }
 
         // 2. Update record
-        // We move is_admin into config to avoid needing a new column in the table
-        const { password, is_admin, ...cleanUpdates } = updates;
+        // We move is_admin and username into config to avoid needing a new column in the table
+        const { password, is_admin, username, ...cleanUpdates } = updates;
 
-        if (is_admin !== undefined) {
-            cleanUpdates.config = {
-                ...(cleanUpdates.config || {}),
-                is_admin: !!is_admin
-            };
-        }
+        const newConfig = { ...(cleanUpdates.config || {}) };
+        if (is_admin !== undefined) newConfig.is_admin = !!is_admin;
+        if (username !== undefined) newConfig.username = username;
+
+        cleanUpdates.config = newConfig;
 
         const { data, error } = await supabase.from("tenants").update(cleanUpdates).eq("id", id).select().single();
         if (error) {
@@ -230,7 +246,8 @@ export async function updateTenant(id: string, updates: Partial<Tenant> & { pass
             success: true,
             data: {
                 ...data,
-                is_admin: !!(data.config as any)?.is_admin
+                is_admin: !!(data.config as any)?.is_admin,
+                username: (data.config as any)?.username || ""
             }
         };
     } catch (e: any) {

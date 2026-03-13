@@ -27,6 +27,7 @@ export default function SettingsPage() {
     const [isEditing, setIsEditing] = useState<string | null>(null); // ID of tenant being edited
     const [editForm, setEditForm] = useState<Partial<Tenant> & { password?: string }>({
         name: "",
+        username: "",
         supabase_url: "",
         supabase_anon_key: "",
         client_email: "",
@@ -61,7 +62,7 @@ export default function SettingsPage() {
             }
 
             setShowNewForm(false);
-            setEditForm({ name: "", supabase_url: "", supabase_anon_key: "", client_email: "", password: "", is_admin: false, config: {} });
+            setEditForm({ name: "", username: "", supabase_url: "", supabase_anon_key: "", client_email: "", password: "", is_admin: false, config: {} });
             await loadTenants();
         } catch (err: any) {
             console.error("SAVE TENANT ERROR:", err);
@@ -118,6 +119,7 @@ export default function SettingsPage() {
         setIsEditing(t.id);
         setEditForm({
             name: t.name,
+            username: t.username || "",
             supabase_url: t.supabase_url,
             supabase_anon_key: t.supabase_anon_key,
             client_email: t.client_email || "",
@@ -144,7 +146,7 @@ export default function SettingsPage() {
                         <Button
                             onClick={() => {
                                 setShowNewForm(true);
-                                setEditForm({ name: "", supabase_url: "", supabase_anon_key: "", client_email: "", password: "", is_admin: false, config: {} });
+                                setEditForm({ name: "", username: "", supabase_url: "", supabase_anon_key: "", client_email: "", password: "", is_admin: false, config: {} });
                             }}
                             className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-200"
                         >
@@ -222,6 +224,16 @@ export default function SettingsPage() {
                                                             onChange={e => setEditForm({ ...editForm, name: e.target.value })}
                                                             className="h-12 bg-white border-slate-200 text-slate-900 rounded-xl focus:ring-blue-100"
                                                             placeholder="Ej: Proyecto México"
+                                                            required
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Nombre de Usuario</Label>
+                                                        <Input
+                                                            value={editForm.username}
+                                                            onChange={e => setEditForm({ ...editForm, username: e.target.value })}
+                                                            className="h-12 bg-white border-slate-200 text-slate-900 rounded-xl focus:ring-blue-100"
+                                                            placeholder="Ej: juan.perez"
                                                             required
                                                         />
                                                     </div>
@@ -391,6 +403,7 @@ export default function SettingsPage() {
                                             </div>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nombre del Proyecto</Label><Input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} className="h-11 bg-white rounded-xl text-slate-900 font-bold" /></div>
+                                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nombre de Usuario</Label><Input value={editForm.username} onChange={e => setEditForm({ ...editForm, username: e.target.value })} className="h-11 bg-white rounded-xl text-slate-900 font-bold" /></div>
 
                                                 {!editForm.is_admin && (
                                                     <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">URL Supabase</Label><Input value={editForm.supabase_url} onChange={e => setEditForm({ ...editForm, supabase_url: e.target.value })} className="h-11 bg-white font-mono text-xs rounded-xl text-slate-900" /></div>
@@ -423,7 +436,10 @@ export default function SettingsPage() {
                                                     <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center text-blue-600 shadow-inner group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
                                                         <Building2 className="h-5 w-5" />
                                                     </div>
-                                                    <span className="text-sm font-black text-slate-900 tracking-tight">{t.name}</span>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-black text-slate-900 tracking-tight">{t.name}</span>
+                                                        {t.username && <span className="text-[10px] text-slate-500 font-medium italic">@{t.username}</span>}
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-xs font-mono text-slate-700">

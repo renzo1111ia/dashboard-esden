@@ -1,6 +1,7 @@
 export interface Tenant {
     id: string;
     name: string;
+    username?: string;
     supabase_url: string;
     supabase_anon_key: string;
     client_email?: string;
