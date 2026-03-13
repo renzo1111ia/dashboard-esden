@@ -427,7 +427,13 @@ export default function SettingsPage() {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-xs font-mono text-slate-700">
-                                                {t.supabase_url}
+                                                {t.is_admin ? (
+                                                    <span className="text-blue-600 font-bold not-italic flex items-center gap-1.5 font-sans">
+                                                        <Building2 className="h-3 w-3" /> {t.name}
+                                                    </span>
+                                                ) : (
+                                                    t.supabase_url
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 text-sm font-bold text-slate-900">
                                                 {t.client_email || "No asignado"}
