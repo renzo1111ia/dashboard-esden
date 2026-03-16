@@ -94,3 +94,36 @@ export async function getAdminStatus(): Promise<boolean> {
         user?.app_metadata?.is_admin === "true";
     return isAdm;
 }
+
+export async function resetPasswordAction(email: string) {
+    const cookieStore = await cookies();
+    const supabase = createServerClient(AUTH_SUPABASE_URL, AUTH_SUPABASE_ANON_KEY, {
+        cookies: {
+            getAll() { return cookieStore.getAll(); },
+            setAll(cookiesToSet) {
+                cookiesToSet.forEach(({ name, value, options }) => {
+                    cookieStore.set(name, value, options);
+                });
+            },
+        },
+    });
+
+    // We use the origin from the request if possible, or a default
+    // In server actions we can get headers
+    const { headers } = await import("next/headers");
+    const h = await headers();
+    const origin = h.get("origin") || h.get("host") || "http://localhost:3000";
+    const protocol = origin.startsWith("http") ? "" : "https://";
+    const redirectTo = `${protocol}${origin}/auth/callback`;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo,
+    });
+
+    if (error) {
+        console.error("RESET PASSWORD ERROR:", error.message);
+        return { error: "No se pudo enviar el correo de recuperación. Intentá de nuevo." };
+    }
+
+    return { success: true };
+}
