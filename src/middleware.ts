@@ -59,7 +59,13 @@ export async function middleware(request: NextRequest) {
 
     // Restriction: Only admins can access /dashboard/settings
     // Sometimes the Supabase UI saves this as a string "true" depending on how it's inputted
-    const isAdmin = user?.user_metadata?.is_admin === true || user?.user_metadata?.is_admin === "true" || user?.app_metadata?.is_admin === true || user?.app_metadata?.is_admin === "true";
+    const isAdmin = 
+        user?.user_metadata?.is_admin === true || 
+        user?.user_metadata?.is_admin === "true" || 
+        user?.user_metadata?.admin === true || 
+        user?.user_metadata?.admin === "true" ||
+        user?.app_metadata?.is_admin === true || 
+        user?.app_metadata?.is_admin === "true";
 
     if (user && pathname.includes("/settings")) {
         if (!isAdmin) {

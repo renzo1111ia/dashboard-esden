@@ -77,62 +77,61 @@ export function FilterBar() {
     }
 
     return (
-        <div className="mb-6 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            {/* Row 1: Quick Presets & Search */}
-            <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex flex-wrap items-center gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-1 custom-scrollbar">
-                    {DATE_PRESETS.map((p) => (
-                        <button
-                            key={p.value}
-                            onClick={() => {
-                                setDraftPreset(p.value);
-                                setDraftFrom("");
-                                setDraftTo("");
-                            }}
-                            className={cn(
-                                "whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-bold transition-all",
-                                draftPreset === p.value
-                                    ? "bg-blue-600 text-white shadow-sm"
-                                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
-                            )}
-                        >
-                            {p.label}
-                        </button>
-                    ))}
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <div className="relative w-full max-w-[240px]">
-                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <input
-                            type="text"
-                            placeholder="Buscar teléfono / ID..."
-                            title="Buscar teléfono o ID de lead"
-                            aria-label="Buscar teléfono o ID de lead"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm font-medium text-slate-900 placeholder:text-slate-400 transition-all outline-none focus:border-blue-500 focus:bg-white"
-                        />
-                    </div>
+        <div className="mb-6 flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-4 md:p-5 shadow-sm">
+            {/* Row 1: Quick Presets */}
+            <div className="flex items-center gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-1 custom-scrollbar no-scrollbar">
+                {DATE_PRESETS.map((p) => (
                     <button
-                        onClick={() => setIsExpanded(!isExpanded)}
+                        key={p.value}
+                        onClick={() => {
+                            setDraftPreset(p.value);
+                            setDraftFrom("");
+                            setDraftTo("");
+                        }}
                         className={cn(
-                            "flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition-all",
-                            isExpanded ? "border-blue-200 bg-blue-50 text-blue-600" : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                            "whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-bold transition-all flex-shrink-0",
+                            draftPreset === p.value
+                                ? "bg-blue-600 text-white shadow-sm"
+                                : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
                         )}
                     >
-                        <Filter className="h-4 w-4" />
-                        Filtros Avanzados
-                        <ChevronDown className={cn("h-4 w-4 transition-transform", isExpanded && "rotate-180")} />
+                        {p.label}
                     </button>
-                    <button
-                        onClick={applyFilters}
-                        className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-blue-700"
-                    >
-                        Aplicar
-                    </button>
+                ))}
+            </div>
+
+            {/* Row 2: Search + actions */}
+            <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <input
+                        type="text"
+                        placeholder="Buscar teléfono / ID..."
+                        title="Buscar teléfono o ID de lead"
+                        aria-label="Buscar teléfono o ID de lead"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm font-medium text-slate-900 placeholder:text-slate-400 transition-all outline-none focus:border-blue-500 focus:bg-white"
+                    />
                 </div>
+                <button
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className={cn(
+                        "flex items-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-bold transition-all flex-shrink-0",
+                        isExpanded ? "border-blue-200 bg-blue-50 text-blue-600" : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                    )}
+                >
+                    <Filter className="h-4 w-4" />
+                    <span className="hidden sm:inline">Filtros</span>
+                    <ChevronDown className={cn("h-4 w-4 transition-transform", isExpanded && "rotate-180")} />
+                </button>
+                <button
+                    onClick={applyFilters}
+                    className="rounded-xl bg-blue-600 px-4 sm:px-6 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-blue-700 flex-shrink-0"
+                >
+                    Aplicar
+                </button>
             </div>
 
             {/* Row 2: Advanced filters (Colapsible) */}
