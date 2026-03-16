@@ -44,6 +44,7 @@ export interface KpiConfig {
     denomCondVal?: string;
 
     isPercentage?: boolean;
+    group?: string;
 }
 
 export interface ChartConfig {

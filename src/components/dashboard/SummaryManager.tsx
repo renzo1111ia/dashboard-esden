@@ -8,7 +8,7 @@ import {
     Phone, PhoneCall, PhoneMissed, Users, UserX, PhoneOff, Voicemail,
     UserMinus, ThumbsDown, Star, Calendar, Clock, TrendingUp, Activity,
     Maximize2, Edit3, Save, X, ChevronUp, ChevronDown, EyeOff, Eye, GripVertical,
-    Plus, Trash2, Zap, Timer
+    Plus, Trash2, Zap, Timer, PieChart, Target
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { updateTenant } from "@/lib/actions/tenant";
@@ -50,6 +50,10 @@ const ICON_MAP: Record<string, ReactNode> = {
     "Clock": <Clock className="h-6 w-6 text-white" />,
     "TrendingUp": <TrendingUp className="h-6 w-6 text-white" />,
     "Activity": <Activity className="h-6 w-6 text-white" />,
+    "PieChart": <PieChart className="h-6 w-6 text-white" />,
+    "Target": <Target className="h-6 w-6 text-white" />,
+    "Zap": <Zap className="h-6 w-6 text-white" />,
+    "Timer": <Timer className="h-6 w-6 text-white" />,
 };
 
 const COL_SPAN_MAP: Record<string, string> = {
@@ -59,8 +63,27 @@ const COL_SPAN_MAP: Record<string, string> = {
     "4": "md:col-span-4",
     "5": "md:col-span-5",
     "6": "md:col-span-6",
+    "8": "md:col-span-8",
+    "9": "md:col-span-9",
     "12": "md:col-span-12",
 };
+
+interface SectionHeaderProps {
+    title: string;
+}
+
+function SectionHeader({ title }: SectionHeaderProps) {
+    return (
+        <div className="col-span-12 mt-8 mb-2 first:mt-0">
+            <div className="flex items-center gap-4">
+                <h2 className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-400 whitespace-nowrap">
+                    {title}
+                </h2>
+                <div className="h-px w-full bg-slate-100" />
+            </div>
+        </div>
+    );
+}
 
 interface Props {
     tenant: Tenant;
@@ -343,43 +366,54 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
                         items={kpis.filter(k => isEditing || k.isVisible !== false).map(k => k.id)}
                         strategy={rectSortingStrategy}
                     >
-                        {kpis.filter(k => isEditing || k.isVisible !== false).map((k, idx, filteredArr) => {
-                            // Determine value
-                            let val: any = 0;
-                            if (k.staticKey) {
-                                val = (values as any)[k.staticKey] ?? 0;
-                            } else {
-                                val = dynamicValues[k.id] || 0;
-                            }
-
-                            // Format numeric values
-                            if (typeof val === 'number') {
-                                if (k.calcType === "avg" || k.isPercentage) {
-                                    val = Number(val).toFixed(1);
+                        {(() => {
+                            const filtered = kpis.filter(k => isEditing || k.isVisible !== false);
+                            let lastGroup = "";
+                            
+                            return filtered.map((k, idx) => {
+                                // Determine value
+                                let val: any = 0;
+                                if (k.staticKey) {
+                                    val = (values as any)[k.staticKey] ?? 0;
                                 } else {
-                                    val = Number(val).toLocaleString('es-ES');
+                                    val = dynamicValues[k.id] || 0;
                                 }
-                            }
-                            // Append suffix (e.g. ' min', ' seg', '%')
-                            if (k.suffix && val !== null && val !== undefined) {
-                                val = `${val}${k.suffix}`;
-                            }
-                            if (k.isPercentage && !k.suffix) val = `${val}%`;
-                            return (
-                                <SortableKpi
-                                    key={k.id}
-                                    k={k}
-                                    idx={idx}
-                                    isEditing={isEditing}
-                                    move={move}
-                                    cycleSize={cycleSize}
-                                    updateKpi={updateKpi}
-                                    removeKpi={removeKpi}
-                                    val={val}
-                                    totalCount={filteredArr.length}
-                                />
-                            );
-                        })}
+
+                                // Format numeric values
+                                if (typeof val === 'number') {
+                                    if (k.calcType === "avg" || k.isPercentage) {
+                                        val = Number(val).toFixed(1);
+                                    } else {
+                                        val = Number(val).toLocaleString('es-ES');
+                                    }
+                                }
+                                // Append suffix (e.g. ' min', ' seg', '%')
+                                if (k.suffix && val !== null && val !== undefined) {
+                                    val = `${val}${k.suffix}`;
+                                }
+                                if (k.isPercentage && !k.suffix) val = `${val}%`;
+
+                                const showHeader = !isEditing && k.group && k.group !== lastGroup;
+                                if (k.group) lastGroup = k.group;
+
+                                return (
+                                    <div key={k.id} className={cn(COL_SPAN_MAP[k.size || "4"] || "md:col-span-4", "md:contents")}>
+                                        {showHeader && <SectionHeader title={k.group!} key={`header-${k.group}`} />}
+                                        <SortableKpi
+                                            k={k}
+                                            idx={idx}
+                                            isEditing={isEditing}
+                                            move={move}
+                                            cycleSize={cycleSize}
+                                            updateKpi={updateKpi}
+                                            removeKpi={removeKpi}
+                                            val={val}
+                                            totalCount={filtered.length}
+                                        />
+                                    </div>
+                                );
+                            });
+                        })()}
                     </SortableContext>
                 </div>
             </DndContext>

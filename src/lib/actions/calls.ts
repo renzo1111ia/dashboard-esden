@@ -280,7 +280,7 @@ export async function fetchIntentosByPhone(phone: string): Promise<IntentoLlamad
             .from("intentos_llamadas")
             .select(`
                 *,
-                lead!inner ( id, nombre, apellido, telefono )
+                lead:id_lead!inner ( id, nombre, apellido, telefono )
             `)
             .eq("lead.telefono", phone)
             .order("fecha_creacion", { ascending: false });
@@ -303,7 +303,7 @@ export async function fetchWhatsappByPhone(phone: string) {
         const supabase = await getSupabaseServerClient();
         const { data, error } = await supabase
             .from("conversaciones_whatsapp")
-            .select(`*, lead!inner ( id, nombre, apellido, telefono )`)
+            .select(`*, lead:id_lead!inner ( id, nombre, apellido, telefono )`)
             .eq("lead.telefono", phone)
             .order("fecha_creacion", { ascending: false });
 

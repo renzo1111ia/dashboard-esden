@@ -3,21 +3,12 @@ import { KpiConfig, ChartConfig } from "@/types/tenant";
 /**
  * Default KPIs mapped to the new normalized schema.
  * staticKey values correspond to fields in KpiGenerales interface from analytics.ts
- * 
- * Predeterminados (always shown):
- *  - duracion_ai          → duracion_media_segundos
- *  - total_mins           → total_minutos
- *  - fecha_con_asesor     → total_agendados
- *  - motivo_anulacion     → por_motivo_anulacion (chart)
- * 
- * Configurables por cliente:
- *  - estado_llamada, razon_termino, tipo_lead, cualificacion, tiempo_respuesta, etc.
  */
 
 // ─── GENERAL KPIs ─────────────────────────────────────────────────────────────
 
 export const DEFAULT_SUMMARY_KPIS: KpiConfig[] = [
-    // Predeterminados (locked defaults)
+    // ── GRUPO 1: VOLUMEN Y CONTACTO ─────────────────────────────────────────
     {
         id: 'def-1',
         label: 'Total Llamadas',
@@ -26,6 +17,7 @@ export const DEFAULT_SUMMARY_KPIS: KpiConfig[] = [
         size: '3',
         staticKey: 'total_llamadas',
         isVisible: true,
+        group: 'VOLUMEN Y CONTACTO',
     },
     {
         id: 'def-2',
@@ -35,6 +27,7 @@ export const DEFAULT_SUMMARY_KPIS: KpiConfig[] = [
         size: '3',
         staticKey: 'total_leads',
         isVisible: true,
+        group: 'VOLUMEN Y CONTACTO',
     },
     {
         id: 'def-3',
@@ -44,6 +37,7 @@ export const DEFAULT_SUMMARY_KPIS: KpiConfig[] = [
         size: '3',
         staticKey: 'total_contactados',
         isVisible: true,
+        group: 'VOLUMEN Y CONTACTO',
     },
     {
         id: 'def-4',
@@ -54,46 +48,101 @@ export const DEFAULT_SUMMARY_KPIS: KpiConfig[] = [
         staticKey: 'tasa_contacto',
         isVisible: true,
         suffix: '%',
+        group: 'VOLUMEN Y CONTACTO',
     },
-    // ── Predeterminados de negocio ─────────────────────────────────────────
-    {
-        id: 'def-5',
-        label: 'Total Minutos IA',            // "total_mins" predeterminado
-        icon: 'Clock',
-        color: 'bg-purple-600',
-        size: '3',
-        staticKey: 'total_minutos',
-        isVisible: true,
-        suffix: ' min',
-    },
-    {
-        id: 'def-6',
-        label: 'Duración Media IA',           // "duracion_ai" predeterminado
-        icon: 'Timer',
-        color: 'bg-cyan-600',
-        size: '3',
-        staticKey: 'duracion_media_segundos',
-        isVisible: true,
-        suffix: ' seg',
-    },
+
+    // ── GRUPO 2: PERFORMANCE Y CONVERSIÓN ────────────────────────────────────
     {
         id: 'def-7',
-        label: 'Citas Agendadas',             // "fecha_con_asesor" predeterminado
+        label: 'Citas Agendadas',
         icon: 'Calendar',
         color: 'bg-orange-600',
         size: '3',
         staticKey: 'total_agendados',
         isVisible: true,
+        group: 'PERFORMANCE Y CONVERSIÓN',
+    },
+    {
+        id: 'def-12',
+        label: '% de Agenda',
+        icon: 'PieChart',
+        color: 'bg-orange-500',
+        size: '3',
+        staticKey: 'tasa_agendamiento',
+        isVisible: true,
+        suffix: '%',
+        group: 'PERFORMANCE Y CONVERSIÓN',
     },
     {
         id: 'def-8',
-        label: 'Leads Cualificados',          // predeterminado
+        label: 'Leads Cualificados',
         icon: 'Star',
         color: 'bg-yellow-500',
         size: '3',
         staticKey: 'total_cualificados',
         isVisible: true,
+        group: 'PERFORMANCE Y CONVERSIÓN',
     },
+    {
+        id: 'def-13',
+        label: '% Conversión',
+        icon: 'Target',
+        color: 'bg-yellow-600',
+        size: '3',
+        staticKey: 'tasa_conversion',
+        isVisible: true,
+        suffix: '%',
+        group: 'PERFORMANCE Y CONVERSIÓN',
+    },
+
+    // ── GRUPO 3: PRODUCTIVIDAD IA ──────────────────────────────────────────
+    {
+        id: 'def-5',
+        label: 'Total Minutos IA',
+        icon: 'Clock',
+        color: 'bg-purple-600',
+        size: '4',
+        staticKey: 'total_minutos',
+        isVisible: true,
+        suffix: ' min',
+        group: 'PRODUCTIVIDAD IA',
+    },
+    {
+        id: 'def-6',
+        label: 'Duración Media IA',
+        icon: 'Timer',
+        color: 'bg-cyan-600',
+        size: '4',
+        staticKey: 'duracion_media_segundos',
+        isVisible: true,
+        suffix: ' seg',
+        group: 'PRODUCTIVIDAD IA',
+    },
+    {
+        id: 'def-11',
+        label: 'T. Respuesta Promedio',
+        icon: 'Zap',
+        color: 'bg-amber-600',
+        size: '4',
+        staticKey: 'tiempo_respuesta_promedio_minutos',
+        isVisible: true,
+        suffix: ' min',
+        group: 'PRODUCTIVIDAD IA',
+    },
+
+    // ── GRUPO 4: AHORRO Y EFICIENCIA ───────────────────────────────────────
+    {
+        id: 'def-16',
+        label: 'Horas Ahorradas',
+        icon: 'Clock',
+        color: 'bg-blue-500',
+        size: '12',
+        staticKey: 'tiempo_ahorrado_formateado',
+        isVisible: true,
+        group: 'AHORRO Y EFICIENCIA',
+    },
+
+    // ── GRUPO 5: FILTROS Y NEGATIVOS ───────────────────────────────────────
     {
         id: 'def-9',
         label: 'No Cualificados',
@@ -102,6 +151,7 @@ export const DEFAULT_SUMMARY_KPIS: KpiConfig[] = [
         size: '4',
         staticKey: 'total_no_cualificados',
         isVisible: true,
+        group: 'FILTROS Y NEGATIVOS',
     },
     {
         id: 'def-10',
@@ -111,43 +161,42 @@ export const DEFAULT_SUMMARY_KPIS: KpiConfig[] = [
         size: '4',
         staticKey: 'total_no_contacto',
         isVisible: true,
+        group: 'FILTROS Y NEGATIVOS',
     },
     {
-        id: 'def-11',
-        label: 'T. Respuesta Promedio',       // "tiempo_respuesta" predeterminado
-        icon: 'Zap',
-        color: 'bg-amber-600',
+        id: 'def-14',
+        label: '% Ilocalizables',
+        icon: 'UserX',
+        color: 'bg-gray-600',
         size: '4',
-        staticKey: 'tiempo_respuesta_promedio_minutos',
+        staticKey: 'tasa_ilocalizables',
         isVisible: true,
-        suffix: ' min',
+        suffix: '%',
+        group: 'FILTROS Y NEGATIVOS',
     },
 ];
 
 // ─── DEFAULT CHARTS ───────────────────────────────────────────────────────────
 
 export const DEFAULT_CHARTS: ChartConfig[] = [
-    // Predeterminado: Motivo de anulación
     {
         id: 'ch-1',
         type: 'donut',
-        title: 'Motivo de Anulación',           // "motivo_anulacion" predeterminado
+        title: 'Motivo de Anulación',
         dataKey: 'porMotivoAnulacion',
         size: '6',
         isVisible: true,
         isDonut: true,
         centerLabel: 'total',
     },
-    // Predeterminado: Agendados por fecha (ver por fechas la cantidad)
     {
         id: 'ch-2',
         type: 'area',
-        title: 'Citas Agendadas por Fecha',     // "fecha_con_asesor" chart predeterminado
+        title: 'Citas Agendadas por Fecha',
         dataKey: 'agendadosPorFecha',
         size: '6',
         isVisible: true,
     },
-    // Estado de la llamada
     {
         id: 'ch-3',
         type: 'vertical-bar',
@@ -156,7 +205,6 @@ export const DEFAULT_CHARTS: ChartConfig[] = [
         size: '6',
         isVisible: true,
     },
-    // Razón de término
     {
         id: 'ch-4',
         type: 'vertical-bar',
@@ -165,7 +213,6 @@ export const DEFAULT_CHARTS: ChartConfig[] = [
         size: '6',
         isVisible: true,
     },
-    // Tipo de lead (ilocalizable / nuevo / localizable)
     {
         id: 'ch-5',
         type: 'donut',
@@ -175,7 +222,6 @@ export const DEFAULT_CHARTS: ChartConfig[] = [
         isVisible: true,
         isDonut: false,
     },
-    // Origen (configurable por cliente)
     {
         id: 'ch-6',
         type: 'vertical-bar',
@@ -184,7 +230,6 @@ export const DEFAULT_CHARTS: ChartConfig[] = [
         size: '6',
         isVisible: true,
     },
-    // Cualificación
     {
         id: 'ch-7',
         type: 'donut',
@@ -194,11 +239,10 @@ export const DEFAULT_CHARTS: ChartConfig[] = [
         isVisible: true,
         isDonut: false,
     },
-    // Fecha del primer contacto (predeterminado)
     {
         id: 'ch-8',
         type: 'area',
-        title: 'Primer Contacto por Fecha',    // "fecha_primer_contacto" predeterminado
+        title: 'Primer Contacto por Fecha',
         dataKey: 'primerContactoPorFecha',
         size: '6',
         isVisible: true,
@@ -214,13 +258,19 @@ export const LLAMADAS_KPIS: KpiConfig[] = [
     { id: 'll-4', label: 'Total Minutos IA', icon: 'Clock', color: 'bg-purple-600', size: '4', staticKey: 'total_minutos', isVisible: true, suffix: ' min' },
     { id: 'll-5', label: 'Duración Media', icon: 'Timer', color: 'bg-cyan-600', size: '4', staticKey: 'duracion_media_segundos', isVisible: true, suffix: ' seg' },
     { id: 'll-6', label: 'Tasa Contacto', icon: 'TrendingUp', color: 'bg-teal-600', size: '4', staticKey: 'tasa_contacto', isVisible: true, suffix: '%' },
+    { id: 'll-7', label: '% Agenda', icon: 'Calendar', color: 'bg-orange-600', size: '4', staticKey: 'tasa_agendamiento', isVisible: true, suffix: '%' },
+    { id: 'll-8', label: '% Conversión', icon: 'Target', color: 'bg-yellow-600', size: '4', staticKey: 'tasa_conversion', isVisible: true, suffix: '%' },
 ];
 
 // ─── WHATSAPP KPIs ────────────────────────────────────────────────────────────
 
 export const WHATSAPP_KPIS: KpiConfig[] = [
-    { id: 'ws-1', label: 'Leads con WhatsApp', icon: 'MessageCircle', color: 'bg-blue-600', size: '6', staticKey: 'total_leads', isVisible: true },
-    { id: 'ws-2', label: 'Cualificados vía WP', icon: 'Star', color: 'bg-yellow-600', size: '6', staticKey: 'total_cualificados', isVisible: true },
+    { id: 'ws-1', label: 'Leads con WhatsApp', icon: 'MessageCircle', color: 'bg-blue-600', size: '4', staticKey: 'total_leads_unicos', isVisible: true },
+    { id: 'ws-3', label: 'Agendados', icon: 'Calendar', color: 'bg-orange-600', size: '4', staticKey: 'total_agendados', isVisible: true },
+    { id: 'ws-4', label: '% Agenda', icon: 'PieChart', color: 'bg-orange-500', size: '4', staticKey: 'tasa_agendamiento', isVisible: true, suffix: '%' },
+    { id: 'ws-2', label: 'Cualificados', icon: 'Star', color: 'bg-yellow-600', size: '4', staticKey: 'total_cualificados', isVisible: true },
+    { id: 'ws-5', label: '% Conversión', icon: 'Target', color: 'bg-yellow-700', size: '4', staticKey: 'tasa_conversion', isVisible: true, suffix: '%' },
+    { id: 'ws-6', label: '% Ilocalizables', icon: 'UserX', color: 'bg-gray-600', size: '4', staticKey: 'tasa_ilocalizables', isVisible: true, suffix: '%' },
 ];
 
 // ─── CAMPAÑAS KPIs ────────────────────────────────────────────────────────────

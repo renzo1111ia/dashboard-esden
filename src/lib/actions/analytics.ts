@@ -30,6 +30,9 @@ export interface KpiGenerales {
     total_contactados: number;          // estado_llamada = "CONTACTED"
     total_no_contacto: number;          // estado_llamada = "NO_CONTACT" | "VOICEMAIL"
     tasa_contacto: number;              // porcentaje
+    tasa_agendamiento: number;          // (agendados / leads) * 100
+    tasa_conversion: number;            // (cualificados / leads) * 100
+    tasa_ilocalizables: number;         // (ilocalizables / leads) * 100
 
     // ── Tiempo / Duración ─────────────────────────────────────── predeterminado
     total_minutos: number;              // SUM(duracion_segundos) / 60
@@ -54,6 +57,11 @@ export interface KpiGenerales {
     por_motivo_anulacion: ChartRow[];  // predeterminado
     agendados_por_fecha: ChartRow[];   // para ver por fechas la cantidad de agendadas (predeterminado)
     primer_contacto_por_fecha: ChartRow[]; // fecha de creacion del primer contacto
+
+    // ── Ahorro de tiempo ──
+    minutos_ahorrados: number;
+    horas_ahorradas: number;
+    tiempo_ahorrado_formateado: string;
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -108,11 +116,13 @@ export async function getKpiGenerales(
     const empty: KpiGenerales = {
         total_llamadas: 0, total_leads: 0, total_contactados: 0,
         total_no_contacto: 0, tasa_contacto: 0, total_minutos: 0,
+        tasa_agendamiento: 0, tasa_conversion: 0, tasa_ilocalizables: 0,
         duracion_media_segundos: 0, total_agendados: 0,
         tiempo_respuesta_promedio_minutos: null, total_cualificados: 0,
         total_no_cualificados: 0, por_estado_llamada: [], por_razon_termino: [],
         por_origen: [], por_tipo_lead: [], por_cualificacion: [],
-        por_motivo_anulacion: [], agendados_por_fecha: [], primer_contacto_por_fecha: []
+        por_motivo_anulacion: [], agendados_por_fecha: [], primer_contacto_por_fecha: [],
+        minutos_ahorrados: 0, horas_ahorradas: 0, tiempo_ahorrado_formateado: "0h 0m",
     };
 
     try {
@@ -125,7 +135,7 @@ export async function getKpiGenerales(
                 razon_termino,
                 fecha_inicio,
                 duracion_segundos,
-                lead!inner ( id, nombre, pais, origen, campana, tipo_lead, fecha_ingreso_crm )
+                lead:id_lead!inner ( id, nombre, pais, origen, campana, tipo_lead, fecha_ingreso_crm )
             `)
             .gte("fecha_inicio", from)
             .lte("fecha_inicio", to);
@@ -146,7 +156,7 @@ export async function getKpiGenerales(
             .select(`
                 cualificacion,
                 motivo_anulacion,
-                lead!inner ( id, pais, origen, campana, tipo_lead )
+                lead:id_lead!inner ( id, pais, origen, campana, tipo_lead )
             `)
             .gte("fecha_creacion", from)
             .lte("fecha_creacion", to);
@@ -159,9 +169,10 @@ export async function getKpiGenerales(
         let agendaQuery = supabase
             .from("agendamientos")
             .select(`
+                id,
                 fecha_agendada_cliente,
                 confirmado,
-                lead!inner ( id, pais, origen, campana, tipo_lead )
+                lead:id_lead!inner ( id, pais, origen, campana, tipo_lead )
             `)
             .eq("confirmado", true)
             .gte("fecha_creacion", from)
@@ -177,7 +188,7 @@ export async function getKpiGenerales(
             .select(`
                 id_lead,
                 fecha_creacion,
-                lead!inner ( id, pais, origen, campana, tipo_lead )
+                lead:id_lead!inner ( id, pais, origen, campana, tipo_lead )
             `)
             .gte("fecha_creacion", from)
             .lte("fecha_creacion", to);
@@ -233,6 +244,12 @@ export async function getKpiGenerales(
         const total_cualificados = cualesData.filter((c: any) => c.cualificacion && c.cualificacion !== "NO").length;
         const total_no_cualificados = cualesData.filter((c: any) => !c.cualificacion || c.cualificacion === "NO").length;
 
+        const total_ilocalizables = leadsData.filter((l: any) => l.tipo_lead === "ilocalizable").length;
+
+        const tasa_agendamiento = total_leads > 0 ? Math.round((agendaData.length / total_leads) * 100) : 0;
+        const tasa_conversion = total_leads > 0 ? Math.round((total_cualificados / total_leads) * 100) : 0;
+        const tasa_ilocalizables = total_leads > 0 ? Math.round((total_ilocalizables / total_leads) * 100) : 0;
+
         // ── Compute chart data ───────────────────────────────────────────────
 
         const por_estado_llamada = groupBy(llamadasDataTyped, "estado_llamada");
@@ -240,10 +257,33 @@ export async function getKpiGenerales(
         const por_origen = groupBy(llamadasDataTyped.map((l: any) => l.lead), "origen");
         const por_tipo_lead = groupBy(llamadasDataTyped.map((l: any) => l.lead), "tipo_lead");
         const por_cualificacion = groupBy(cualesData, "cualificacion");
-        const por_motivo_anulacion = groupBy(
-            cualesData.filter((c: any) => !!c.motivo_anulacion),
-            "motivo_anulacion"
-        );
+
+        // ── Motivos de Anulación / Corte de Contacto (Consolidado) ──
+        const allReasons: any[] = [];
+        
+        // 1. Motivos de cualificación (Negocio)
+        cualesData.forEach((c: any) => {
+            if (c.motivo_anulacion) allReasons.push({ motivo: c.motivo_anulacion });
+        });
+
+        // 2. Motivos de fallos en llamadas (Técnico/Operativo)
+        llamadasDataTyped.forEach((l: any) => {
+            if (l.estado_llamada !== "CONTACTED" && l.razon_termino && l.razon_termino !== "Normal Clearing") {
+                // Normalizar nombres si es necesario, pero razon_termino suele ser descriptivo
+                allReasons.push({ motivo: l.razon_termino });
+            }
+        });
+
+        // 3. Fallos o rechazos en WhatsApp
+        wpDataArr.forEach((w: any) => {
+            if (w.opt_in_whatsapp === false) {
+                allReasons.push({ motivo: "WhatsApp: Sin Opt-in" });
+            } else if (w.estado === "FAILED" || w.estado === "EXPIRED") {
+                allReasons.push({ motivo: `WhatsApp: ${w.estado}` });
+            }
+        });
+
+        const por_motivo_anulacion = groupBy(allReasons, "motivo");
 
         // Agendados por fecha (groupBy day)
         const agendadosFechaMap: Record<string, number> = {};
@@ -296,6 +336,9 @@ export async function getKpiGenerales(
             tiempo_respuesta_promedio_minutos,
             total_cualificados,
             total_no_cualificados,
+            tasa_agendamiento,
+            tasa_conversion,
+            tasa_ilocalizables,
             por_estado_llamada,
             por_razon_termino,
             por_origen,
@@ -304,6 +347,9 @@ export async function getKpiGenerales(
             por_motivo_anulacion,
             agendados_por_fecha,
             primer_contacto_por_fecha,
+            minutos_ahorrados: (total_llamadas + wpDataArr.length) * 3,
+            horas_ahorradas: Math.round(((total_llamadas + wpDataArr.length) * 3 / 60) * 10) / 10,
+            tiempo_ahorrado_formateado: `${Math.floor((total_llamadas + wpDataArr.length) * 3 / 60)}h ${((total_llamadas + wpDataArr.length) * 3) % 60}m`,
         };
     } catch (e) {
         console.error("getKpiGenerales EXCEPTION:", e);
@@ -422,6 +468,8 @@ export interface KpiMinutos {
     duracion_media_segundos: number; // AVG duracion_segundos
     total_llamadas: number;
     total_contactadas: number;       // solo CONTACTED
+    tasa_agendamiento: number;
+    tasa_conversion: number;
 
     // Minutos por día (para el gráfico de área)
     minutos_por_dia: ChartRow[];     // label = YYYY-MM-DD, value = minutos ese día
@@ -450,6 +498,7 @@ export async function getKpiMinutos(
     const empty: KpiMinutos = {
         total_minutos: 0, duracion_media_segundos: 0,
         total_llamadas: 0, total_contactadas: 0,
+        tasa_agendamiento: 0, tasa_conversion: 0,
         minutos_por_dia: [], minutos_por_campana: [],
         minutos_por_estado: [], distribucion_duracion: [],
     };
@@ -463,7 +512,7 @@ export async function getKpiMinutos(
                 estado_llamada,
                 duracion_segundos,
                 fecha_inicio,
-                lead!inner ( id, pais, origen, campana, tipo_lead )
+                lead:id_lead!inner ( id, pais, origen, campana, tipo_lead )
             `)
             .gte("fecha_inicio", from)
             .lte("fecha_inicio", to)
@@ -482,6 +531,37 @@ export async function getKpiMinutos(
         const duracion_media_segundos = Math.round(totalSecs / rows.length);
         const total_llamadas = rows.length;
         const total_contactadas = rows.filter((l: any) => l.estado_llamada === "CONTACTED").length;
+
+        // ── Leads, Agendados y Cualificados (para las tasas) ──────────────────
+        let leadsQ = supabase.from("lead").select("id", { count: "exact" }).gte("fecha_ingreso_crm", from).lte("fecha_ingreso_crm", to);
+        if (filters.pais) leadsQ = leadsQ.eq("pais", filters.pais);
+        if (filters.origen) leadsQ = leadsQ.eq("origen", filters.origen);
+        if (filters.campana) leadsQ = leadsQ.eq("campana", filters.campana);
+        if (filters.tipoLead) leadsQ = leadsQ.eq("tipo_lead", filters.tipoLead);
+
+        const { count: total_leads } = await leadsQ;
+        const nLeads = total_leads || 0;
+
+        // query agendamientos and cualificaciones with proper joins if needed
+        let agQuery = supabase.from("agendamientos").select("id", { count: "exact" });
+        let cualQuery = supabase.from("lead_cualificacion").select("id", { count: "exact" });
+
+        if (filters.pais || filters.origen || filters.campana || filters.tipoLead) {
+            agQuery = supabase.from("agendamientos").select("id, lead:id_lead!inner(id)", { count: "exact" });
+            cualQuery = supabase.from("lead_cualificacion").select("id, lead:id_lead!inner(id)", { count: "exact" });
+            if (filters.pais) { agQuery = agQuery.eq("lead.pais", filters.pais); cualQuery = cualQuery.eq("lead.pais", filters.pais); }
+            if (filters.origen) { agQuery = agQuery.eq("lead.origen", filters.origen); cualQuery = cualQuery.eq("lead.origen", filters.origen); }
+            if (filters.campana) { agQuery = agQuery.eq("lead.campana", filters.campana); cualQuery = cualQuery.eq("lead.campana", filters.campana); }
+            if (filters.tipoLead) { agQuery = agQuery.eq("lead.tipo_lead", filters.tipoLead); cualQuery = cualQuery.eq("lead.tipo_lead", filters.tipoLead); }
+        }
+
+        agQuery = agQuery.eq("confirmado", true).gte("fecha_creacion", from).lte("fecha_creacion", to);
+        cualQuery = cualQuery.neq("cualificacion", "NO").gte("fecha_creacion", from).lte("fecha_creacion", to);
+
+        const [{ count: total_agendados }, { count: total_cualificados }] = await Promise.all([agQuery, cualQuery]);
+
+        const tasa_agendamiento = nLeads > 0 ? Math.round(((total_agendados || 0) / nLeads) * 100) : 0;
+        const tasa_conversion = nLeads > 0 ? Math.round(((total_cualificados || 0) / nLeads) * 100) : 0;
 
         // ── Minutos por día ───────────────────────────────────────────────────
         const byDayMap: Record<string, number> = {};
@@ -534,14 +614,11 @@ export async function getKpiMinutos(
             .map(([label, value]) => ({ label, value }));
 
         return {
-            total_minutos,
-            duracion_media_segundos,
-            total_llamadas,
-            total_contactadas,
-            minutos_por_dia,
-            minutos_por_campana,
-            minutos_por_estado,
-            distribucion_duracion,
+            total_minutos, duracion_media_segundos,
+            total_llamadas, total_contactadas,
+            tasa_agendamiento, tasa_conversion,
+            minutos_por_dia, minutos_por_campana,
+            minutos_por_estado, distribucion_duracion,
         };
 
     } catch (e) {
@@ -559,6 +636,11 @@ export interface KpiWhatsapp {
     con_opt_in: number;                 // opt_in_whatsapp = true
     sin_opt_in: number;
     tasa_opt_in: number;                // porcentaje
+    total_agendados: number;
+    total_cualificados: number;
+    tasa_agendamiento: number;
+    tasa_conversion: number;
+    tasa_ilocalizables: number;
 
     // Desglose de estado de conversación
     por_estado_conversacion: ChartRow[]; // label = estado, value = count
@@ -590,6 +672,8 @@ export async function getKpiWhatsapp(
     const empty: KpiWhatsapp = {
         total_conversaciones: 0, total_leads_unicos: 0,
         con_opt_in: 0, sin_opt_in: 0, tasa_opt_in: 0,
+        total_agendados: 0, total_cualificados: 0,
+        tasa_agendamiento: 0, tasa_conversion: 0, tasa_ilocalizables: 0,
         por_estado_conversacion: [], por_tipo_lead: [],
         por_origen: [], conversaciones_por_dia: [], opt_in_por_campana: [],
     };
@@ -603,7 +687,7 @@ export async function getKpiWhatsapp(
                 estado,
                 opt_in_whatsapp,
                 fecha_creacion,
-                lead!inner ( id, pais, origen, campana, tipo_lead )
+                lead:id_lead!inner ( id, pais, origen, campana, tipo_lead )
             `)
             .gte("fecha_creacion", from)
             .lte("fecha_creacion", to);
@@ -625,6 +709,21 @@ export async function getKpiWhatsapp(
         const tasa_opt_in = total_conversaciones > 0
             ? Math.round((con_opt_in / total_conversaciones) * 100)
             : 0;
+
+        // ── Agendados y Cualificados para estos leads ────────────────────────
+        // Fetch them separately to keep it lean
+        const [agRes, cualRes] = await Promise.all([
+            supabase.from("agendamientos").select("id").in("id_lead", Array.from(leadIds)).eq("confirmado", true),
+            supabase.from("lead_cualificacion").select("id, cualificacion").in("id_lead", Array.from(leadIds))
+        ]);
+
+        const total_agendados = agRes.data?.length || 0;
+        const total_cualificados = cualRes.data?.filter((c: any) => c.cualificacion && c.cualificacion !== "NO").length || 0;
+        const total_ilocalizables = rows.filter((r: any) => (r.lead as any)?.tipo_lead === "ilocalizable").length;
+
+        const tasa_agendamiento = total_leads_unicos > 0 ? Math.round((total_agendados / total_leads_unicos) * 100) : 0;
+        const tasa_conversion = total_leads_unicos > 0 ? Math.round((total_cualificados / total_leads_unicos) * 100) : 0;
+        const tasa_ilocalizables = total_leads_unicos > 0 ? Math.round((total_ilocalizables / total_leads_unicos) * 100) : 0;
 
         // ── Por estado de conversación ─────────────────────────────────────────
         const por_estado_conversacion = groupBy(rows, "estado");
@@ -660,6 +759,8 @@ export async function getKpiWhatsapp(
         return {
             total_conversaciones, total_leads_unicos,
             con_opt_in, sin_opt_in, tasa_opt_in,
+            total_agendados, total_cualificados,
+            tasa_agendamiento, tasa_conversion, tasa_ilocalizables,
             por_estado_conversacion, por_tipo_lead, por_origen,
             conversaciones_por_dia, opt_in_por_campana,
         };
@@ -750,7 +851,7 @@ export async function getKpiCampanas(
             .from("llamadas")
             .select(`
                 id, estado_llamada, duracion_segundos, fecha_inicio,
-                lead!inner ( id, campana, pais, origen, tipo_lead )
+                lead:id_lead!inner ( id, campana, pais, origen, tipo_lead )
             `)
             .gte("fecha_inicio", from)
             .lte("fecha_inicio", to);
@@ -764,7 +865,7 @@ export async function getKpiCampanas(
             .from("agendamientos")
             .select(`
                 id, fecha_agendada_cliente, confirmado,
-                lead!inner ( id, campana, pais, origen, tipo_lead )
+                lead:id_lead!inner ( id, campana, pais, origen, tipo_lead )
             `)
             .eq("confirmado", true)
             .gte("fecha_creacion", from)
@@ -779,7 +880,7 @@ export async function getKpiCampanas(
             .from("lead_cualificacion")
             .select(`
                 id_lead, cualificacion,
-                lead!inner ( id, campana, pais, origen, tipo_lead )
+                lead:id_lead!inner ( id, campana, pais, origen, tipo_lead )
             `)
             .gte("fecha_creacion", from)
             .lte("fecha_creacion", to);

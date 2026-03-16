@@ -35,10 +35,12 @@ async function MinutosKpis({
         total_contactados:       kpi.total_contactadas,
         total_minutos:           kpi.total_minutos,
         duracion_media_segundos: kpi.duracion_media_segundos,
+        tasa_agendamiento:       kpi.tasa_agendamiento,
+        tasa_conversion:         kpi.tasa_conversion,
         // pad unused fields so SummaryManager doesn't break
         total_leads: 0, total_no_contacto: 0, tasa_contacto: 0,
         total_agendados: 0, tiempo_respuesta_promedio_minutos: null,
-        total_cualificados: 0, total_no_cualificados: 0,
+        total_cualificados: 0, total_no_cualificados: 0, tasa_ilocalizables: 0,
         por_estado_llamada: [], por_razon_termino: [], por_origen: [],
         por_tipo_lead: [], por_cualificacion: [], por_motivo_anulacion: [],
         agendados_por_fecha: [], primer_contacto_por_fecha: [],

@@ -35,11 +35,16 @@ async function WhatsappKpis({
     // Build compatible values object (staticKey names from kpi-defaults)
     const values = {
         total_leads:          kpi.total_leads_unicos,
-        total_cualificados:   0,      // no aplica aquí directamente
+        total_leads_unicos:   kpi.total_leads_unicos,
+        total_agendados:      kpi.total_agendados,
+        total_cualificados:   kpi.total_cualificados,
+        tasa_agendamiento:    kpi.tasa_agendamiento,
+        tasa_conversion:      kpi.tasa_conversion,
+        tasa_ilocalizables:    kpi.tasa_ilocalizables,
         // pad remaining fields for SummaryManager
         total_llamadas: 0, total_contactados: 0, total_no_contacto: 0,
         tasa_contacto: 0, total_minutos: 0, duracion_media_segundos: 0,
-        total_agendados: 0, tiempo_respuesta_promedio_minutos: null,
+        tiempo_respuesta_promedio_minutos: null,
         total_no_cualificados: 0, por_estado_llamada: [], por_razon_termino: [],
         por_origen: [], por_tipo_lead: [], por_cualificacion: [],
         por_motivo_anulacion: [], agendados_por_fecha: [], primer_contacto_por_fecha: [],
