@@ -71,7 +71,7 @@ export function Sidebar({ isAdmin, mobileOpen, onMobileClose }: {
             {/* ── MOBILE: Overlay backdrop ───────────────────────────────── */}
             {mobileOpen && (
                 <div
-                    className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm md:hidden"
+                    className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
                     onClick={onMobileClose}
                 />
             )}
@@ -80,7 +80,7 @@ export function Sidebar({ isAdmin, mobileOpen, onMobileClose }: {
             <aside
                 className={cn(
                     // Desktop: always visible, collapsible
-                    "relative hidden md:flex h-screen flex-col border-r border-slate-200 bg-white transition-all duration-300",
+                    "relative hidden md:flex h-screen flex-col border-r border-sidebar-border dark:border-slate-800 bg-sidebar dark:bg-slate-950 transition-all duration-300",
                     collapsed ? "w-16" : "w-64",
                     // Mobile: slide-in drawer
                     "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:flex max-md:w-72 max-md:shadow-2xl",
@@ -89,12 +89,12 @@ export function Sidebar({ isAdmin, mobileOpen, onMobileClose }: {
                 )}
             >
                 {/* Logo */}
-                <div className={cn("flex h-16 md:h-20 items-center justify-between border-b border-slate-100 transition-all px-4")}>
+                <div className={cn("flex h-16 md:h-20 items-center justify-between border-b border-sidebar-border transition-all px-4")}>
                     {!collapsed ? (
                         <img src="/logo.png" alt="App Automatiza" className="h-9 w-auto object-contain" />
                     ) : (
-                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50 mx-auto">
-                            <svg viewBox="0 0 24 24" className="h-7 w-7 text-blue-600" fill="currentColor">
+                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10 mx-auto transition-colors">
+                            <svg viewBox="0 0 24 24" className="h-7 w-7 text-primary" fill="currentColor">
                                 <path d="M12 3L1 9L12 15L21 10.09V17H23V9M5 13.18V17.18L12 21L19 17.18V13.18L12 17L5 13.18Z" />
                             </svg>
                         </div>
@@ -103,7 +103,7 @@ export function Sidebar({ isAdmin, mobileOpen, onMobileClose }: {
                     {onMobileClose && (
                         <button
                             onClick={onMobileClose}
-                            className="md:hidden h-9 w-9 flex items-center justify-center rounded-xl text-slate-400 hover:bg-slate-50 transition-all"
+                            className="md:hidden h-9 w-9 flex items-center justify-center rounded-xl text-sidebar-foreground/50 hover:bg-sidebar-accent transition-all"
                             title="Cerrar menú"
                             aria-label="Cerrar menú"
                         >
@@ -127,8 +127,8 @@ export function Sidebar({ isAdmin, mobileOpen, onMobileClose }: {
                                 className={cn(
                                     "flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-all duration-200",
                                     active
-                                        ? "bg-blue-600 text-white shadow-md shadow-blue-200"
-                                        : "text-slate-500 hover:bg-slate-50 hover:text-blue-600"
+                                        ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                                        : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                                 )}
                             >
                                 <span className="relative flex-shrink-0">
@@ -149,7 +149,7 @@ export function Sidebar({ isAdmin, mobileOpen, onMobileClose }: {
                 {/* Collapse toggle (desktop only) */}
                 <button
                     onClick={() => setCollapsed(!collapsed)}
-                    className="hidden md:flex m-3 items-center justify-center rounded-xl py-2.5 text-slate-400 transition hover:bg-slate-50 hover:text-blue-600"
+                    className="hidden md:flex m-3 items-center justify-center rounded-xl py-2.5 text-sidebar-foreground/40 transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                     title={collapsed ? "Expandir" : "Colapsar"}
                 >
                     <svg
@@ -162,7 +162,7 @@ export function Sidebar({ isAdmin, mobileOpen, onMobileClose }: {
             </aside>
 
             {/* ── MOBILE: Bottom Navigation Bar ─────────────────────────── */}
-            <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 flex items-center justify-around border-t border-slate-200 bg-white/95 backdrop-blur-md px-1 pb-safe">
+            <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 flex items-center justify-around border-t border-sidebar-border dark:border-slate-800 bg-sidebar/95 dark:bg-slate-950/95 backdrop-blur-md px-1 pb-safe">
                 {visibleNavItems.slice(0, 5).map((item) => {
                     const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
                     return (
@@ -171,12 +171,12 @@ export function Sidebar({ isAdmin, mobileOpen, onMobileClose }: {
                             href={item.href}
                             className={cn(
                                 "flex flex-col items-center gap-0.5 px-2 py-2 min-w-[48px] rounded-xl transition-all",
-                                active ? "text-blue-600" : "text-slate-400"
+                                active ? "text-primary" : "text-sidebar-foreground/40"
                             )}
                         >
                             <span className={cn(
                                 "flex items-center justify-center h-9 w-9 rounded-xl transition-all",
-                                active ? "bg-blue-50" : ""
+                                active ? "bg-primary/10" : ""
                             )}>
                                 {item.icon}
                             </span>

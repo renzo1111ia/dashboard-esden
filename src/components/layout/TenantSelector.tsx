@@ -39,8 +39,8 @@ export function TenantSelector({ collapsed, isAdmin }: { collapsed: boolean; isA
 
     if (collapsed) {
         return (
-            <div className="px-2 py-4 flex justify-center border-b border-slate-100">
-                <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-400">
+            <div className="px-2 py-4 flex justify-center border-b border-sidebar-border dark:border-slate-800">
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary transition-colors">
                     <Building2 className="h-4 w-4" />
                 </div>
             </div>
@@ -48,31 +48,31 @@ export function TenantSelector({ collapsed, isAdmin }: { collapsed: boolean; isA
     }
 
     return (
-        <div className="relative px-4 py-4 border-b border-slate-100">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2 block">
+        <div className="relative px-4 py-4 border-b border-sidebar-border">
+            <label className="text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/40 mb-2 block">
                 Cliente Activo
             </label>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex w-full items-center gap-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-left text-sm transition hover:bg-slate-100 hover:border-blue-200"
+                className="flex w-full items-center gap-2 rounded-lg bg-sidebar-accent dark:bg-slate-900/50 border border-sidebar-border dark:border-slate-800 px-3 py-2 text-left text-sm transition hover:bg-sidebar-accent/80 dark:hover:bg-slate-800 hover:border-primary/50"
             >
-                <Building2 className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                <span className="flex-1 truncate text-slate-700 font-semibold">
+                <Building2 className="h-4 w-4 text-primary flex-shrink-0" />
+                <span className="flex-1 truncate text-sidebar-foreground font-semibold">
                     {tenantName || (loading ? "Cargando..." : "Seleccionar...")}
                 </span>
-                <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform", isOpen && "rotate-180")} />
+                <ChevronDown className={cn("h-4 w-4 text-sidebar-foreground/40 transition-transform", isOpen && "rotate-180")} />
             </button>
 
             {isOpen && (
-                <div className="absolute left-4 right-4 z-50 mt-2 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg shadow-slate-200/50">
+                <div className="absolute left-4 right-4 z-50 mt-2 max-h-72 overflow-y-auto rounded-xl border border-border bg-popover p-1 shadow-lg shadow-black/20">
                     <div className="py-1">
                         {tenants.map((t) => (
                             <button
                                 key={t.id}
                                 onClick={() => handleSelect(t)}
                                 className={cn(
-                                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition hover:bg-slate-50",
-                                    tenantName === t.name ? "text-blue-600 font-bold bg-blue-50/50" : "text-slate-600 font-medium"
+                                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition hover:bg-accent",
+                                    tenantName === t.name ? "text-primary font-bold bg-primary/10" : "text-popover-foreground font-medium"
                                 )}
                             >
                                 <span className="flex-1 truncate">{t.name}</span>
@@ -81,13 +81,13 @@ export function TenantSelector({ collapsed, isAdmin }: { collapsed: boolean; isA
                         ))}
                     </div>
                     {isAdmin && (
-                        <div className="mt-1 border-t border-slate-100 p-1">
+                        <div className="mt-1 border-t border-border p-1">
                             <button
                                 onClick={() => {
                                     setIsOpen(false);
                                     router.push("/dashboard/settings");
                                 }}
-                                className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-black text-blue-600 transition hover:bg-blue-50"
+                                className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-black text-primary transition hover:bg-primary/10"
                             >
                                 <Plus className="h-3.5 w-3.5" />
                                 Agregar nuevo cliente
@@ -95,7 +95,7 @@ export function TenantSelector({ collapsed, isAdmin }: { collapsed: boolean; isA
                         </div>
                     )}
                     {tenants.length === 0 && !loading && (
-                        <div className="px-3 py-2 text-xs text-slate-400 italic font-medium">No hay clientes configurados</div>
+                        <div className="px-3 py-2 text-xs text-muted-foreground italic font-medium">No hay clientes configurados</div>
                     )}
                 </div>
             )}

@@ -21,9 +21,9 @@ const PALETTE = [
 function TooltipConv({ active, payload, label }: any) {
     if (!active || !payload?.length) return null;
     return (
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xl text-xs">
-            <p className="font-bold text-slate-700 mb-1">{label}</p>
-            <p className="font-black text-green-600">{payload[0].value?.toLocaleString("es-ES")} conversaciones</p>
+        <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-xl text-xs">
+            <p className="font-bold text-card-foreground mb-1">{label}</p>
+            <p className="font-black text-green-600 dark:text-green-400">{payload[0].value?.toLocaleString("es-ES")} conversaciones</p>
         </div>
     );
 }
@@ -31,9 +31,9 @@ function TooltipConv({ active, payload, label }: any) {
 function TooltipBar({ active, payload, label }: any) {
     if (!active || !payload?.length) return null;
     return (
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xl text-xs">
-            <p className="font-bold text-slate-700 mb-1">{label}</p>
-            <p className="font-black text-emerald-600">{payload[0].value?.toLocaleString("es-ES")}</p>
+        <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-xl text-xs">
+            <p className="font-bold text-card-foreground mb-1">{label}</p>
+            <p className="font-black text-emerald-600 dark:text-emerald-400">{payload[0].value?.toLocaleString("es-ES")}</p>
         </div>
     );
 }
@@ -41,9 +41,9 @@ function TooltipBar({ active, payload, label }: any) {
 function TooltipPie({ active, payload }: any) {
     if (!active || !payload?.length) return null;
     return (
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xl text-xs">
-            <p className="font-bold text-slate-700">{payload[0].name}</p>
-            <p className="font-black text-emerald-600">{payload[0].value?.toLocaleString("es-ES")}</p>
+        <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-xl text-xs">
+            <p className="font-bold text-card-foreground">{payload[0].name}</p>
+            <p className="font-black text-emerald-600 dark:text-emerald-400">{payload[0].value?.toLocaleString("es-ES")}</p>
         </div>
     );
 }
@@ -52,8 +52,8 @@ function TooltipPie({ active, payload }: any) {
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
     return (
-        <div className="rounded-3xl border border-slate-100 bg-white p-7 shadow-sm">
-            <h3 className="mb-6 text-sm font-black uppercase tracking-widest text-slate-400">{title}</h3>
+        <div className="rounded-3xl border border-border bg-card p-7 shadow-sm">
+            <h3 className="mb-6 text-sm font-black uppercase tracking-widest text-muted-foreground">{title}</h3>
             {children}
         </div>
     );
@@ -61,7 +61,7 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
 
 function Empty() {
     return (
-        <div className="h-[200px] flex items-center justify-center text-sm font-bold text-slate-300">
+        <div className="h-[200px] flex items-center justify-center text-sm font-bold text-muted-foreground/50">
             Sin datos para el período seleccionado
         </div>
     );
@@ -110,9 +110,9 @@ export function WhatsappCharts({ data }: Props) {
                                         <stop offset="95%" stopColor="#25d366" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                <XAxis dataKey="label" tick={{ fill: "#64748b", fontSize: 10, fontWeight: 600 }} axisLine={false} tickLine={false} />
-                                <YAxis tick={{ fill: "#64748b", fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-border" />
+                                <XAxis dataKey="label" tick={{ fill: "currentColor", fontSize: 10, fontWeight: 600 }} className="text-muted-foreground" axisLine={false} tickLine={false} />
+                                <YAxis tick={{ fill: "currentColor", fontSize: 10, fontWeight: 700 }} className="text-muted-foreground" axisLine={false} tickLine={false} />
                                 <Tooltip content={<TooltipConv />} />
                                 <Area type="monotone" dataKey="value" name="Conversaciones"
                                     stroke="#25d366" strokeWidth={3} fillOpacity={1} fill="url(#wpGrad)" />
@@ -142,13 +142,13 @@ export function WhatsappCharts({ data }: Props) {
                             <Legend
                                 layout="vertical" align="right" verticalAlign="middle"
                                 iconType="circle" iconSize={8}
-                                formatter={(val) => <span className="text-xs text-slate-600 font-bold ml-1">{val}</span>}
+                                formatter={(val) => <span className="text-xs text-muted-foreground font-bold ml-1">{val}</span>}
                             />
                             {/* Center: % */}
-                            <text x="50%" y="48%" textAnchor="middle" dominantBaseline="middle" fontSize={26} fontWeight={900} fill="#16a34a">
+                            <text x="50%" y="48%" textAnchor="middle" dominantBaseline="middle" fontSize={26} fontWeight={900} className="fill-green-600 dark:fill-green-400">
                                 {tasa_opt_in}%
                             </text>
-                            <text x="50%" y="58%" textAnchor="middle" dominantBaseline="middle" fontSize={10} fontWeight={700} fill="#94a3b8">
+                            <text x="50%" y="58%" textAnchor="middle" dominantBaseline="middle" fontSize={10} fontWeight={700} className="fill-muted-foreground">
                                 OPT-IN
                             </text>
                         </PieChart>
@@ -167,8 +167,8 @@ export function WhatsappCharts({ data }: Props) {
                                     <stop offset="100%" stopColor="#128c7e" stopOpacity={0.6} />
                                 </linearGradient>
                             </defs>
-                            <XAxis type="number" tick={{ fill: "#64748b", fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
-                            <YAxis type="category" dataKey="label" tick={{ fill: "#1e293b", fontSize: 10, fontWeight: 600 }} width={110} axisLine={false} tickLine={false} />
+                            <XAxis type="number" tick={{ fill: "currentColor", fontSize: 10, fontWeight: 700 }} className="text-muted-foreground" axisLine={false} tickLine={false} />
+                            <YAxis type="category" dataKey="label" tick={{ fill: "currentColor", fontSize: 10, fontWeight: 600 }} className="text-card-foreground" width={110} axisLine={false} tickLine={false} />
                             <Tooltip content={<TooltipBar />} cursor={{ fill: "rgba(37,211,102,0.04)", radius: 8 }} />
                             <Bar dataKey="value" radius={[0, 8, 8, 0]} maxBarSize={28} fill="url(#optGrad)" />
                         </BarChart>
@@ -187,8 +187,8 @@ export function WhatsappCharts({ data }: Props) {
                                     <stop offset="100%" stopColor="#128c7e" stopOpacity={0.5} />
                                 </linearGradient>
                             </defs>
-                            <XAxis dataKey="label" tick={{ fill: "#475569", fontSize: 9, fontWeight: 600 }} axisLine={false} tickLine={false} angle={-30} textAnchor="end" />
-                            <YAxis tick={{ fill: "#64748b", fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
+                            <XAxis dataKey="label" tick={{ fill: "currentColor", fontSize: 9, fontWeight: 600 }} className="text-muted-foreground" axisLine={false} tickLine={false} angle={-30} textAnchor="end" />
+                            <YAxis tick={{ fill: "currentColor", fontSize: 10, fontWeight: 700 }} className="text-muted-foreground" axisLine={false} tickLine={false} />
                             <Tooltip content={<TooltipBar />} cursor={{ fill: "rgba(18,140,126,0.04)", radius: 8 }} />
                             <Bar dataKey="value" radius={[8, 8, 0, 0]} maxBarSize={80} fill="url(#estConvGrad)" />
                         </BarChart>
@@ -217,7 +217,7 @@ export function WhatsappCharts({ data }: Props) {
                             <Legend
                                 layout="vertical" align="right" verticalAlign="middle"
                                 iconType="circle" iconSize={8}
-                                formatter={(val) => <span className="text-xs text-slate-600 font-bold ml-1">{val}</span>}
+                                formatter={(val) => <span className="text-xs text-muted-foreground font-bold ml-1">{val}</span>}
                             />
                         </PieChart>
                     </ResponsiveContainer>
@@ -235,8 +235,8 @@ export function WhatsappCharts({ data }: Props) {
                                     <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.6} />
                                 </linearGradient>
                             </defs>
-                            <XAxis type="number" tick={{ fill: "#64748b", fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
-                            <YAxis type="category" dataKey="label" tick={{ fill: "#1e293b", fontSize: 10, fontWeight: 600 }} width={110} axisLine={false} tickLine={false} />
+                            <XAxis type="number" tick={{ fill: "currentColor", fontSize: 10, fontWeight: 700 }} className="text-muted-foreground" axisLine={false} tickLine={false} />
+                            <YAxis type="category" dataKey="label" tick={{ fill: "currentColor", fontSize: 10, fontWeight: 600 }} className="text-card-foreground" width={110} axisLine={false} tickLine={false} />
                             <Tooltip content={<TooltipBar />} cursor={{ fill: "rgba(99,102,241,0.04)", radius: 8 }} />
                             <Bar dataKey="value" radius={[0, 8, 8, 0]} maxBarSize={28} fill="url(#origenWp)" />
                         </BarChart>

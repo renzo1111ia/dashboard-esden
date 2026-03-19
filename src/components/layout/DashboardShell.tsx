@@ -8,13 +8,13 @@ export function DashboardShell({ isAdmin, children }: { isAdmin: boolean; childr
     const [mobileOpen, setMobileOpen] = useState(false);
 
     return (
-        <div className="flex h-screen overflow-hidden bg-[#f1f5f9]">
+        <div className="flex h-screen overflow-hidden bg-background dark:bg-slate-950 transition-colors">
             <Sidebar
                 isAdmin={isAdmin}
                 mobileOpen={mobileOpen}
                 onMobileClose={() => setMobileOpen(false)}
             />
-            <div className="flex flex-1 flex-col overflow-hidden min-w-0">
+            <div className="flex flex-1 flex-col overflow-hidden min-w-0 bg-background dark:bg-slate-950">
                 <Topbar
                     title="Panel General"
                     onMenuClick={() => setMobileOpen(true)}

@@ -4,6 +4,7 @@ import { getActiveTenantConfig } from "@/lib/actions/tenant";
 import { getAdminStatus } from "@/lib/actions/auth";
 import { KpiSkeleton, ChartSkeleton } from "@/components/charts/DashboardCharts";
 import { SummaryManager } from "@/components/dashboard/SummaryManager";
+import { Bot } from "lucide-react";
 import { LLAMADAS_KPIS } from "@/lib/constants/kpi-defaults";
 import { KpiConfig } from "@/types/tenant";
 import { FilterBar } from "@/components/dashboard/FilterBar";
@@ -56,18 +57,25 @@ async function MinutosKpis({
             configKey="kpis_llamadas"
             title={
                 <div className="mb-2">
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-1">
-                        Minutos <span className="text-blue-600">IA</span>
-                    </h1>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                        Consumo y distribución de minutos del período seleccionado
-                    </p>
+                    <div className="flex items-center gap-4 mb-4">
+                        <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-[20px]">
+                            <Bot className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div>
+                            <h1 className="text-[32px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
+                                Agente de <span className="text-blue-600 dark:text-blue-400">voz</span>
+                            </h1>
+                            <p className="text-slate-500 dark:text-slate-400 font-medium text-[15px]">
+                                Rendimiento del ciclo de contacto automatizado
+                            </p>
+                        </div>
+                    </div>
 
                     {/* Hero metric */}
                     <div className="mt-6 flex items-end gap-6 flex-wrap">
                         <div>
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Total minutos</p>
-                            <p className="text-7xl font-black text-slate-900 tracking-tighter leading-none">
+                            <p className="text-7xl font-black text-slate-900 dark:text-white tracking-tighter leading-none">
                                 {kpi.total_minutos.toLocaleString("es-ES")}
                                 <span className="text-2xl font-bold text-slate-400 ml-2">min</span>
                             </p>
@@ -75,20 +83,20 @@ async function MinutosKpis({
                         <div className="flex gap-6 pb-2">
                             <div>
                                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Duración media</p>
-                                <p className="text-2xl font-black text-blue-600">
+                                <p className="text-2xl font-black text-blue-600 dark:text-blue-400">
                                     {kpi.duracion_media_segundos}
                                     <span className="text-sm font-bold text-slate-400 ml-1">seg</span>
                                 </p>
                             </div>
                             <div>
                                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Llamadas</p>
-                                <p className="text-2xl font-black text-slate-700">
+                                <p className="text-2xl font-black text-slate-700 dark:text-slate-200">
                                     {kpi.total_llamadas.toLocaleString("es-ES")}
                                 </p>
                             </div>
                             <div>
                                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Contactadas</p>
-                                <p className="text-2xl font-black text-emerald-600">
+                                <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
                                     {kpi.total_contactadas.toLocaleString("es-ES")}
                                 </p>
                             </div>

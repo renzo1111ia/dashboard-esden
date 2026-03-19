@@ -203,6 +203,13 @@ export interface HistorialRow {
     fecha_agendada_cliente?: string | null;
     confirmado?: boolean | null;
 
+    // ── Related Module Data (New) ──
+    programa_nombre?: string | null;
+    intentos_count: number;
+    whatsapp_status?: string | null;
+    opt_in_whatsapp?: boolean | null;
+    notificaciones_status?: string | null;
+
     // ── Computed ──
     tiempo_respuesta_minutos?: number | null;  // primera llamada - fecha_ingreso_crm
     fecha_primer_contacto?: string | null;     // MIN(llamada, whatsapp)
@@ -210,6 +217,9 @@ export interface HistorialRow {
     // ── Historial completo de llamadas/reintentos de este lead ──
     llamadas: LlamadaResumen[];        // todas las llamadas, orden desc
     total_llamadas: number;            // = llamadas.length
+
+    // ── Dynamic / Extra Fields ──
+    [key: string]: any; 
 }
 
 /** Supabase database shape (for createClient generic) */

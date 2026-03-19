@@ -384,14 +384,34 @@ export async function getDynamicKpis(
                 ? c.targetCol.split(".")
                 : ["llamadas", c.targetCol];
 
+            // Determine date column based on table
+            let dateCol = "fecha_creacion";
+            if (tableName === "lead") dateCol = "fecha_ingreso_crm";
+            if (tableName === "llamadas") dateCol = "fecha_inicio";
+
             let query = supabase
                 .from(tableName)
-                .select(colName, { count: "exact" })
-                .gte("fecha_creacion", from)
-                .lte("fecha_creacion", to);
+                // If not lead table, we need to join to filter by lead properties
+                .select(
+                    tableName === "lead" 
+                        ? colName 
+                        : `${colName}, lead:id_lead!inner ( id, pais, origen, campana, tipo_lead )`, 
+                    { count: "exact" }
+                )
+                .gte(dateCol, from)
+                .lte(dateCol, to);
 
-            // Apply condition if specified
-            // condOp values from KpiConfig: "=" | "!=" | "ILIKE" | ">" | "<"
+            // Apply global filters
+            if (tableName === "lead") {
+                if (filters.pais) query = query.eq("pais", filters.pais);
+                if (filters.origen) query = query.eq("origen", filters.origen);
+                if (filters.campana) query = query.eq("campana", filters.campana);
+                if (filters.tipoLead) query = query.eq("tipo_lead", filters.tipoLead);
+            } else {
+                query = applyLeadFilters(query, filters);
+            }
+
+            // Apply specific KPI condition if specified
             if (c.condCol && c.condOp && c.condVal) {
                 if (c.condOp === "=") query = query.eq(c.condCol, c.condVal);
                 if (c.condOp === "!=") query = query.neq(c.condCol, c.condVal);
@@ -989,3 +1009,25 @@ export async function getKpiCampanas(
     }
 }
 
+
+/**
+ * Gets a distinct list of campaign names from the lead table.
+ */
+export async function getUniqueCampaigns(): Promise<string[]> {
+    const supabase = await getSupabaseServerClient();
+    try {
+        const { data, error } = await supabase
+            .from("lead")
+            .select("campana")
+            .not("campana", "is", null)
+            .not("campana", "eq", "");
+
+        if (error) throw error;
+
+        const unique = Array.from(new Set((data as any[]).map(d => d.campana))).sort();
+        return unique;
+    } catch (e) {
+        console.error("getUniqueCampaigns error:", e);
+        return [];
+    }
+}

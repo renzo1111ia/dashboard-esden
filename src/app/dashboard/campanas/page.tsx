@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import {
-    getKpiCampanas, getDynamicKpis,
+    getKpiCampanas, getDynamicKpis, getUniqueCampaigns,
     type KpiCampanas, type AnalyticsFilters,
 } from "@/lib/actions/analytics";
 import { getActiveTenantConfig } from "@/lib/actions/tenant";
@@ -13,6 +13,7 @@ import { KpiConfig } from "@/types/tenant";
 import { FilterBar } from "@/components/dashboard/FilterBar";
 import { parseFilters } from "@/lib/utils/date-filters";
 import { CampanasCharts } from "@/components/dashboard/CampanasCharts";
+import { CampaignSelector } from "@/components/dashboard/CampaignSelector";
 
 export const dynamic = "force-dynamic";
 
@@ -30,9 +31,9 @@ function HeroStat({ label, value, color }: { label: string; value: string; color
 // ─── KPIs SECTION ─────────────────────────────────────────────────────────────
 
 async function CampanasKpis({
-    from, to, isAdmin, filters,
+    from, to, isAdmin, filters, availableCampaigns = []
 }: {
-    from: string; to: string; isAdmin: boolean; filters: AnalyticsFilters;
+    from: string; to: string; isAdmin: boolean; filters: AnalyticsFilters; availableCampaigns?: string[];
 }) {
     const [kpi, tenantConfig] = await Promise.all([
         getKpiCampanas(from, to, filters),
@@ -77,6 +78,11 @@ async function CampanasKpis({
                         Rendimiento y conversión por campaña en el período seleccionado
                     </p>
 
+                    <CampaignSelector 
+                        campaigns={availableCampaigns} 
+                        currentCampaign={filters.campana} 
+                    />
+
                     {/* Hero metrics */}
                     <div className="mt-6 flex flex-wrap gap-8">
                         <HeroStat label="Total Leads"      value={kpi.total_leads.toLocaleString("es-ES")}        color="text-slate-900" />
@@ -109,13 +115,14 @@ async function CampanasChartsSection({
 export default async function CampanasPage({ searchParams }: { searchParams: Promise<any> }) {
     const params = await searchParams;
     const { from, to, filters } = parseFilters(params);
+    const availableCampaigns = await getUniqueCampaigns();
     const isAdmin = await getAdminStatus();
 
     return (
         <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
             {isAdmin && <TenantSetupBanner />}
 
-            <FilterBar />
+            <FilterBar availableCampaigns={availableCampaigns} />
 
             {/* KPI Cards */}
             <Suspense
@@ -126,7 +133,13 @@ export default async function CampanasPage({ searchParams }: { searchParams: Pro
                     </div>
                 }
             >
-                <CampanasKpis from={from} to={to} isAdmin={isAdmin} filters={filters} />
+                <CampanasKpis 
+                    from={from} 
+                    to={to} 
+                    isAdmin={isAdmin} 
+                    filters={filters} 
+                    availableCampaigns={availableCampaigns} 
+                />
             </Suspense>
 
             {/* Charts */}

@@ -55,16 +55,10 @@ export async function fetchCalls({
         let query = supabase
             .from("lead")
             .select(`
-                id,
-                nombre,
-                apellido,
-                telefono,
-                email,
-                pais,
-                tipo_lead,
-                origen,
-                campana,
-                fecha_ingreso_crm,
+                *,
+                last_program:lead_programas (
+                    programa:programas ( nombre )
+                ),
                 llamadas:llamadas (
                     id,
                     estado_llamada,
@@ -86,6 +80,16 @@ export async function fetchCalls({
                     fecha_agendada_cliente,
                     confirmado,
                     fecha_creacion
+                ),
+                intentos ( id ),
+                conversaciones_whatsapp (
+                    opt_in_whatsapp,
+                    estado,
+                    fecha_ultimo_mensaje
+                ),
+                notificaciones (
+                    tipo,
+                    fecha_envio
                 )
             `, { count: "exact" })
             .order("fecha_ingreso_crm", { ascending: false })
@@ -142,6 +146,16 @@ export async function fetchCalls({
                 new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime()
             )[0] || {};
 
+            const latestWA = (lead.conversaciones_whatsapp ?? []).sort((a: any, b: any) =>
+                new Date(b.fecha_ultimo_mensaje || 0).getTime() - new Date(a.fecha_ultimo_mensaje || 0).getTime()
+            )[0] || {};
+
+            const latestNotif = (lead.notificaciones ?? []).sort((a: any, b: any) =>
+                new Date(b.fecha_envio || 0).getTime() - new Date(a.fecha_envio || 0).getTime()
+            )[0] || {};
+
+            const programaNombre = lead.last_program?.[0]?.programa?.nombre || null;
+
             let tiempo_respuesta_minutos: number | null = null;
             if (lead.fecha_ingreso_crm && firstCall.fecha_inicio) {
                 const diff = new Date(firstCall.fecha_inicio).getTime() - new Date(lead.fecha_ingreso_crm).getTime();
@@ -172,6 +186,11 @@ export async function fetchCalls({
                 nivel_estudios: latestCual.nivel_estudios,
                 fecha_agendada_cliente: latestAgenda.fecha_agendada_cliente,
                 confirmado: latestAgenda.confirmado,
+                programa_nombre: programaNombre,
+                intentos_count: (lead.intentos || []).length,
+                whatsapp_status: latestWA.estado,
+                opt_in_whatsapp: latestWA.opt_in_whatsapp,
+                notificaciones_status: latestNotif.tipo,
                 tiempo_respuesta_minutos,
                 fecha_primer_contacto: firstCall.fecha_inicio,
                 llamadas: sortedLlamadas,
@@ -202,6 +221,9 @@ export async function getCallsByPhone(phone: string): Promise<HistorialRow[]> {
             .from("lead")
             .select(`
                 id, nombre, apellido, telefono, email, pais, tipo_lead, origen, campana, fecha_ingreso_crm,
+                last_program:lead_programas (
+                    programa:programas ( nombre )
+                ),
                 llamadas:llamadas (
                     id, estado_llamada, razon_termino, fecha_inicio, duracion_segundos, url_grabacion, resumen, tipo_agente
                 ),
@@ -210,6 +232,16 @@ export async function getCallsByPhone(phone: string): Promise<HistorialRow[]> {
                 ),
                 agendamientos (
                     fecha_agendada_cliente, confirmado, fecha_creacion
+                ),
+                intentos ( id ),
+                conversaciones_whatsapp (
+                    opt_in_whatsapp,
+                    estado,
+                    fecha_ultimo_mensaje
+                ),
+                notificaciones (
+                    tipo,
+                    fecha_envio
                 )
             `)
             .eq("telefono", phone)
@@ -231,6 +263,16 @@ export async function getCallsByPhone(phone: string): Promise<HistorialRow[]> {
             const latestAgenda = (lead.agendamientos ?? []).sort((a: any, b: any) =>
                 new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime()
             )[0] || {};
+
+            const latestWA = (lead.conversaciones_whatsapp ?? []).sort((a: any, b: any) =>
+                new Date(b.fecha_ultimo_mensaje || 0).getTime() - new Date(a.fecha_ultimo_mensaje || 0).getTime()
+            )[0] || {};
+
+            const latestNotif = (lead.notificaciones ?? []).sort((a: any, b: any) =>
+                new Date(b.fecha_envio || 0).getTime() - new Date(a.fecha_envio || 0).getTime()
+            )[0] || {};
+
+            const programaNombre = lead.last_program?.[0]?.programa?.nombre || null;
 
             return {
                 id: lead.id,
@@ -256,6 +298,11 @@ export async function getCallsByPhone(phone: string): Promise<HistorialRow[]> {
                 nivel_estudios: latestCual.nivel_estudios,
                 fecha_agendada_cliente: latestAgenda.fecha_agendada_cliente,
                 confirmado: latestAgenda.confirmado,
+                programa_nombre: programaNombre,
+                intentos_count: (lead.intentos || []).length,
+                whatsapp_status: latestWA.estado,
+                opt_in_whatsapp: latestWA.opt_in_whatsapp,
+                notificaciones_status: latestNotif.tipo,
                 tiempo_respuesta_minutos: null,
                 fecha_primer_contacto: firstCall.fecha_inicio,
                 llamadas: sortedLlamadas,
@@ -277,7 +324,7 @@ export async function fetchIntentosByPhone(phone: string): Promise<IntentoLlamad
     try {
         const supabase = await getSupabaseServerClient();
         const { data, error } = await supabase
-            .from("intentos_llamadas")
+            .from("intentos")
             .select(`
                 *,
                 lead:id_lead!inner ( id, nombre, apellido, telefono )

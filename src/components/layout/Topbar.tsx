@@ -2,7 +2,8 @@
 
 import { useTenantStore } from "@/store/tenant";
 import { logoutAction } from "@/lib/actions/auth";
-import { Menu, LogOut } from "lucide-react";
+import { Menu, LogOut, Sun, Moon } from "lucide-react";
+import { ThemeToggle } from "./ThemeToggle";
 
 interface TopbarProps {
     title: string;
@@ -23,24 +24,24 @@ export function Topbar({ title, onMenuClick }: TopbarProps) {
     }
 
     return (
-        <header className="flex h-14 md:h-16 items-center justify-between border-b border-slate-200 bg-white/80 px-4 md:px-6 backdrop-blur-md shrink-0">
+        <header className="flex h-14 md:h-16 items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 px-4 md:px-6 backdrop-blur-md shrink-0">
             {/* Left: Hamburger (mobile) + Title */}
             <div className="flex items-center gap-3">
                 {/* Mobile menu button */}
                 <button
                     onClick={onMenuClick}
-                    className="md:hidden h-9 w-9 flex items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 transition-all"
+                    className="md:hidden h-9 w-9 flex items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-all"
                     aria-label="Abrir menú"
                 >
                     <Menu className="h-5 w-5" />
                 </button>
 
                 <div className="flex flex-col">
-                    <h1 className="text-sm md:text-base font-bold text-slate-800 leading-tight">
+                    <h1 className="text-sm md:text-base font-bold text-slate-800 dark:text-slate-100 leading-tight">
                         {(config?.dashboard_title as string) || title}
                     </h1>
                     {tenantName && (
-                        <span className="text-[10px] uppercase tracking-widest text-blue-600 font-black leading-none">
+                        <span className="text-[10px] uppercase tracking-widest text-blue-600 dark:text-blue-400 font-black leading-none">
                             {tenantName}
                         </span>
                     )}
@@ -49,9 +50,11 @@ export function Topbar({ title, onMenuClick }: TopbarProps) {
 
             {/* Right controls */}
             <div className="flex items-center gap-2">
+                <ThemeToggle />
+                <div className="w-px h-6 bg-slate-200 dark:bg-slate-800 mx-1" />
                 <button
                     onClick={handleLogout}
-                    className="flex items-center gap-2 rounded-xl px-2.5 md:px-3 py-2 text-xs font-bold text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+                    className="flex items-center gap-2 rounded-xl px-2.5 md:px-3 py-2 text-xs font-bold text-slate-400 dark:text-slate-500 transition hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-500"
                     aria-label="Cerrar sesión"
                 >
                     <LogOut className="h-4 w-4" />

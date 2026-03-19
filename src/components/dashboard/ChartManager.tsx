@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChartConfig, Tenant } from "@/types/tenant";
+import { AnalyticsFilters } from "@/lib/actions/analytics";
 import {
     AreaChartComponent,
     VerticalBarChart,
@@ -40,6 +41,7 @@ interface Props {
     initialCharts: ChartConfig[];
     data: Record<string, any>;
     isAdmin: boolean;
+    filters?: AnalyticsFilters;
     configKey?: string;
     title?: string;
 }

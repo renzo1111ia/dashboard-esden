@@ -3,6 +3,7 @@ import {
     getKpiGenerales,
     getDynamicKpis,
     AnalyticsFilters,
+    getUniqueCampaigns,
 } from "@/lib/actions/analytics";
 import { getActiveTenantConfig } from "@/lib/actions/tenant";
 import { getAdminStatus } from "@/lib/actions/auth";
@@ -46,7 +47,7 @@ async function SummarySection({
     const dynamicValues = await getDynamicKpis(
         from,
         to,
-        mergedKpis.filter(k => !k.staticKey),
+        mergedKpis.filter((k) => !k.staticKey),
         filters
     );
 
@@ -54,9 +55,10 @@ async function SummarySection({
         <SummaryManager
             tenant={tenantConfig}
             initialKpis={mergedKpis}
-            values={kpi as any}
+            values={kpi}
             dynamicValues={dynamicValues}
             isAdmin={isAdmin}
+            configKey="kpis"
         />
     );
 }
@@ -78,7 +80,6 @@ async function ChartsSection({
         getKpiGenerales(from, to, filters),
         getActiveTenantConfig(),
     ]);
-
     if (!tenantConfig) return null;
 
     const currentCharts = (tenantConfig.config as any)?.charts as ChartConfig[] || [];
@@ -103,11 +104,14 @@ async function ChartsSection({
             initialCharts={mergedCharts}
             data={chartDataMap}
             isAdmin={isAdmin}
+            filters={filters}
         />
     );
 }
 
-// ─── PAGE ─────────────────────────────────────────────────────────────────────
+// ─── DASHBOARD PAGE ───────────────────────────────────────────────────────────
+
+export const dynamic = "force-dynamic";
 
 export default async function DashboardPage({
     searchParams,
@@ -116,13 +120,14 @@ export default async function DashboardPage({
 }) {
     const params = await searchParams;
     const { from, to, filters } = parseFilters(params);
+    const availableCampaigns = await getUniqueCampaigns();
     const isAdmin = await getAdminStatus();
 
     return (
         <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
             {isAdmin && <TenantSetupBanner />}
 
-            <FilterBar />
+            <FilterBar availableCampaigns={availableCampaigns} />
 
             <Suspense
                 key={`summary-${from}-${to}-${JSON.stringify(filters)}`}

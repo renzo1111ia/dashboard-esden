@@ -19,9 +19,9 @@ const PALETTE_CLASSES = ["bg-[#3b82f6]", "bg-[#6366f1]", "bg-[#0ea5e9]", "bg-[#8
 function TooltipLead({ active, payload, label }: any) {
     if (!active || !payload?.length) return null;
     return (
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xl text-xs">
-            <p className="font-bold text-slate-700 mb-1">{label}</p>
-            <p className="font-black text-blue-600">{payload[0].value?.toLocaleString("es-ES")} leads</p>
+        <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-xl text-xs">
+            <p className="font-bold text-card-foreground mb-1">{label}</p>
+            <p className="font-black text-primary">{payload[0].value?.toLocaleString("es-ES")} leads</p>
         </div>
     );
 }
@@ -29,9 +29,9 @@ function TooltipLead({ active, payload, label }: any) {
 function TooltipBar({ active, payload, label }: any) {
     if (!active || !payload?.length) return null;
     return (
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xl text-xs">
-            <p className="font-bold text-slate-700 mb-1">{label}</p>
-            <p className="font-black text-blue-600">{payload[0].value?.toLocaleString("es-ES")}</p>
+        <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-xl text-xs">
+            <p className="font-bold text-card-foreground mb-1">{label}</p>
+            <p className="font-black text-primary">{payload[0].value?.toLocaleString("es-ES")}</p>
         </div>
     );
 }
@@ -40,8 +40,8 @@ function TooltipBar({ active, payload, label }: any) {
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
     return (
-        <div className="rounded-3xl border border-slate-100 bg-white p-7 shadow-sm">
-            <h3 className="mb-6 text-sm font-black uppercase tracking-widest text-slate-400">{title}</h3>
+        <div className="rounded-3xl border border-border bg-card p-7 shadow-sm">
+            <h3 className="mb-6 text-sm font-black uppercase tracking-widest text-muted-foreground">{title}</h3>
             {children}
         </div>
     );
@@ -49,7 +49,7 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
 
 function Empty() {
     return (
-        <div className="h-[200px] flex items-center justify-center text-sm font-bold text-slate-300">
+        <div className="h-[200px] flex items-center justify-center text-sm font-bold text-muted-foreground/40">
             Sin datos para el período seleccionado
         </div>
     );
@@ -64,42 +64,42 @@ function CampanasTable({ campanas }: { campanas: CampanaRow[] }) {
         <div className="overflow-x-auto">
             <table className="w-full text-xs">
                 <thead>
-                    <tr className="border-b border-slate-100">
+                    <tr className="border-b border-border">
                         {[
                             "Campaña", "Leads", "Llamadas", "Contactados",
                             "Tasa %", "Minutos", "Dur. Media", "Cualificados", "Agendados"
                         ].map((h) => (
-                            <th key={h} className="pb-3 pr-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">
+                            <th key={h} className="pb-3 pr-4 text-left text-[10px] font-black uppercase tracking-widest text-muted-foreground whitespace-nowrap">
                                 {h}
                             </th>
                         ))}
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-border/50">
                     {campanas.map((c, i) => (
-                        <tr key={c.nombre} className="hover:bg-slate-50/60 transition-colors">
-                            <td className="py-3 pr-4 font-bold text-slate-800 max-w-[160px] truncate">
+                        <tr key={c.nombre} className="hover:bg-muted/50 transition-colors">
+                            <td className="py-3 pr-4 font-bold text-card-foreground max-w-[160px] truncate">
                                 <div className="flex items-center gap-2">
                                     <span className={cn("h-2 w-2 rounded-full flex-shrink-0", PALETTE_CLASSES[i % PALETTE_CLASSES.length])} />
                                     {c.nombre}
                                 </div>
                             </td>
-                            <td className="py-3 pr-4 font-black text-slate-900">{c.total_leads.toLocaleString("es-ES")}</td>
-                            <td className="py-3 pr-4 text-slate-600">{c.total_llamadas.toLocaleString("es-ES")}</td>
-                            <td className="py-3 pr-4 text-emerald-700 font-bold">{c.contactados.toLocaleString("es-ES")}</td>
+                            <td className="py-3 pr-4 font-black text-card-foreground">{c.total_leads.toLocaleString("es-ES")}</td>
+                            <td className="py-3 pr-4 text-muted-foreground">{c.total_llamadas.toLocaleString("es-ES")}</td>
+                            <td className="py-3 pr-4 text-emerald-600 dark:text-emerald-400 font-bold">{c.contactados.toLocaleString("es-ES")}</td>
                             <td className="py-3 pr-4">
                                 <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-black ${
-                                    c.tasa_contacto >= 60 ? "bg-emerald-100 text-emerald-700" :
-                                    c.tasa_contacto >= 30 ? "bg-amber-100 text-amber-700" :
-                                    "bg-red-100 text-red-600"
+                                    c.tasa_contacto >= 60 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" :
+                                    c.tasa_contacto >= 30 ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" :
+                                    "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
                                 }`}>
                                     {c.tasa_contacto}%
                                 </span>
                             </td>
-                            <td className="py-3 pr-4 text-blue-600 font-bold">{c.total_minutos.toLocaleString("es-ES")} min</td>
-                            <td className="py-3 pr-4 text-slate-500">{formatDuration(c.duracion_media_seg)}</td>
-                            <td className="py-3 pr-4 text-violet-700 font-bold">{c.cualificados.toLocaleString("es-ES")}</td>
-                            <td className="py-3 pr-4 text-teal-700 font-bold">{c.agendados.toLocaleString("es-ES")}</td>
+                            <td className="py-3 pr-4 text-primary font-bold">{c.total_minutos.toLocaleString("es-ES")} min</td>
+                            <td className="py-3 pr-4 text-muted-foreground/80">{formatDuration(c.duracion_media_seg)}</td>
+                            <td className="py-3 pr-4 text-violet-600 dark:text-violet-400 font-bold">{c.cualificados.toLocaleString("es-ES")}</td>
+                            <td className="py-3 pr-4 text-teal-600 dark:text-teal-400 font-bold">{c.agendados.toLocaleString("es-ES")}</td>
                         </tr>
                     ))}
                 </tbody>
@@ -148,9 +148,9 @@ export function CampanasCharts({ data }: Props) {
                                             <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                                         </linearGradient>
                                     </defs>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                    <XAxis dataKey="label" tick={{ fill: "#64748b", fontSize: 10, fontWeight: 600 }} axisLine={false} tickLine={false} />
-                                    <YAxis tick={{ fill: "#64748b", fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-border" />
+                                    <XAxis dataKey="label" tick={{ fill: "currentColor", fontSize: 10, fontWeight: 600 }} className="text-muted-foreground" axisLine={false} tickLine={false} />
+                                    <YAxis tick={{ fill: "currentColor", fontSize: 10, fontWeight: 700 }} className="text-muted-foreground" axisLine={false} tickLine={false} />
                                     <Tooltip content={<TooltipLead />} />
                                     <Area type="monotone" dataKey="value" name="Leads"
                                         stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#campGrad)" />
@@ -171,8 +171,8 @@ export function CampanasCharts({ data }: Props) {
                                         <stop offset="100%" stopColor="#6366f1" stopOpacity={0.6} />
                                     </linearGradient>
                                 </defs>
-                                <XAxis type="number" tick={{ fill: "#64748b", fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
-                                <YAxis type="category" dataKey="label" tick={{ fill: "#1e293b", fontSize: 10, fontWeight: 600 }} width={110} axisLine={false} tickLine={false} />
+                                <XAxis type="number" tick={{ fill: "currentColor", fontSize: 10, fontWeight: 700 }} className="text-muted-foreground" axisLine={false} tickLine={false} />
+                                <YAxis type="category" dataKey="label" tick={{ fill: "currentColor", fontSize: 10, fontWeight: 600 }} className="text-card-foreground" width={110} axisLine={false} tickLine={false} />
                                 <Tooltip content={<TooltipBar />} cursor={{ fill: "rgba(59,130,246,0.04)", radius: 8 }} />
                                 <Bar dataKey="value" radius={[0, 8, 8, 0]} maxBarSize={28} fill="url(#leadsGrad)" />
                             </BarChart>
@@ -191,8 +191,8 @@ export function CampanasCharts({ data }: Props) {
                                         <stop offset="100%" stopColor="#0ea5e9" stopOpacity={0.6} />
                                     </linearGradient>
                                 </defs>
-                                <XAxis type="number" tick={{ fill: "#64748b", fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
-                                <YAxis type="category" dataKey="label" tick={{ fill: "#1e293b", fontSize: 10, fontWeight: 600 }} width={110} axisLine={false} tickLine={false} />
+                                <XAxis type="number" tick={{ fill: "currentColor", fontSize: 10, fontWeight: 700 }} className="text-muted-foreground" axisLine={false} tickLine={false} />
+                                <YAxis type="category" dataKey="label" tick={{ fill: "currentColor", fontSize: 10, fontWeight: 600 }} className="text-card-foreground" width={110} axisLine={false} tickLine={false} />
                                 <Tooltip content={<TooltipBar />} cursor={{ fill: "rgba(16,185,129,0.04)", radius: 8 }} />
                                 <Bar dataKey="value" radius={[0, 8, 8, 0]} maxBarSize={28} fill="url(#contGrad)" />
                             </BarChart>
@@ -211,8 +211,8 @@ export function CampanasCharts({ data }: Props) {
                                         <stop offset="100%" stopColor="#6366f1" stopOpacity={0.6} />
                                     </linearGradient>
                                 </defs>
-                                <XAxis type="number" tick={{ fill: "#64748b", fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
-                                <YAxis type="category" dataKey="label" tick={{ fill: "#1e293b", fontSize: 10, fontWeight: 600 }} width={110} axisLine={false} tickLine={false} />
+                                <XAxis type="number" tick={{ fill: "currentColor", fontSize: 10, fontWeight: 700 }} className="text-muted-foreground" axisLine={false} tickLine={false} />
+                                <YAxis type="category" dataKey="label" tick={{ fill: "currentColor", fontSize: 10, fontWeight: 600 }} className="text-card-foreground" width={110} axisLine={false} tickLine={false} />
                                 <Tooltip content={<TooltipBar />} cursor={{ fill: "rgba(139,92,246,0.04)", radius: 8 }} />
                                 <Bar dataKey="value" radius={[0, 8, 8, 0]} maxBarSize={28} fill="url(#cualGrad)" />
                             </BarChart>
@@ -231,8 +231,8 @@ export function CampanasCharts({ data }: Props) {
                                         <stop offset="100%" stopColor="#06b6d4" stopOpacity={0.6} />
                                     </linearGradient>
                                 </defs>
-                                <XAxis type="number" tick={{ fill: "#64748b", fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
-                                <YAxis type="category" dataKey="label" tick={{ fill: "#1e293b", fontSize: 10, fontWeight: 600 }} width={110} axisLine={false} tickLine={false} />
+                                <XAxis type="number" tick={{ fill: "currentColor", fontSize: 10, fontWeight: 700 }} className="text-muted-foreground" axisLine={false} tickLine={false} />
+                                <YAxis type="category" dataKey="label" tick={{ fill: "currentColor", fontSize: 10, fontWeight: 600 }} className="text-card-foreground" width={110} axisLine={false} tickLine={false} />
                                 <Tooltip content={<TooltipBar />} cursor={{ fill: "rgba(14,165,233,0.04)", radius: 8 }} />
                                 <Bar dataKey="value" radius={[0, 8, 8, 0]} maxBarSize={28} fill="url(#agGrad)" />
                             </BarChart>
@@ -252,8 +252,8 @@ export function CampanasCharts({ data }: Props) {
                                             <stop offset="100%" stopColor="#ef4444" stopOpacity={0.6} />
                                         </linearGradient>
                                     </defs>
-                                    <XAxis type="number" tick={{ fill: "#64748b", fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}m`} />
-                                    <YAxis type="category" dataKey="label" tick={{ fill: "#1e293b", fontSize: 10, fontWeight: 600 }} width={110} axisLine={false} tickLine={false} />
+                                    <XAxis type="number" tick={{ fill: "currentColor", fontSize: 10, fontWeight: 700 }} className="text-muted-foreground" axisLine={false} tickLine={false} tickFormatter={(v) => `${v}m`} />
+                                    <YAxis type="category" dataKey="label" tick={{ fill: "currentColor", fontSize: 10, fontWeight: 600 }} className="text-card-foreground" width={110} axisLine={false} tickLine={false} />
                                     <Tooltip content={<TooltipBar />} cursor={{ fill: "rgba(245,158,11,0.04)", radius: 8 }} />
                                     <Bar dataKey="value" radius={[0, 8, 8, 0]} maxBarSize={32} fill="url(#minCampGrad)" />
                                 </BarChart>

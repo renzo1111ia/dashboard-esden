@@ -58,13 +58,13 @@ export function AudioPlayer({ src }: AudioPlayerProps) {
     }, [pct]);
 
     return (
-        <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 min-w-[220px] max-w-[260px]">
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-2.5 py-1.5 min-w-[220px] max-w-[260px]">
             <audio ref={audioRef} src={src} preload="metadata" />
 
             {/* Play/Pause */}
             <button
                 onClick={togglePlay}
-                className="flex-shrink-0 flex items-center justify-center h-6 w-6 rounded-full bg-indigo-600 hover:bg-indigo-500 transition text-white"
+                className="flex-shrink-0 flex items-center justify-center h-6 w-6 rounded-full bg-primary hover:bg-primary/90 transition text-primary-foreground shadow-sm"
             >
                 {isPlaying ? (
                     <svg className="h-2.5 w-2.5" fill="currentColor" viewBox="0 0 24 24">
@@ -78,15 +78,15 @@ export function AudioPlayer({ src }: AudioPlayerProps) {
             </button>
 
             {/* Time */}
-            <span className="flex-shrink-0 text-[10px] text-white/40 font-mono tabular-nums">
+            <span className="flex-shrink-0 text-[10px] text-muted-foreground/60 font-mono tabular-nums">
                 {fmt(current)}&nbsp;/&nbsp;{fmt(duration)}
             </span>
 
             {/* Progress bar */}
-            <div className="relative flex-1 h-1 rounded-full bg-white/10">
+            <div className="relative flex-1 h-1 rounded-full bg-border">
                 <div
                     ref={progressRef}
-                    className="absolute inset-y-0 left-0 rounded-full bg-indigo-500"
+                    className="absolute inset-y-0 left-0 rounded-full bg-primary"
                 />
                 <input
                     type="range"
@@ -107,7 +107,7 @@ export function AudioPlayer({ src }: AudioPlayerProps) {
                 download
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-shrink-0 text-white/25 hover:text-indigo-400 transition"
+                className="flex-shrink-0 text-muted-foreground/40 hover:text-primary transition"
                 title="Descargar"
                 onClick={(e) => e.stopPropagation()}
             >

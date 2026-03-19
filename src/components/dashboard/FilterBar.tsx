@@ -15,7 +15,7 @@ const DATE_PRESETS = [
     { label: "Todos", value: "all" },
 ];
 
-export function FilterBar() {
+export function FilterBar({ availableCampaigns = [] }: { availableCampaigns?: string[] }) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -77,9 +77,9 @@ export function FilterBar() {
     }
 
     return (
-        <div className="mb-6 flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-4 md:p-5 shadow-sm">
+        <div className="mb-6 flex flex-col gap-3 rounded-3xl border border-border bg-card p-4 md:p-5 shadow-sm transition-colors">
             {/* Row 1: Quick Presets */}
-            <div className="flex items-center gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-1 custom-scrollbar no-scrollbar">
+            <div className="flex items-center gap-1 overflow-x-auto rounded-xl border border-border bg-muted p-1 custom-scrollbar no-scrollbar">
                 {DATE_PRESETS.map((p) => (
                     <button
                         key={p.value}
@@ -91,8 +91,8 @@ export function FilterBar() {
                         className={cn(
                             "whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-bold transition-all flex-shrink-0",
                             draftPreset === p.value
-                                ? "bg-blue-600 text-white shadow-sm"
-                                : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
+                                ? "bg-primary text-primary-foreground shadow-sm"
+                                : "text-muted-foreground hover:text-foreground hover:bg-muted-foreground/10"
                         )}
                     >
                         {p.label}
@@ -103,7 +103,7 @@ export function FilterBar() {
             {/* Row 2: Search + actions */}
             <div className="flex items-center gap-2">
                 <div className="relative flex-1">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <input
                         type="text"
                         placeholder="Buscar teléfono / ID..."
@@ -112,14 +112,14 @@ export function FilterBar() {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm font-medium text-slate-900 placeholder:text-slate-400 transition-all outline-none focus:border-blue-500 focus:bg-white"
+                        className="w-full rounded-xl border border-border bg-muted py-2.5 pl-10 pr-4 text-sm font-medium text-foreground placeholder:text-muted-foreground transition-all outline-none focus:border-primary focus:bg-card"
                     />
                 </div>
                 <button
                     onClick={() => setIsExpanded(!isExpanded)}
                     className={cn(
                         "flex items-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-bold transition-all flex-shrink-0",
-                        isExpanded ? "border-blue-200 bg-blue-50 text-blue-600" : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                        isExpanded ? "border-primary/20 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"
                     )}
                 >
                     <Filter className="h-4 w-4" />
@@ -128,7 +128,7 @@ export function FilterBar() {
                 </button>
                 <button
                     onClick={applyFilters}
-                    className="rounded-xl bg-blue-600 px-4 sm:px-6 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-blue-700 flex-shrink-0"
+                    className="rounded-xl bg-primary px-4 sm:px-6 py-2.5 text-sm font-bold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 flex-shrink-0"
                 >
                     Aplicar
                 </button>
@@ -136,10 +136,10 @@ export function FilterBar() {
 
             {/* Row 2: Advanced filters (Colapsible) */}
             {isExpanded && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-6 gap-y-4 pt-5 border-t border-slate-100 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-6 gap-y-4 pt-5 border-t border-border animate-in fade-in slide-in-from-top-2 duration-200">
                     {/* Custom Dates - Takes 2 columns on larger screens */}
                     <div className="flex flex-col space-y-1.5 sm:col-span-2 lg:col-span-2">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 ml-1">Rango Personalizado</label>
+                        <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Rango Personalizado</label>
                         <div className="flex items-center gap-2">
                             <div className="relative flex-1">
                                 <input
@@ -148,10 +148,10 @@ export function FilterBar() {
                                     aria-label="Fecha desde"
                                     value={draftFrom}
                                     onChange={(e) => { setDraftFrom(e.target.value); setDraftPreset(""); }}
-                                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-700 outline-none focus:border-blue-500 focus:bg-white transition-all shadow-sm"
+                                    className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-xs font-bold text-foreground outline-none focus:border-primary focus:bg-card transition-all shadow-sm"
                                 />
                             </div>
-                            <span className="text-slate-300 font-bold">/</span>
+                            <span className="text-muted-foreground/30 font-bold">/</span>
                             <div className="relative flex-1">
                                 <input
                                     type="date"
@@ -159,7 +159,7 @@ export function FilterBar() {
                                     aria-label="Fecha hasta"
                                     value={draftTo}
                                     onChange={(e) => { setDraftTo(e.target.value); setDraftPreset(""); }}
-                                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-700 outline-none focus:border-blue-500 focus:bg-white transition-all shadow-sm"
+                                    className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-xs font-bold text-foreground outline-none focus:border-primary focus:bg-card transition-all shadow-sm"
                                 />
                             </div>
                         </div>
@@ -167,55 +167,70 @@ export function FilterBar() {
 
                     {/* Curso */}
                     <div className="flex flex-col space-y-1.5">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 ml-1">Curso / Master</label>
+                        <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Curso / Master</label>
                         <input
                             type="text"
                             placeholder="Ej: MBA..."
                             value={curso}
                             onChange={(e) => setCurso(e.target.value)}
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition-all placeholder:text-slate-400 shadow-sm"
+                            className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm font-medium text-foreground outline-none focus:border-primary focus:bg-card transition-all placeholder:text-muted-foreground shadow-sm"
                         />
                     </div>
 
                     {/* País */}
                     <div className="flex flex-col space-y-1.5">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 ml-1">País</label>
+                        <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">País</label>
                         <input
                             type="text"
                             placeholder="Ej: España..."
                             value={pais}
                             onChange={(e) => setPais(e.target.value)}
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition-all placeholder:text-slate-400 shadow-sm"
+                            className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm font-medium text-foreground outline-none focus:border-primary focus:bg-card transition-all placeholder:text-muted-foreground shadow-sm"
                         />
                     </div>
 
                     {/* Origen */}
                     <div className="flex flex-col space-y-1.5">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 ml-1">Origen</label>
+                        <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Origen</label>
                         <input
                             type="text"
                             placeholder="Ej: Facebook..."
                             value={origen}
                             onChange={(e) => setOrigen(e.target.value)}
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition-all placeholder:text-slate-400 shadow-sm"
+                            className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm font-medium text-foreground outline-none focus:border-primary focus:bg-card transition-all placeholder:text-muted-foreground shadow-sm"
                         />
                     </div>
 
                     {/* Campaña */}
                     <div className="flex flex-col justify-between space-y-1.5">
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 ml-1">Campaña</label>
-                            <input
-                                type="text"
-                                placeholder="Ej: Invierno 2024..."
-                                value={campana}
-                                onChange={(e) => setCampana(e.target.value)}
-                                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none focus:border-blue-500 focus:bg-white transition-all placeholder:text-slate-400 shadow-sm"
-                            />
+                            <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Campaña</label>
+                            {availableCampaigns.length > 0 ? (
+                                <select
+                                    value={campana}
+                                    title="Seleccionar campaña"
+                                    aria-label="Seleccionar campaña"
+                                    onChange={(e) => setCampana(e.target.value)}
+                                    className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm font-medium text-foreground outline-none focus:border-primary focus:bg-card transition-all shadow-sm cursor-pointer appearance-none"
+                                >
+                                    <option value="">Todas las campañas</option>
+                                    {availableCampaigns.map(c => (
+                                        <option key={c} value={c}>{c}</option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <input
+                                    type="text"
+                                    placeholder="Ej: Invierno 2024..."
+                                    value={campana}
+                                    onChange={(e) => setCampana(e.target.value)}
+                                    className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm font-medium text-foreground outline-none focus:border-primary focus:bg-card transition-all placeholder:text-muted-foreground shadow-sm"
+                                />
+                            )}
                         </div>
                         <button
                             onClick={clearFilters}
-                            className="flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-red-500 transition-colors mt-2"
+                            className="flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground hover:text-red-500 transition-colors mt-2"
                         >
                             <RotateCcw className="h-3 w-3" />
                             Limpiar Filtros

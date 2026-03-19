@@ -23,10 +23,10 @@ const TEXT_PALETTE: Record<string, string> = {
 function TooltipBase({ active, payload, label }: any) {
     if (!active || !payload?.length) return null;
     return (
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xl text-xs">
-            <p className="font-bold text-slate-700 mb-1">{label}</p>
+        <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-xl text-xs">
+            <p className="font-bold text-card-foreground mb-1">{label}</p>
             {payload.map((p: any, i: number) => (
-                <p key={i} className={cn("font-black", TEXT_PALETTE[p.color] || "text-blue-600")}>
+                <p key={i} className={cn("font-black", TEXT_PALETTE[p.color] || "text-primary")}>
                     {p.name}: {p.value?.toLocaleString("es-ES")} min
                 </p>
             ))}
@@ -37,9 +37,9 @@ function TooltipBase({ active, payload, label }: any) {
 function TooltipBar({ active, payload, label }: any) {
     if (!active || !payload?.length) return null;
     return (
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xl text-xs">
-            <p className="font-bold text-slate-700 mb-1">{label}</p>
-            <p className="font-black text-blue-600">{payload[0].value?.toLocaleString("es-ES")} min</p>
+        <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-xl text-xs">
+            <p className="font-bold text-card-foreground mb-1">{label}</p>
+            <p className="font-black text-primary">{payload[0].value?.toLocaleString("es-ES")} min</p>
         </div>
     );
 }
@@ -47,9 +47,9 @@ function TooltipBar({ active, payload, label }: any) {
 function TooltipPie({ active, payload }: any) {
     if (!active || !payload?.length) return null;
     return (
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xl text-xs">
-            <p className="font-bold text-slate-700">{payload[0].name}</p>
-            <p className="font-black text-blue-600">{payload[0].value?.toLocaleString("es-ES")} llamadas</p>
+        <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-xl text-xs">
+            <p className="font-bold text-card-foreground">{payload[0].name}</p>
+            <p className="font-black text-primary">{payload[0].value?.toLocaleString("es-ES")} llamadas</p>
         </div>
     );
 }
@@ -58,8 +58,8 @@ function TooltipPie({ active, payload }: any) {
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
     return (
-        <div className="rounded-3xl border border-slate-100 bg-white p-7 shadow-sm">
-            <h3 className="mb-6 text-sm font-black uppercase tracking-widest text-slate-400">{title}</h3>
+        <div className="rounded-3xl border border-border bg-card p-7 shadow-sm">
+            <h3 className="mb-6 text-sm font-black uppercase tracking-widest text-muted-foreground">{title}</h3>
             {children}
         </div>
     );
@@ -102,9 +102,9 @@ export function MinutosCharts({ data }: Props) {
                                         <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                <XAxis dataKey="label" tick={{ fill: "#64748b", fontSize: 10, fontWeight: 600 }} axisLine={false} tickLine={false} />
-                                <YAxis tick={{ fill: "#64748b", fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}m`} />
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-border" />
+                                <XAxis dataKey="label" tick={{ fill: "currentColor", fontSize: 10, fontWeight: 600 }} className="text-muted-foreground" axisLine={false} tickLine={false} />
+                                <YAxis tick={{ fill: "currentColor", fontSize: 10, fontWeight: 700 }} className="text-muted-foreground" axisLine={false} tickLine={false} tickFormatter={(v) => `${v}m`} />
                                 <Tooltip content={<TooltipBase />} />
                                 <Area
                                     type="monotone" dataKey="value" name="Minutos"
@@ -130,8 +130,8 @@ export function MinutosCharts({ data }: Props) {
                                     <stop offset="100%" stopColor="#6366f1" stopOpacity={0.6} />
                                 </linearGradient>
                             </defs>
-                            <XAxis type="number" tick={{ fill: "#64748b", fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}m`} />
-                            <YAxis type="category" dataKey="label" tick={{ fill: "#1e293b", fontSize: 10, fontWeight: 600 }} width={110} axisLine={false} tickLine={false} />
+                            <XAxis type="number" tick={{ fill: "currentColor", fontSize: 10, fontWeight: 700 }} className="text-muted-foreground" axisLine={false} tickLine={false} tickFormatter={(v) => `${v}m`} />
+                            <YAxis type="category" dataKey="label" tick={{ fill: "currentColor", fontSize: 10, fontWeight: 600 }} className="text-card-foreground" width={110} axisLine={false} tickLine={false} />
                             <Tooltip content={<TooltipBar />} cursor={{ fill: "rgba(59,130,246,0.04)", radius: 8 }} />
                             <Bar dataKey="value" radius={[0, 8, 8, 0]} maxBarSize={28} fill="url(#campGrad)" />
                         </BarChart>
@@ -152,8 +152,8 @@ export function MinutosCharts({ data }: Props) {
                                     <stop offset="100%" stopColor="#6366f1" stopOpacity={0.5} />
                                 </linearGradient>
                             </defs>
-                            <XAxis dataKey="label" tick={{ fill: "#475569", fontSize: 9, fontWeight: 600 }} axisLine={false} tickLine={false} angle={-30} textAnchor="end" />
-                            <YAxis tick={{ fill: "#64748b", fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}m`} />
+                            <XAxis dataKey="label" tick={{ fill: "currentColor", fontSize: 9, fontWeight: 600 }} className="text-muted-foreground" axisLine={false} tickLine={false} angle={-30} textAnchor="end" />
+                            <YAxis tick={{ fill: "currentColor", fontSize: 10, fontWeight: 700 }} className="text-muted-foreground" axisLine={false} tickLine={false} tickFormatter={(v) => `${v}m`} />
                             <Tooltip content={<TooltipBar />} cursor={{ fill: "rgba(99,102,241,0.04)", radius: 8 }} />
                             <Bar dataKey="value" radius={[8, 8, 0, 0]} maxBarSize={80} fill="url(#estadoGrad)" />
                         </BarChart>
@@ -186,10 +186,10 @@ export function MinutosCharts({ data }: Props) {
                                 <Legend
                                     layout="vertical" align="right" verticalAlign="middle"
                                     iconType="circle" iconSize={8}
-                                    formatter={(val) => <span className="text-xs text-slate-600 font-bold ml-1">{val}</span>}
+                                    formatter={(val) => <span className="text-xs text-muted-foreground font-bold ml-1">{val}</span>}
                                 />
                                 {/* Center label */}
-                                <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" fontSize={22} fontWeight={900} fill="#1e293b">
+                                <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" fontSize={22} fontWeight={900} className="fill-card-foreground">
                                     {distribucion_duracion.reduce((s, r) => s + r.value, 0).toLocaleString("es-ES")}
                                 </text>
                             </PieChart>
@@ -204,7 +204,7 @@ export function MinutosCharts({ data }: Props) {
 
 function Empty() {
     return (
-        <div className="h-[200px] flex items-center justify-center text-sm font-bold text-slate-300">
+        <div className="h-[200px] flex items-center justify-center text-sm font-bold text-muted-foreground/50">
             Sin datos para el período seleccionado
         </div>
     );

@@ -53,7 +53,7 @@ BEGIN
     RETURN 0;
   END IF;
 
-  v_sql := v_sql || ' FROM public.post_call_analisis WHERE created_at >= $1 AND created_at <= $2';
+  v_sql := v_sql || ' FROM public.lead WHERE fecha_ingreso_crm >= $1 AND fecha_ingreso_crm <= $2';
 
   -- 3. Construct Condition Expression
   IF p_cond_col IS NOT NULL AND p_cond_col != '' AND p_cond_op IS NOT NULL THEN
