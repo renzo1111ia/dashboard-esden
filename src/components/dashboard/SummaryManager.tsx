@@ -626,12 +626,12 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
                                                 onChange={(e) => updateKpi(editingKpi.id, { targetCol: `${e.target.value}.${editingKpi.targetCol?.split('.')[1] || "id"}` })}
                                                 className="bg-muted border border-border rounded-xl px-3 py-2 text-xs font-bold text-foreground outline-none focus:border-indigo-500 transition-all cursor-pointer"
                                             >
-                                                <option value="lead">Leads</option>
-                                                <option value="llamadas">Llamadas</option>
-                                                <option value="agendamientos">Agendamientos</option>
-                                                <option value="lead_cualificacion">Cualificaciones</option>
-                                                <option value="intentos_llamadas">Intentos</option>
-                                                <option value="conversaciones_whatsapp">WhatsApp</option>
+                                                <option value="lead">lead</option>
+                                                <option value="llamadas">llamadas</option>
+                                                <option value="agendamientos">agendamientos</option>
+                                                <option value="lead_cualificacion">lead_cualificacion</option>
+                                                <option value="intentos">intentos</option>
+                                                <option value="conversaciones_whatsapp">conversaciones_whatsapp</option>
                                             </select>
                                             <input 
                                                 type="text"
