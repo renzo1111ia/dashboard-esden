@@ -5,7 +5,7 @@ import { Tenant } from "@/types/tenant";
 import { updateTenant } from "@/lib/actions/tenant";
 import { useRouter } from "next/navigation";
 import { 
-    GripVertical, Trash2, Plus, Save, X, Edit3, 
+    GripVertical, Trash2, Plus, Save, X, 
     Table, Check, ChevronRight, Info, Settings
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -76,7 +76,7 @@ function SortableColumn({ col, onRemove, onLabelChange }: SortableColumnProps) {
     return (
         <div
             ref={setNodeRef}
-            style={style}
+            style={style as React.CSSProperties}
             className={cn(
                 "flex items-center gap-3 p-3 bg-card border border-border rounded-2xl shadow-sm group",
                 isDragging && "opacity-50 z-50 bg-muted/50 border-primary/50 shadow-2xl"
@@ -113,7 +113,7 @@ function SortableColumn({ col, onRemove, onLabelChange }: SortableColumnProps) {
 
 export function HistorialColumnManager({ tenant, sampleKeys = [] }: { tenant: Tenant, sampleKeys?: string[] }) {
     const [columns, setColumns] = useState<ColumnConfig[]>(
-        (tenant.config as any)?.historial_columns || []
+        ((tenant.config as unknown as { historial_columns?: ColumnConfig[] })?.historial_columns) || []
     );
     const [saving, setSaving] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
@@ -141,7 +141,7 @@ export function HistorialColumnManager({ tenant, sampleKeys = [] }: { tenant: Te
         setSaving(true);
         try {
             const newConfig = {
-                ...(tenant.config as any),
+                ...(tenant.config as unknown as Record<string, unknown>),
                 historial_columns: columns
             };
             const res = await updateTenant(tenant.id, { config: newConfig });
@@ -345,7 +345,7 @@ export function HistorialColumnManager({ tenant, sampleKeys = [] }: { tenant: Te
                                     </button>
                                 </div>
                                 <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider italic">
-                                    Asegúrate de que la "Key" existe como columna en la tabla `lead`.
+                                    Asegúrate de que la &quot;Key&quot; existe como columna en la tabla `lead`.
                                 </p>
                             </div>
                         </div>

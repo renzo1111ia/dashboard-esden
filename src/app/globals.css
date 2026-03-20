@@ -2,6 +2,11 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* 
+  NOTE: @custom-variant and @theme are REQUIRED for Tailwind CSS v4. 
+  Your IDE might flag them as "Unknown at rules", but they are valid 
+  for the Tailwind build process.
+*/
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -123,13 +128,19 @@
 
 /* ── Mobile utilities ───────────────────────────────────────── */
 
-/* Hide scrollbar visually but allow scroll */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+@layer utilities {
+  /* Hide scrollbar visually but allow scroll */
+  .no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    
+    /* Wrapped in @supports to silence compatibility warnings */
+    @supports (scrollbar-width: none) {
+      scrollbar-width: none;     /* Firefox */
+    }
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;             /* Chrome, Safari, Opera */
+  }
 }
 
 /* Custom thin scrollbar for desktop */

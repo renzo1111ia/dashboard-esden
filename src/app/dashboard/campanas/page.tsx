@@ -1,18 +1,18 @@
 import { Suspense } from "react";
 import {
-    getKpiCampanas, getDynamicKpis, getUniqueCampaigns,
-    type KpiCampanas, type AnalyticsFilters,
+    getKpiCampanas, getDynamicKpis, getDynamicChartSeries, getUniqueCampaigns,
+    type AnalyticsFilters,
 } from "@/lib/actions/analytics";
 import { getActiveTenantConfig } from "@/lib/actions/tenant";
 import { getAdminStatus } from "@/lib/actions/auth";
 import { KpiSkeleton, ChartSkeleton } from "@/components/charts/DashboardCharts";
 import { SummaryManager } from "@/components/dashboard/SummaryManager";
+import { ChartManager } from "@/components/dashboard/ChartManager";
 import { TenantSetupBanner } from "@/components/layout/TenantSetupBanner";
-import { CAMPANAS_KPIS } from "@/lib/constants/kpi-defaults";
-import { KpiConfig } from "@/types/tenant";
+import { CAMPANAS_KPIS, CAMPANAS_CHARTS } from "@/lib/constants/kpi-defaults";
+import { KpiConfig, ChartConfig } from "@/types/tenant";
 import { FilterBar } from "@/components/dashboard/FilterBar";
 import { parseFilters } from "@/lib/utils/date-filters";
-import { CampanasCharts } from "@/components/dashboard/CampanasCharts";
 import { CampaignSelector } from "@/components/dashboard/CampaignSelector";
 
 export const dynamic = "force-dynamic";
@@ -35,15 +35,16 @@ async function CampanasKpis({
 }: {
     from: string; to: string; isAdmin: boolean; filters: AnalyticsFilters; availableCampaigns?: string[];
 }) {
-    const [kpi, tenantConfig] = await Promise.all([
-        getKpiCampanas(from, to, filters),
-        getActiveTenantConfig(),
-    ]);
+    const tenantConfig = await getActiveTenantConfig();
     if (!tenantConfig) return null;
 
     const currentKpis  = (tenantConfig.config as any)?.kpis_campanas as KpiConfig[] || [];
     const mergedKpis   = currentKpis.length > 0 ? currentKpis : CAMPANAS_KPIS;
-    const dynamicValues = await getDynamicKpis(from, to, mergedKpis.filter(k => !k.staticKey), filters);
+
+    const [kpi, dynamicValues] = await Promise.all([
+        getKpiCampanas(from, to, filters),
+        getDynamicKpis(from, to, mergedKpis.filter(k => !k.staticKey), filters)
+    ]);
 
     // Pad to KpiGenerales shape (SummaryManager is agnostic via staticKey)
     const values = {
@@ -69,9 +70,12 @@ async function CampanasKpis({
             dynamicValues={dynamicValues}
             isAdmin={isAdmin}
             configKey="kpis_campanas"
+            from={from}
+            to={to}
+            filters={filters}
             title={
                 <div className="mb-2">
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-1">
+                    <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-1">
                         Campañas <span className="text-blue-600">IA</span>
                     </h1>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
@@ -85,7 +89,7 @@ async function CampanasKpis({
 
                     {/* Hero metrics */}
                     <div className="mt-6 flex flex-wrap gap-8">
-                        <HeroStat label="Total Leads"      value={kpi.total_leads.toLocaleString("es-ES")}        color="text-slate-900" />
+                        <HeroStat label="Total Leads"      value={kpi.total_leads.toLocaleString("es-ES")}        color="text-slate-900 dark:text-white" />
                         <HeroStat label="Llamadas"         value={kpi.total_llamadas.toLocaleString("es-ES")}      color="text-blue-600" />
                         <HeroStat label="Contactados"      value={kpi.total_contactados.toLocaleString("es-ES")}   color="text-emerald-600" />
                         <HeroStat label="Agendados"        value={kpi.total_agendados.toLocaleString("es-ES")}     color="text-teal-600" />
@@ -102,12 +106,29 @@ async function CampanasKpis({
 // ─── CHARTS SECTION ───────────────────────────────────────────────────────────
 
 async function CampanasChartsSection({
-    from, to, filters,
+    from, to, isAdmin, filters,
 }: {
-    from: string; to: string; filters: AnalyticsFilters;
+    from: string; to: string; isAdmin: boolean; filters: AnalyticsFilters;
 }) {
-    const kpi = await getKpiCampanas(from, to, filters);
-    return <CampanasCharts data={kpi} />;
+    const tenantConfig = await getActiveTenantConfig();
+    if (!tenantConfig) return null;
+
+    const savedCharts = (tenantConfig.config as any)?.charts_campanas as ChartConfig[] || [];
+    const mergedCharts = savedCharts.length > 0 ? savedCharts : CAMPANAS_CHARTS;
+
+    const chartData = await getDynamicChartSeries(mergedCharts, from, to, filters);
+
+    return (
+        <ChartManager
+            tenant={tenantConfig}
+            initialCharts={mergedCharts}
+            data={chartData}
+            isAdmin={isAdmin}
+            configKey="charts_campanas"
+            filters={filters}
+            title="Análisis de Campañas"
+        />
+    );
 }
 
 // ─── PAGE ─────────────────────────────────────────────────────────────────────
@@ -151,7 +172,7 @@ export default async function CampanasPage({ searchParams }: { searchParams: Pro
                     </div>
                 }
             >
-                <CampanasChartsSection from={from} to={to} filters={filters} />
+                <CampanasChartsSection from={from} to={to} isAdmin={isAdmin} filters={filters} />
             </Suspense>
         </div>
     );

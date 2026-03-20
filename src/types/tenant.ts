@@ -12,50 +12,76 @@ export interface Tenant {
     updated_at?: string;
 }
 
+export interface KpiPart {
+    id: string; // 'a', 'b', 'c', etc.
+    targetCol: string; 
+    calcType: "count" | "sum" | "avg";
+    condCol?: string;
+    condOp?: "=" | "!=" | "ILIKE" | ">" | "<";
+    condVal?: string;
+    isExtraTarget?: boolean;
+    isExtraCond?: boolean;
+}
+
 export interface KpiConfig {
     id: string;
     label: string;
     icon: string;
     color: string;
     size: "3" | "4" | "6" | "8" | "9" | "12";
-    staticKey?: string; // If present, it's a hardcoded KPI from getKpiTotals
+    staticKey?: string; 
     isVisible?: boolean;
-    suffix?: string; // Unit label displayed after value, e.g. ' min', ' seg', '%'
+    suffix?: string; 
+    group?: string;
 
-    // Main calculation (Numerator)
+    // Advanced Calculation Mode
+    isAdvanced?: boolean;
+    formula?: string; // e.g. "a / b" or "a - b"
+    parts?: Record<string, KpiPart>;
+
+    // Legacy / Simple mode (Backward Compatibility)
     calcType?: "count" | "sum" | "avg";
     targetCol?: string;
     isExtraTarget?: boolean;
-
     condCol?: string;
     isExtraCond?: boolean;
     condOp?: "=" | "!=" | "ILIKE" | ">" | "<";
     condVal?: string;
 
-    // Optional Denominator (for percentages)
     hasDenominator?: boolean;
     denomCalcType?: "count" | "sum" | "avg";
     denomTargetCol?: string;
     denomIsExtraTarget?: boolean;
-
     denomCondCol?: string;
     denomIsExtraCond?: boolean;
     denomCondOp?: "=" | "!=" | "ILIKE" | ">" | "<";
     denomCondVal?: string;
 
     isPercentage?: boolean;
-    group?: string;
+    order?: number;
 }
 
 export interface ChartConfig {
     id: string;
-    type: "area" | "bar" | "donut" | "vertical-bar";
+    type: "area" | "bar" | "donut" | "vertical-bar" | "heatmap" | "funnel";
     title: string;
-    dataKey: string; // The key in the fetched results
-    size: "6" | "12";
+    dataKey: string; // The key in the fetched results (static chart map key OR "table.column" for dynamic)
+    xKey?: string;   // table.column to group/label by (X-axis) — used in dynamic mode
+    yKey?: string;   // table.column or metric for the value axis (Y-axis) — used in dynamic mode
+    calcType?: "count" | "sum" | "avg"; // How to aggregate the Y-axis value
+    condCol?: string; // Optional conditional filter column
+    condOp?: "=" | "!=" | "ILIKE" | ">" | "<"; // Operator for the filter
+    condVal?: string; // Value for the filter
+    size: "4" | "6" | "8" | "12";
     isVisible?: boolean;
     isDonut?: boolean;
     centerLabel?: string;
+
+    // Advanced Calculation Mode (similar to KpiConfig)
+    isAdvanced?: boolean;
+    formula?: string; 
+    parts?: Record<string, KpiPart>;
+    order?: number;
 }
 
 export interface TenantConfig {

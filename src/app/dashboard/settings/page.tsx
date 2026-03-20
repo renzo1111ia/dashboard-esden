@@ -132,7 +132,7 @@ export default function SettingsPage() {
     return (
         <div className="mx-auto max-w-5xl space-y-10 pb-20">
             <div>
-                <h1 className="text-3xl font-black text-slate-900 tracking-tight">Configuración de App Automatiza</h1>
+                <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Configuración de App Automatiza</h1>
                 <p className="mt-2 text-base font-medium text-slate-500">
                     Gestiona los entornos de Supabase y configuraciones personalizadas para cada cliente.
                 </p>
@@ -141,7 +141,7 @@ export default function SettingsPage() {
             {/* Clients List */}
             <section className="space-y-6">
                 <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-bold text-slate-700 uppercase tracking-widest text-[11px]">Clientes Activos</h2>
+                    <h2 className="text-lg font-bold text-slate-700 dark:text-slate-300 uppercase tracking-widest text-[11px]">Clientes Activos</h2>
                     {!showNewForm && (
                         <Button
                             onClick={() => {
@@ -155,15 +155,15 @@ export default function SettingsPage() {
                     )}
                 </div>
 
-                <div className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm">
+                <div className="overflow-hidden rounded-3xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="border-b border-slate-50 bg-slate-50/50">
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-900">Cliente</th>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-900">Infraestructura (Link)</th>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-900">Email de Acceso</th>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-900">Nivel</th>
-                                <th className="px-6 py-4 text-right px-8 text-[10px] font-black uppercase tracking-widest text-slate-900">Acciones</th>
+                            <tr className="border-b border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-900 dark:text-slate-200">Cliente</th>
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-900 dark:text-slate-200">Infraestructura (Link)</th>
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-900 dark:text-slate-200">Email de Acceso</th>
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-900 dark:text-slate-200">Nivel</th>
+                                <th className="px-6 py-4 text-right px-8 text-[10px] font-black uppercase tracking-widest text-slate-900 dark:text-slate-200">Acciones</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -383,7 +383,7 @@ export default function SettingsPage() {
                                     {isEditing === t.id ? (
                                         <td colSpan={4} className="p-8">
                                             <div className="flex items-center justify-between gap-6 mb-6">
-                                                <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 flex items-center gap-2">
+                                                <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white flex items-center gap-2">
                                                     <Edit2 className="h-4 w-4 text-blue-600" /> Editando: <span className="text-blue-600">{t.name}</span>
                                                 </h3>
                                                 <div className="flex items-center gap-2">
@@ -449,7 +449,7 @@ export default function SettingsPage() {
                                                         <Building2 className="h-5 w-5" />
                                                     </div>
                                                     <div className="flex flex-col">
-                                                        <span className="text-sm font-black text-slate-900 tracking-tight">{t.name}</span>
+                                                        <span className="text-sm font-black text-slate-900 dark:text-white tracking-tight">{t.name}</span>
                                                         {t.username && <span className="text-[10px] text-slate-500 font-medium italic">@{t.username}</span>}
                                                     </div>
                                                 </div>
@@ -463,7 +463,7 @@ export default function SettingsPage() {
                                                     t.supabase_url
                                                 )}
                                             </td>
-                                            <td className="px-6 py-4 text-sm font-bold text-slate-900">
+                                            <td className="px-6 py-4 text-sm font-bold text-slate-900 dark:text-slate-200">
                                                 {t.client_email || "No asignado"}
                                             </td>
                                             <td className="px-6 py-4">

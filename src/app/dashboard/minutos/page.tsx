@@ -1,15 +1,15 @@
 import { Suspense } from "react";
-import { getKpiMinutos, getDynamicKpis, type KpiMinutos, type AnalyticsFilters } from "@/lib/actions/analytics";
+import { getKpiMinutos, getDynamicKpis, getDynamicChartSeries, type AnalyticsFilters } from "@/lib/actions/analytics";
 import { getActiveTenantConfig } from "@/lib/actions/tenant";
 import { getAdminStatus } from "@/lib/actions/auth";
 import { KpiSkeleton, ChartSkeleton } from "@/components/charts/DashboardCharts";
 import { SummaryManager } from "@/components/dashboard/SummaryManager";
+import { ChartManager } from "@/components/dashboard/ChartManager";
 import { Bot } from "lucide-react";
-import { LLAMADAS_KPIS } from "@/lib/constants/kpi-defaults";
-import { KpiConfig } from "@/types/tenant";
+import { LLAMADAS_KPIS, DEFAULT_CHARTS_LLAMADAS } from "@/lib/constants/kpi-defaults";
+import { KpiConfig, ChartConfig } from "@/types/tenant";
 import { FilterBar } from "@/components/dashboard/FilterBar";
 import { parseFilters } from "@/lib/utils/date-filters";
-import { MinutosCharts } from "@/components/dashboard/MinutosCharts";
 
 export const dynamic = "force-dynamic";
 
@@ -20,15 +20,16 @@ async function MinutosKpis({
 }: {
     from: string; to: string; isAdmin: boolean; filters: AnalyticsFilters;
 }) {
-    const [kpi, tenantConfig] = await Promise.all([
-        getKpiMinutos(from, to, filters),
-        getActiveTenantConfig(),
-    ]);
+    const tenantConfig = await getActiveTenantConfig();
     if (!tenantConfig) return null;
 
     const currentKpis = (tenantConfig.config as any)?.kpis_llamadas as KpiConfig[] || [];
     const mergedKpis = currentKpis.length > 0 ? currentKpis : LLAMADAS_KPIS;
-    const dynamicValues = await getDynamicKpis(from, to, mergedKpis.filter(k => !k.staticKey), filters);
+
+    const [kpi, dynamicValues] = await Promise.all([
+        getKpiMinutos(from, to, filters),
+        getDynamicKpis(from, to, mergedKpis.filter(k => !k.staticKey), filters)
+    ]);
 
     // Build values compatible with KpiGenerales staticKey names
     const values = {
@@ -55,6 +56,9 @@ async function MinutosKpis({
             dynamicValues={dynamicValues}
             isAdmin={isAdmin}
             configKey="kpis_llamadas"
+            from={from}
+            to={to}
+            filters={filters}
             title={
                 <div className="mb-2">
                     <div className="flex items-center gap-4 mb-4">
@@ -111,12 +115,29 @@ async function MinutosKpis({
 // ─── CHARTS SECTION ───────────────────────────────────────────────────────────
 
 async function MinutosChartsSection({
-    from, to, filters,
+    from, to, isAdmin, filters,
 }: {
-    from: string; to: string; filters: AnalyticsFilters;
+    from: string; to: string; isAdmin: boolean; filters: AnalyticsFilters;
 }) {
-    const kpi = await getKpiMinutos(from, to, filters);
-    return <MinutosCharts data={kpi} />;
+    const tenantConfig = await getActiveTenantConfig();
+    if (!tenantConfig) return null;
+
+    const savedCharts = (tenantConfig.config as any)?.charts_llamadas as ChartConfig[] || [];
+    const mergedCharts = savedCharts.length > 0 ? savedCharts : DEFAULT_CHARTS_LLAMADAS;
+
+    const chartData = await getDynamicChartSeries(mergedCharts, from, to, filters);
+
+    return (
+        <ChartManager
+            tenant={tenantConfig}
+            initialCharts={mergedCharts}
+            data={chartData}
+            isAdmin={isAdmin}
+            configKey="charts_llamadas"
+            filters={filters}
+            title="Análisis de Llamadas"
+        />
+    );
 }
 
 // ─── PAGE ─────────────────────────────────────────────────────────────────────
@@ -151,7 +172,7 @@ export default async function MinutosPage({ searchParams }: { searchParams: Prom
                     </div>
                 }
             >
-                <MinutosChartsSection from={from} to={to} filters={filters} />
+                <MinutosChartsSection from={from} to={to} isAdmin={isAdmin} filters={filters} />
             </Suspense>
         </div>
     );

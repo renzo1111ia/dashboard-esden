@@ -3,7 +3,7 @@ import { HistorialTable } from "@/components/historial/HistorialTable";
 import { parseFilters } from "@/lib/utils/date-filters";
 import { getActiveTenantConfig } from "@/lib/actions/tenant";
 import { getAdminStatus } from "@/lib/actions/auth";
-import { Settings } from "lucide-react";
+import { Settings, ClipboardList } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -29,10 +29,15 @@ export default async function HistorialPage({ searchParams }: { searchParams: Pr
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4 mb-6">
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-[20px]">
+                    <ClipboardList className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                </div>
                 <div>
-                    <h2 className="text-lg font-black text-slate-800 tracking-tight">Historial de Llamadas</h2>
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-0.5">
+                    <h1 className="text-[32px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
+                        Historial de <span className="text-blue-600 dark:text-blue-400">Llamadas</span>
+                    </h1>
+                    <p className="text-slate-500 dark:text-slate-400 font-medium text-[15px]">
                         {initialData.count.toLocaleString()} registros · Paginación servidor
                     </p>
                 </div>

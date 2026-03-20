@@ -179,74 +179,14 @@ export const DEFAULT_SUMMARY_KPIS: KpiConfig[] = [
 // ─── DEFAULT CHARTS ───────────────────────────────────────────────────────────
 
 export const DEFAULT_CHARTS: ChartConfig[] = [
-    {
-        id: 'ch-1',
-        type: 'donut',
-        title: 'Motivo de Anulación',
-        dataKey: 'porMotivoAnulacion',
-        size: '6',
-        isVisible: true,
-        isDonut: true,
-        centerLabel: 'total',
-    },
-    {
-        id: 'ch-2',
-        type: 'area',
-        title: 'Citas Agendadas por Fecha',
-        dataKey: 'agendadosPorFecha',
-        size: '6',
-        isVisible: true,
-    },
-    {
-        id: 'ch-3',
-        type: 'vertical-bar',
-        title: 'Estado de Llamadas',
-        dataKey: 'porEstadoLlamada',
-        size: '6',
-        isVisible: true,
-    },
-    {
-        id: 'ch-4',
-        type: 'vertical-bar',
-        title: 'Razón de Término',
-        dataKey: 'porRazonTermino',
-        size: '6',
-        isVisible: true,
-    },
-    {
-        id: 'ch-5',
-        type: 'donut',
-        title: 'Tipo de Lead',
-        dataKey: 'porTipoLead',
-        size: '6',
-        isVisible: true,
-        isDonut: false,
-    },
-    {
-        id: 'ch-6',
-        type: 'vertical-bar',
-        title: 'Leads por Origen',
-        dataKey: 'porOrigen',
-        size: '6',
-        isVisible: true,
-    },
-    {
-        id: 'ch-7',
-        type: 'donut',
-        title: 'Cualificación de Leads',
-        dataKey: 'porCualificacion',
-        size: '6',
-        isVisible: true,
-        isDonut: false,
-    },
-    {
-        id: 'ch-8',
-        type: 'area',
-        title: 'Primer Contacto por Fecha',
-        dataKey: 'primerContactoPorFecha',
-        size: '6',
-        isVisible: true,
-    },
+    { id: 'ch-1', type: 'donut', title: 'Motivo de Anulación', dataKey: 'dynamic', xKey: 'lead_cualificacion.motivo_anulacion', size: '6', isVisible: true, isDonut: true },
+    { id: 'ch-2', type: 'area', title: 'Citas Agendadas por Fecha', dataKey: 'dynamic', xKey: 'agendamientos.fecha_agendada_cliente', size: '6', isVisible: true },
+    { id: 'ch-3', type: 'vertical-bar', title: 'Estado de Llamadas', dataKey: 'dynamic', xKey: 'llamadas.estado_llamada', size: '6', isVisible: true },
+    { id: 'ch-4', type: 'vertical-bar', title: 'Razón de Término', dataKey: 'dynamic', xKey: 'llamadas.razon_termino', size: '6', isVisible: true },
+    { id: 'ch-5', type: 'donut', title: 'Tipo de Lead', dataKey: 'dynamic', xKey: 'lead.tipo_lead', size: '6', isVisible: true },
+    { id: 'ch-6', type: 'vertical-bar', title: 'Leads por Origen', dataKey: 'dynamic', xKey: 'lead.origen', size: '6', isVisible: true },
+    { id: 'ch-7', type: 'donut', title: 'Cualificación de Leads', dataKey: 'dynamic', xKey: 'lead_cualificacion.cualificacion', size: '6', isVisible: true },
+    { id: 'ch-8', type: 'area', title: 'Leads Ingresados por Fecha', dataKey: 'dynamic', xKey: 'lead.fecha_ingreso_crm', size: '6', isVisible: true },
 ];
 
 // ─── LLAMADAS KPIs ────────────────────────────────────────────────────────────
@@ -260,6 +200,16 @@ export const LLAMADAS_KPIS: KpiConfig[] = [
     { id: 'll-6', label: 'Tasa Contacto', icon: 'TrendingUp', color: 'bg-teal-600', size: '4', staticKey: 'tasa_contacto', isVisible: true, suffix: '%' },
     { id: 'll-7', label: '% Agenda', icon: 'Calendar', color: 'bg-orange-600', size: '4', staticKey: 'tasa_agendamiento', isVisible: true, suffix: '%' },
     { id: 'll-8', label: '% Conversión', icon: 'Target', color: 'bg-yellow-600', size: '4', staticKey: 'tasa_conversion', isVisible: true, suffix: '%' },
+];
+
+// ─── FUNNEL DEFAULT ─────────────────────────────────────────────────────────────
+
+export const DEFAULT_FUNNEL: KpiConfig[] = [
+    { id: 'fnl-1', label: 'Leads Ingresados', icon: 'Users', color: 'bg-blue-600', size: '12', staticKey: 'total_leads', isVisible: true, group: 'FUNNEL', order: 1 },
+    { id: 'fnl-2', label: 'Leads Alcanzados', icon: 'Phone', color: 'bg-blue-500', size: '12', staticKey: 'total_leads_alcanzados', isVisible: true, group: 'FUNNEL', order: 2 },
+    { id: 'fnl-3', label: 'Atendidas', icon: 'PhoneCall', color: 'bg-emerald-600', size: '12', staticKey: 'total_contactados', isVisible: true, group: 'FUNNEL', order: 3 },
+    { id: 'fnl-4', label: 'Cualificados', icon: 'Star', color: 'bg-emerald-500', size: '12', staticKey: 'total_cualificados', isVisible: true, group: 'FUNNEL', order: 4 },
+    { id: 'fnl-5', label: 'Agendas', icon: 'Calendar', color: 'bg-slate-500', size: '12', staticKey: 'total_agendados', isVisible: true, group: 'FUNNEL', order: 5 },
 ];
 
 // ─── WHATSAPP KPIs ────────────────────────────────────────────────────────────
@@ -284,6 +234,25 @@ export const CAMPANAS_KPIS: KpiConfig[] = [
     { id: 'cp-6', label: 'T. Respuesta', icon: 'Zap', color: 'bg-amber-600', size: '4', staticKey: 'tiempo_respuesta_promedio_minutos', isVisible: true, suffix: ' min' },
 ];
 
+// ─── DEFAULT CHARTS PER MODULE ────────────────────────────────────────────────
+
 export const CAMPANAS_CHARTS: ChartConfig[] = [
-    { id: 'cp-ch-1', type: 'area', title: 'Primer Contacto por Fecha', dataKey: 'primerContactoPorFecha', size: '12', isVisible: true },
+    { id: 'cp-ch-1', type: 'area', title: 'Leads por Fecha', dataKey: 'dynamic', xKey: 'lead.fecha_ingreso_crm', size: '6', isVisible: true },
+    { id: 'cp-ch-2', type: 'vertical-bar', title: 'Leads por Origen', dataKey: 'dynamic', xKey: 'lead.origen', size: '6', isVisible: true },
+    { id: 'cp-ch-3', type: 'donut', title: 'Tipo de Lead', dataKey: 'dynamic', xKey: 'lead.tipo_lead', size: '6', isVisible: true },
+    { id: 'cp-ch-4', type: 'area', title: 'Primer Contacto por Fecha', dataKey: 'dynamic', xKey: 'llamadas.fecha_inicio', size: '6', isVisible: true },
+];
+
+export const DEFAULT_CHARTS_LLAMADAS: ChartConfig[] = [
+    { id: 'll-ch-1', type: 'area', title: 'Llamadas por Fecha', dataKey: 'dynamic', xKey: 'llamadas.fecha_inicio', size: '6', isVisible: true },
+    { id: 'll-ch-2', type: 'vertical-bar', title: 'Estado de Llamadas', dataKey: 'dynamic', xKey: 'llamadas.estado_llamada', size: '6', isVisible: true },
+    { id: 'll-ch-3', type: 'vertical-bar', title: 'Razón de Término', dataKey: 'dynamic', xKey: 'llamadas.razon_termino', size: '6', isVisible: true },
+    { id: 'll-ch-4', type: 'donut', title: 'Tipo de Agente', dataKey: 'dynamic', xKey: 'llamadas.tipo_agente', size: '6', isVisible: true },
+];
+
+export const DEFAULT_CHARTS_WHATSAPP: ChartConfig[] = [
+    { id: 'ws-ch-1', type: 'area', title: 'Conversaciones por Fecha', dataKey: 'dynamic', xKey: 'conversaciones_whatsapp.fecha_creacion', size: '6', isVisible: true },
+    { id: 'ws-ch-2', type: 'donut', title: 'Estado de Conversación', dataKey: 'dynamic', xKey: 'conversaciones_whatsapp.estado', size: '6', isVisible: true },
+    { id: 'ws-ch-3', type: 'vertical-bar', title: 'Leads por Origen', dataKey: 'dynamic', xKey: 'lead.origen', size: '6', isVisible: true },
+    { id: 'ws-ch-4', type: 'vertical-bar', title: 'Leads por Tipo', dataKey: 'dynamic', xKey: 'lead.tipo_lead', size: '6', isVisible: true },
 ];

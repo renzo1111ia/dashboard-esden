@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import {
     getKpiGenerales,
     getDynamicKpis,
+    getDynamicChartSeries,
     AnalyticsFilters,
     getUniqueCampaigns,
 } from "@/lib/actions/analytics";
@@ -10,14 +11,15 @@ import { getAdminStatus } from "@/lib/actions/auth";
 import { KpiConfig, ChartConfig } from "@/types/tenant";
 import {
     ChartSkeleton,
-    KpiSkeleton,
+    KpiSkeleton
 } from "@/components/charts/DashboardCharts";
 import { TenantSetupBanner } from "@/components/layout/TenantSetupBanner";
 import { SummaryManager } from "@/components/dashboard/SummaryManager";
 import { ChartManager } from "@/components/dashboard/ChartManager";
-import { DEFAULT_SUMMARY_KPIS, DEFAULT_CHARTS } from "@/lib/constants/kpi-defaults";
+import { DEFAULT_SUMMARY_KPIS, DEFAULT_CHARTS, DEFAULT_FUNNEL } from "@/lib/constants/kpi-defaults";
 import { FilterBar } from "@/components/dashboard/FilterBar";
 import { parseFilters } from "@/lib/utils/date-filters";
+import { Filter } from "lucide-react";
 
 // ─── KPI SUMMARY SECTION ──────────────────────────────────────────────────────
 
@@ -32,24 +34,23 @@ async function SummarySection({
     isAdmin: boolean;
     filters: AnalyticsFilters;
 }) {
-    const [kpi, tenantConfig] = await Promise.all([
-        getKpiGenerales(from, to, filters),
-        getActiveTenantConfig(),
-    ]);
-
+    const tenantConfig = await getActiveTenantConfig();
     if (!tenantConfig) return null;
 
     // Use per-client KPIs from config, fallback to defaults
-    const currentConfigKpis = (tenantConfig.config as any)?.kpis as KpiConfig[] || [];
+    const currentConfigKpis = (tenantConfig.config as Record<string, unknown>)?.kpis as KpiConfig[] || [];
     const mergedKpis = currentConfigKpis.length > 0 ? currentConfigKpis : DEFAULT_SUMMARY_KPIS;
 
-    // Dynamic (custom) KPIs that aren't in the static KpiGenerales
-    const dynamicValues = await getDynamicKpis(
-        from,
-        to,
-        mergedKpis.filter((k) => !k.staticKey),
-        filters
-    );
+    // Dynamic (custom) KPIs and static KPIs in parallel
+    const [kpi, dynamicValues] = await Promise.all([
+        getKpiGenerales(from, to, filters),
+        getDynamicKpis(
+            from,
+            to,
+            mergedKpis.filter((k) => !k.staticKey),
+            filters
+        )
+    ]);
 
     return (
         <SummaryManager
@@ -59,6 +60,9 @@ async function SummarySection({
             dynamicValues={dynamicValues}
             isAdmin={isAdmin}
             configKey="kpis"
+            from={from}
+            to={to}
+            filters={filters}
         />
     );
 }
@@ -76,36 +80,81 @@ async function ChartsSection({
     isAdmin: boolean;
     filters: AnalyticsFilters;
 }) {
-    const [kpi, tenantConfig] = await Promise.all([
-        getKpiGenerales(from, to, filters),
-        getActiveTenantConfig(),
-    ]);
+    const tenantConfig = await getActiveTenantConfig();
     if (!tenantConfig) return null;
 
-    const currentCharts = (tenantConfig.config as any)?.charts as ChartConfig[] || [];
+    const currentCharts = (tenantConfig.config as Record<string, unknown>)?.charts as ChartConfig[] || [];
     const mergedCharts = currentCharts.length > 0 ? currentCharts : DEFAULT_CHARTS;
 
-    // Map all chart data from the single KpiGenerales call
-    // dataKey in ChartConfig matches these keys
-    const chartDataMap = {
-        porEstadoLlamada: kpi.por_estado_llamada,
-        porRazonTermino: kpi.por_razon_termino,
-        porOrigen: kpi.por_origen,
-        porTipoLead: kpi.por_tipo_lead,
-        porCualificacion: kpi.por_cualificacion,
-        porMotivoAnulacion: kpi.por_motivo_anulacion,
-        agendadosPorFecha: kpi.agendados_por_fecha,
-        primerContactoPorFecha: kpi.primer_contacto_por_fecha,
-    };
+    const chartData = await getDynamicChartSeries(mergedCharts, from, to, filters);
 
     return (
         <ChartManager
             tenant={tenantConfig}
             initialCharts={mergedCharts}
-            data={chartDataMap}
+            data={chartData}
             isAdmin={isAdmin}
             filters={filters}
         />
+    );
+}
+
+// ─── FUNNEL SECTION ───────────────────────────────────────────────────────────
+
+async function FunnelSection({
+    from,
+    to,
+    isAdmin,
+    filters,
+}: {
+    from: string;
+    to: string;
+    isAdmin: boolean;
+    filters: AnalyticsFilters;
+}) {
+    const tenantConfig = await getActiveTenantConfig();
+    if (!tenantConfig) return null;
+
+    const currentFunnelKpis = (tenantConfig.config as Record<string, unknown>)?.funnel as KpiConfig[] || [];
+    const mergedFunnel = currentFunnelKpis.length > 0 ? currentFunnelKpis : DEFAULT_FUNNEL;
+
+    const [kpi, dynamicValues] = await Promise.all([
+        getKpiGenerales(from, to, filters),
+        getDynamicKpis(
+            from,
+            to,
+            mergedFunnel.filter((k: KpiConfig) => !k.staticKey),
+            filters
+        )
+    ]);
+
+    return (
+        <div className="mt-8 mb-8">
+            <div className="flex items-center gap-4 mb-8">
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-[20px]">
+                    <Filter className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                    <h2 className="text-[32px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
+                        Embudo de{' '}<span className="text-blue-600 dark:text-blue-400">Conversi&#xF3;n</span>
+                    </h2>
+                    <p className="text-slate-500 dark:text-slate-400 font-medium text-[15px]">Tasa de conversi&#xF3;n y progreso por etapa</p>
+                </div>
+            </div>
+            <SummaryManager
+                tenant={tenantConfig}
+                initialKpis={mergedFunnel}
+                values={kpi}
+                dynamicValues={dynamicValues}
+                isAdmin={isAdmin}
+                configKey="funnel"
+                layout="funnel"
+                from={from}
+                to={to}
+                filters={filters}
+                title={null}
+            />
+        </div>
     );
 }
 
@@ -116,12 +165,14 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage({
     searchParams,
 }: {
-    searchParams: Promise<any>;
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
     const params = await searchParams;
     const { from, to, filters } = parseFilters(params);
-    const availableCampaigns = await getUniqueCampaigns();
-    const isAdmin = await getAdminStatus();
+    const [availableCampaigns, isAdmin] = await Promise.all([
+        getUniqueCampaigns(),
+        getAdminStatus()
+    ]);
 
     return (
         <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
@@ -138,6 +189,13 @@ export default async function DashboardPage({
                 }
             >
                 <SummarySection from={from} to={to} isAdmin={isAdmin} filters={filters} />
+            </Suspense>
+
+            <Suspense
+                key={`funnel-${from}-${to}-${JSON.stringify(filters)}`}
+                fallback={<ChartSkeleton />}
+            >
+                <FunnelSection from={from} to={to} isAdmin={isAdmin} filters={filters} />
             </Suspense>
 
             <Suspense

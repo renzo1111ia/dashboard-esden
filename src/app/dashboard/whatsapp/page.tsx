@@ -1,17 +1,17 @@
 import { Suspense } from "react";
 import {
-    getKpiWhatsapp, getDynamicKpis,
-    type KpiWhatsapp, type AnalyticsFilters,
+    getKpiWhatsapp, getDynamicKpis, getDynamicChartSeries,
+    type AnalyticsFilters,
 } from "@/lib/actions/analytics";
 import { getActiveTenantConfig } from "@/lib/actions/tenant";
 import { getAdminStatus } from "@/lib/actions/auth";
 import { KpiSkeleton, ChartSkeleton } from "@/components/charts/DashboardCharts";
 import { SummaryManager } from "@/components/dashboard/SummaryManager";
-import { WHATSAPP_KPIS } from "@/lib/constants/kpi-defaults";
-import { KpiConfig } from "@/types/tenant";
+import { ChartManager } from "@/components/dashboard/ChartManager";
+import { WHATSAPP_KPIS, DEFAULT_CHARTS_WHATSAPP } from "@/lib/constants/kpi-defaults";
+import { KpiConfig, ChartConfig } from "@/types/tenant";
 import { FilterBar } from "@/components/dashboard/FilterBar";
 import { parseFilters } from "@/lib/utils/date-filters";
-import { WhatsappCharts } from "@/components/dashboard/WhatsappCharts";
 
 export const dynamic = "force-dynamic";
 
@@ -22,15 +22,16 @@ async function WhatsappKpis({
 }: {
     from: string; to: string; isAdmin: boolean; filters: AnalyticsFilters;
 }) {
-    const [kpi, tenantConfig] = await Promise.all([
-        getKpiWhatsapp(from, to, filters),
-        getActiveTenantConfig(),
-    ]);
+    const tenantConfig = await getActiveTenantConfig();
     if (!tenantConfig) return null;
 
     const currentKpis = (tenantConfig.config as any)?.kpis_whatsapp as KpiConfig[] || [];
     const mergedKpis  = currentKpis.length > 0 ? currentKpis : WHATSAPP_KPIS;
-    const dynamicValues = await getDynamicKpis(from, to, mergedKpis.filter(k => !k.staticKey), filters);
+
+    const [kpi, dynamicValues] = await Promise.all([
+        getKpiWhatsapp(from, to, filters),
+        getDynamicKpis(from, to, mergedKpis.filter(k => !k.staticKey), filters)
+    ]);
 
     // Build compatible values object (staticKey names from kpi-defaults)
     const values = {
@@ -58,6 +59,9 @@ async function WhatsappKpis({
             dynamicValues={dynamicValues}
             isAdmin={isAdmin}
             configKey="kpis_whatsapp"
+            from={from}
+            to={to}
+            filters={filters}
             title={
                 <div className="mb-2">
                     {/* Header */}
@@ -70,7 +74,7 @@ async function WhatsappKpis({
                             </svg>
                         </div>
                         <div>
-                            <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+                            <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
                                 WhatsApp <span className="text-green-600">Leads</span>
                             </h1>
                             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
@@ -81,7 +85,7 @@ async function WhatsappKpis({
 
                     {/* Hero metrics */}
                     <div className="mt-6 flex flex-wrap gap-8">
-                        <HeroStat label="Conversaciones" value={kpi.total_conversaciones.toLocaleString("es-ES")} color="text-slate-900" />
+                        <HeroStat label="Conversaciones" value={kpi.total_conversaciones.toLocaleString("es-ES")} color="text-slate-900 dark:text-white" />
                         <HeroStat label="Leads únicos" value={kpi.total_leads_unicos.toLocaleString("es-ES")} color="text-slate-700" />
                         <HeroStat label="Con Opt-in" value={kpi.con_opt_in.toLocaleString("es-ES")} color="text-green-600" />
                         <HeroStat label="Tasa Opt-in" value={`${kpi.tasa_opt_in}%`} color="text-emerald-600" />
@@ -105,12 +109,29 @@ function HeroStat({ label, value, color }: { label: string; value: string; color
 // ─── CHARTS SECTION ───────────────────────────────────────────────────────────
 
 async function WhatsappChartsSection({
-    from, to, filters,
+    from, to, isAdmin, filters,
 }: {
-    from: string; to: string; filters: AnalyticsFilters;
+    from: string; to: string; isAdmin: boolean; filters: AnalyticsFilters;
 }) {
-    const kpi = await getKpiWhatsapp(from, to, filters);
-    return <WhatsappCharts data={kpi} />;
+    const tenantConfig = await getActiveTenantConfig();
+    if (!tenantConfig) return null;
+
+    const savedCharts = (tenantConfig.config as any)?.charts_whatsapp as ChartConfig[] || [];
+    const mergedCharts = savedCharts.length > 0 ? savedCharts : DEFAULT_CHARTS_WHATSAPP;
+
+    const chartData = await getDynamicChartSeries(mergedCharts, from, to, filters);
+
+    return (
+        <ChartManager
+            tenant={tenantConfig}
+            initialCharts={mergedCharts}
+            data={chartData}
+            isAdmin={isAdmin}
+            configKey="charts_whatsapp"
+            filters={filters}
+            title="Análisis WhatsApp"
+        />
+    );
 }
 
 // ─── PAGE ─────────────────────────────────────────────────────────────────────
@@ -145,7 +166,7 @@ export default async function WhatsappPage({ searchParams }: { searchParams: Pro
                     </div>
                 }
             >
-                <WhatsappChartsSection from={from} to={to} filters={filters} />
+                <WhatsappChartsSection from={from} to={to} isAdmin={isAdmin} filters={filters} />
             </Suspense>
         </div>
     );
