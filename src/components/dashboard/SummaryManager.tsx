@@ -5,7 +5,7 @@ import { KpiConfig, Tenant } from "@/types/tenant";
 import { KpiGenerales } from "@/lib/actions/analytics";
 import { SummaryCard } from "@/components/charts/DashboardCharts";
 import { cn } from "@/lib/utils";
-import { 
+import {
     TrendingUp, Save, X, GripVertical, Check, ChevronRight,
     Bot, Target, Percent, Layout, Settings, Trash2, Database, Plus
 } from "lucide-react";
@@ -289,7 +289,7 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
                 const newIndex = items.findIndex(i => i.id === over.id);
 
                 const newItems = arrayMove(items, oldIndex, newIndex);
-                
+
                 // Inherit the group of the adjacent items if we dragged across a group boundary
                 const movedItem = newItems[newIndex];
                 const neighbor = oldIndex < newIndex ? newItems[newIndex - 1] : newItems[newIndex + 1];
@@ -310,7 +310,7 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
         ];
         // If the user modifies any data connection property, convert static preset to dynamic KPI.
         const shouldClearStatic = dataKeys.some(key => key in updates);
-        
+
         setKpis(kpis.map(k => {
             if (k.id === id) {
                 const updated = { ...k, ...updates };
@@ -335,7 +335,7 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
             calcType: "count",
             targetCol: "llamadas.id"
         };
-        
+
         setKpis(prev => {
             const lastIndex = prev.map(k => k.group).lastIndexOf(selectedGroup);
             if (lastIndex !== -1) {
@@ -510,18 +510,18 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
                 const maxVal = Math.max(...rawVals, 1);
 
                 const COLORS: Record<string, [string, string]> = {
-                    'bg-blue-600':    ['#3b82f6','#1d4ed8'],
-                    'bg-indigo-600':  ['#818cf8','#4338ca'],
-                    'bg-purple-600':  ['#c084fc','#7e22ce'],
-                    'bg-violet-600':  ['#a78bfa','#5b21b6'],
-                    'bg-emerald-600': ['#34d399','#059669'],
-                    'bg-teal-600':    ['#2dd4bf','#0f766e'],
-                    'bg-cyan-600':    ['#22d3ee','#0e7490'],
-                    'bg-orange-600':  ['#fb923c','#c2410c'],
-                    'bg-rose-500':    ['#fb7185','#e11d48'],
-                    'bg-rose-600':    ['#f43f5e','#be123c'],
-                    'bg-slate-600':   ['#94a3b8','#334155'],
-                    'bg-zinc-800':    ['#71717a','#18181b'],
+                    'bg-blue-600': ['#3b82f6', '#1d4ed8'],
+                    'bg-indigo-600': ['#818cf8', '#4338ca'],
+                    'bg-purple-600': ['#c084fc', '#7e22ce'],
+                    'bg-violet-600': ['#a78bfa', '#5b21b6'],
+                    'bg-emerald-600': ['#34d399', '#059669'],
+                    'bg-teal-600': ['#2dd4bf', '#0f766e'],
+                    'bg-cyan-600': ['#22d3ee', '#0e7490'],
+                    'bg-orange-600': ['#fb923c', '#c2410c'],
+                    'bg-rose-500': ['#fb7185', '#e11d48'],
+                    'bg-rose-600': ['#f43f5e', '#be123c'],
+                    'bg-slate-600': ['#94a3b8', '#334155'],
+                    'bg-zinc-800': ['#71717a', '#18181b'],
                 };
 
                 const svgW = 500;
@@ -548,14 +548,14 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
                             >
                                 <defs>
                                     {steps.map((k, idx) => {
-                                        const [c1, c2] = COLORS[k.color || 'bg-blue-600'] || ['#3b82f6','#1d4ed8'];
+                                        const [c1, c2] = COLORS[k.color || 'bg-blue-600'] || ['#3b82f6', '#1d4ed8'];
                                         // Intensity: 1.0 = max value (darkest), 0.35 = min (lightest)
                                         const intensity = 0.35 + 0.65 * (rawVals[idx] / maxVal);
                                         return (
                                             <linearGradient key={`g${k.id}`} id={`grad${k.id}`} x1="0%" y1="0%" x2="100%" y2="0%">
-                                                <stop offset="0%"   stopColor={c2} stopOpacity={intensity} />
-                                                <stop offset="30%"  stopColor={c1} stopOpacity={intensity} />
-                                                <stop offset="70%"  stopColor={c1} stopOpacity={intensity} />
+                                                <stop offset="0%" stopColor={c2} stopOpacity={intensity} />
+                                                <stop offset="30%" stopColor={c1} stopOpacity={intensity} />
+                                                <stop offset="70%" stopColor={c1} stopOpacity={intensity} />
                                                 <stop offset="100%" stopColor={c2} stopOpacity={intensity} />
                                             </linearGradient>
                                         );
@@ -566,8 +566,8 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
                                         const dimAmount = 1 - intensity; // 0 = no dim (high data), up to 0.65 (low data)
                                         return (
                                             <linearGradient key={`dim${k.id}`} id={`dim${k.id}`} x1="0%" y1="0%" x2="100%" y2="0%">
-                                                <stop offset="0%"   stopColor="rgba(0,0,0,0)" stopOpacity={dimAmount * 0.4} />
-                                                <stop offset="50%"  stopColor="rgba(0,0,0,0)" stopOpacity={dimAmount * 0.15} />
+                                                <stop offset="0%" stopColor="rgba(0,0,0,0)" stopOpacity={dimAmount * 0.4} />
+                                                <stop offset="50%" stopColor="rgba(0,0,0,0)" stopOpacity={dimAmount * 0.15} />
                                                 <stop offset="100%" stopColor="rgba(0,0,0,0)" stopOpacity={dimAmount * 0.4} />
                                             </linearGradient>
                                         );
@@ -575,7 +575,7 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
                                 </defs>
 
                                 {steps.map((k, idx) => {
-                                    const [c1, c2] = COLORS[k.color || 'bg-blue-600'] || ['#3b82f6','#1d4ed8'];
+                                    const [c1, c2] = COLORS[k.color || 'bg-blue-600'] || ['#3b82f6', '#1d4ed8'];
                                     const cx = svgW / 2;
                                     const rTop = rx(idx);
                                     const rBot = rx(idx + 1);
@@ -663,11 +663,11 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
                                 {/* Bottom rim of last step */}
                                 {steps.length > 0 && (() => {
                                     const last = steps[steps.length - 1];
-                                    const [, c2] = COLORS[last.color || 'bg-blue-600'] || ['#3b82f6','#1d4ed8'];
+                                    const [, c2] = COLORS[last.color || 'bg-blue-600'] || ['#3b82f6', '#1d4ed8'];
                                     const yBot = steps.length * rowH + ellipseRY + 5;
                                     const rBot = rx(steps.length);
                                     const lastIntensity = 0.35 + 0.65 * (rawVals[steps.length - 1] / maxVal);
-                                    return <ellipse cx={svgW/2} cy={yBot} rx={rBot} ry={ellipseRY} fill={c2} fillOpacity={lastIntensity} />;
+                                    return <ellipse cx={svgW / 2} cy={yBot} rx={rBot} ry={ellipseRY} fill={c2} fillOpacity={lastIntensity} />;
                                 })()}
                             </svg>
                         </div>
@@ -1210,7 +1210,7 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
                                                             <div className="grid grid-cols-2 gap-3">
                                                                 <div className="space-y-1.5">
                                                                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Tabla</label>
-                                                                    <select 
+                                                                    <select
                                                                         title="Tabla"
                                                                         value={part.targetCol.split('.')[0]}
                                                                         onChange={(e) => {
@@ -1230,7 +1230,7 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
                                                                 </div>
                                                                 <div className="space-y-1.5">
                                                                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Método</label>
-                                                                    <select 
+                                                                    <select
                                                                         title="Cálculo"
                                                                         value={part.calcType}
                                                                         onChange={(e) => {
@@ -1283,7 +1283,7 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
                                                                             <option key={col} value={col}>{col}</option>
                                                                         ))}
                                                                     </select>
-                                                                    <select 
+                                                                    <select
                                                                         title="Op"
                                                                         value={part.condOp || "="}
                                                                         onChange={(e) => {
@@ -1299,7 +1299,7 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
                                                                         <option value=">">&gt;</option>
                                                                         <option value="<">&lt;</option>
                                                                     </select>
-                                                                    <input 
+                                                                    <input
                                                                         type="text"
                                                                         placeholder="Val"
                                                                         value={part.condVal || ""}
@@ -1352,7 +1352,7 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
             {/* Modal de Selección de Grupo */}
             {isAddingKpi && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-                    <div 
+                    <div
                         className="absolute inset-0 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300"
                         onClick={() => setIsAddingKpi(false)}
                     />
@@ -1362,7 +1362,7 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
                                 <h2 className="text-xl font-black text-foreground uppercase tracking-tight">Nuevo Bloque</h2>
                                 <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mt-1">Selecciona la ubicación del bloque</p>
                             </div>
-                            <button 
+                            <button
                                 onClick={() => setIsAddingKpi(false)}
                                 className="p-2 hover:bg-muted rounded-xl transition-all"
                                 title="Cerrar"
