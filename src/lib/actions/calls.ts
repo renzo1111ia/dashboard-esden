@@ -364,3 +364,65 @@ export async function fetchWhatsappByPhone(phone: string) {
         return [];
     }
 }
+// ─── CREATE LEAD ─────────────────────────────────────────────────────────────
+
+export async function createLead(data: Partial<HistorialRow> & { id_programa?: string }) {
+    try {
+        const supabase = await getSupabaseServerClient();
+        
+        // 1. Insert into lead table
+        const leadData = {
+            nombre: data.nombre,
+            apellido: data.apellido,
+            telefono: data.telefono,
+            email: data.email,
+            pais: data.pais,
+            tipo_lead: data.tipo_lead || "nuevo",
+            origen: data.origen,
+            campana: data.campana,
+            fecha_ingreso_crm: new Date().toISOString(),
+        };
+
+        const { data: newLead, error: leadError } = await (supabase
+            .from("lead") as any)
+            .insert(leadData)
+            .select()
+            .single();
+
+        if (leadError) throw new Error(leadError.message);
+
+        // 2. If program is selected, associate it
+        if (data.id_programa && newLead) {
+            const { error: progError } = await (supabase
+                .from("lead_programas") as any)
+                .insert({
+                    id_lead: (newLead as any).id,
+                    id_programa: data.id_programa
+                });
+            if (progError) console.error("Error linking program:", progError.message);
+        }
+
+        return { success: true, data: newLead };
+    } catch (e: any) {
+        console.error("createLead ERROR:", e);
+        return { success: false, error: e.message };
+    }
+}
+
+// ─── GET PROGRAMS ─────────────────────────────────────────────────────────────
+
+export async function getPrograms() {
+    try {
+        const supabase = await getSupabaseServerClient();
+        const { data, error } = await supabase
+            .from("programas")
+            .select("*")
+            .order("nombre");
+
+        if (error) throw new Error(error.message);
+        return data || [];
+    } catch (e) {
+        console.error("getPrograms ERROR:", e);
+        return [];
+    }
+}

@@ -7,10 +7,11 @@ import { AudioPlayer } from "@/components/historial/AudioPlayer";
 import { formatDuration, formatDate, cn } from "@/lib/utils";
 import type { HistorialRow } from "@/types/database";
 import {
-    ChevronDown, Search, RotateCcw, Calendar, Phone, User,
-    Clock, MapPin, Target, CheckCircle, XCircle, AlertCircle, Timer,
-    Megaphone, MessageSquare
+    Search, RotateCcw, Calendar, Phone, User,
+    Clock, MapPin, Target, CheckCircle, AlertCircle,
+    Megaphone, MessageSquare, Plus
 } from "lucide-react";
+import { CreateLeadDialog } from "@/components/historial/CreateLeadDialog";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
@@ -139,7 +140,47 @@ export function HistorialTable({ initialData, fromDate, toDate, columns }: Props
 
     const [dupPhone, setDupPhone] = useState<string | null>(null);
     const [popoverRow, setPopoverRow] = useState<HistorialRow | null>(null);
+    const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+    
+    // ── Dual Scroll Sync ──────────────────────────────────────────────────────
+    const tableContainerRef = useRef<HTMLDivElement>(null);
+    const topScrollRef = useRef<HTMLDivElement>(null);
+    const isScrolling = useRef(false);
+
+    const onScrollTable = useCallback(() => {
+        if (!isScrolling.current && tableContainerRef.current && topScrollRef.current) {
+            isScrolling.current = true;
+            topScrollRef.current.scrollLeft = tableContainerRef.current.scrollLeft;
+            setTimeout(() => { isScrolling.current = false; }, 0);
+        }
+    }, []);
+
+    const onScrollTop = useCallback(() => {
+        if (!isScrolling.current && tableContainerRef.current && topScrollRef.current) {
+            isScrolling.current = true;
+            tableContainerRef.current.scrollLeft = topScrollRef.current.scrollLeft;
+            setTimeout(() => { isScrolling.current = false; }, 0);
+        }
+    }, []);
+
     const [isPending, startTransition] = useTransition();
+
+    const [tableScrollWidth, setTableScrollWidth] = useState(0);
+
+    useEffect(() => {
+        if (tableContainerRef.current) {
+            setTableScrollWidth(tableContainerRef.current.scrollWidth);
+            
+            // Re-calculate if data changes
+            const observer = new ResizeObserver(() => {
+                if (tableContainerRef.current) {
+                    setTableScrollWidth(tableContainerRef.current.scrollWidth);
+                }
+            });
+            observer.observe(tableContainerRef.current);
+            return () => observer.disconnect();
+        }
+    }, [result.data]);
 
     // ── Load data ─────────────────────────────────────────────────────────────
 
@@ -287,6 +328,11 @@ export function HistorialTable({ initialData, fromDate, toDate, columns }: Props
                         {result.count.toLocaleString()} resultados
                     </span>
                     <div className="flex gap-3">
+                        <button onClick={() => setIsCreateDialogOpen(true)}
+                            className="flex items-center gap-2 rounded-xl bg-blue-500/10 border border-blue-500/20 px-5 py-2 text-sm font-bold text-blue-600 hover:bg-blue-500/20 transition-all">
+                            <Plus className="h-4 w-4" /> Nuevo Lead
+                        </button>
+                        <div className="w-px h-8 bg-border/50 mx-1 hidden md:block" />
                         <button onClick={resetFilters} className="flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-card-foreground transition-colors">
                             <RotateCcw className="h-4 w-4" /> Limpiar
                         </button>
@@ -489,8 +535,22 @@ export function HistorialTable({ initialData, fromDate, toDate, columns }: Props
                 </div>
             )}
 
+            {/* ── TOP SCROLLBAR (Dummy Div) ─────────────────────────────────── */}
+            <div 
+                ref={topScrollRef}
+                onScroll={onScrollTop}
+                className="overflow-x-auto h-5 mb-2 sticky top-[100px] z-[20] custom-scrollbar scrollbar-thin"
+                style={{ scrollbarWidth: "thin" }}
+            >
+                <div style={{ width: tableScrollWidth || "100%", height: "1px" }} />
+            </div>
+
             {/* ── TABLE ───────────────────────────────────────────────────── */}
-            <div className="overflow-x-auto rounded-[2.5rem] border border-border bg-card shadow-xl shadow-black/5">
+            <div 
+                ref={tableContainerRef}
+                onScroll={onScrollTable}
+                className="overflow-x-auto rounded-[2.5rem] border border-border bg-card shadow-xl shadow-black/5"
+            >
                 <table className="w-full text-sm">
                     <thead>
                         <tr className="border-b border-border bg-muted/50">
@@ -562,6 +622,16 @@ export function HistorialTable({ initialData, fromDate, toDate, columns }: Props
 
             {/* Duplicate lead dialog */}
             {dupPhone && <DuplicateLeadDialog phone={dupPhone} onClose={() => setDupPhone(null)} />}
+
+            {/* Create lead dialog */}
+            {isCreateDialogOpen && (
+                <CreateLeadDialog 
+                    onClose={() => setIsCreateDialogOpen(false)} 
+                    onSuccess={() => {
+                        applyFilters(); // Refresh data
+                    }} 
+                />
+            )}
         </>
     );
 }
