@@ -9,23 +9,13 @@ import type { HistorialRow } from "@/types/database";
 import {
     Search, RotateCcw, Calendar, Phone, User,
     Clock, MapPin, Target, CheckCircle, AlertCircle,
-    Megaphone, MessageSquare, Plus
+    Megaphone, MessageSquare
 } from "lucide-react";
-import { CreateLeadDialog } from "@/components/historial/CreateLeadDialog";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 50;
 
-const AUDIO_EXTENSIONS = [".wav", ".mp3", ".ogg", ".m4a", ".aac", ".flac"];
-
-function extractAudioUrl(text: string | null): string | null {
-    if (!text) return null;
-    const hasAudioExt = AUDIO_EXTENSIONS.some((ext) => text.toLowerCase().includes(ext));
-    if (!hasAudioExt) return null;
-    const match = text.match(/https?:\/\/[^\s)]+/);
-    return match ? match[0] : null;
-}
 
 const STATUS_COLORS: Record<string, string> = {
     CONTACTED: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
@@ -39,11 +29,6 @@ const STATUS_COLORS: Record<string, string> = {
     INVALID_NUMBER: "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/20",
 };
 
-const TIPO_LEAD_COLORS: Record<string, string> = {
-    nuevo: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
-    localizable: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
-    ilocalizable: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
-};
 
 const DATE_PRESETS = [
     { label: "Hoy", value: "today" },
@@ -56,31 +41,6 @@ const DATE_PRESETS = [
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
-/** Group rows by phone, keeping the most-recent as representative */
-function deduplicateByPhone(data: HistorialRow[]): { row: HistorialRow; count: number }[] {
-    const map = new Map<string, { row: HistorialRow; count: number }>();
-    for (const item of data) {
-        const key = item.telefono ?? `__no_phone_${item.id}`;
-        const existing = map.get(key);
-        if (!existing) {
-            map.set(key, { row: item, count: 1 });
-        } else {
-            existing.count++;
-            if ((item.fecha_inicio ?? "") > (existing.row.fecha_inicio ?? "")) {
-                existing.row = item;
-            }
-        }
-    }
-    return Array.from(map.values());
-}
-
-function formatTiempoRespuesta(minutos: number | null | undefined): string {
-    if (minutos == null) return "—";
-    if (minutos < 60) return `${minutos} min`;
-    const h = Math.floor(minutos / 60);
-    const m = minutos % 60;
-    return m > 0 ? `${h}h ${m}min` : `${h}h`;
-}
 
 // ─── PROPS ────────────────────────────────────────────────────────────────────
 
@@ -140,7 +100,6 @@ export function HistorialTable({ initialData, fromDate, toDate, columns }: Props
 
     const [dupPhone, setDupPhone] = useState<string | null>(null);
     const [popoverRow, setPopoverRow] = useState<HistorialRow | null>(null);
-    const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     
     // ── Dual Scroll Sync ──────────────────────────────────────────────────────
     const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -328,11 +287,6 @@ export function HistorialTable({ initialData, fromDate, toDate, columns }: Props
                         {result.count.toLocaleString()} resultados
                     </span>
                     <div className="flex gap-3">
-                        <button onClick={() => setIsCreateDialogOpen(true)}
-                            className="flex items-center gap-2 rounded-xl bg-blue-500/10 border border-blue-500/20 px-5 py-2 text-sm font-bold text-blue-600 hover:bg-blue-500/20 transition-all">
-                            <Plus className="h-4 w-4" /> Nuevo Lead
-                        </button>
-                        <div className="w-px h-8 bg-border/50 mx-1 hidden md:block" />
                         <button onClick={resetFilters} className="flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-card-foreground transition-colors">
                             <RotateCcw className="h-4 w-4" /> Limpiar
                         </button>
@@ -513,7 +467,7 @@ export function HistorialTable({ initialData, fromDate, toDate, columns }: Props
                                                             <AlertCircle className="h-3 w-3" /> Resumen IA
                                                         </p>
                                                         <p className="text-xs text-card-foreground leading-relaxed italic line-clamp-3 hover:line-clamp-none transition-all cursor-pointer">
-                                                            "{llamada.resumen}"
+                                                            &quot;{llamada.resumen}&quot;
                                                         </p>
                                                     </div>
                                                 )}
@@ -622,16 +576,6 @@ export function HistorialTable({ initialData, fromDate, toDate, columns }: Props
 
             {/* Duplicate lead dialog */}
             {dupPhone && <DuplicateLeadDialog phone={dupPhone} onClose={() => setDupPhone(null)} />}
-
-            {/* Create lead dialog */}
-            {isCreateDialogOpen && (
-                <CreateLeadDialog 
-                    onClose={() => setIsCreateDialogOpen(false)} 
-                    onSuccess={() => {
-                        applyFilters(); // Refresh data
-                    }} 
-                />
-            )}
         </>
     );
 }

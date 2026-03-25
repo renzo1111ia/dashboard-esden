@@ -14,6 +14,8 @@ import { KpiConfig, ChartConfig } from "@/types/tenant";
 import { FilterBar } from "@/components/dashboard/FilterBar";
 import { parseFilters } from "@/lib/utils/date-filters";
 import { CampaignSelector } from "@/components/dashboard/CampaignSelector";
+import { fetchCalls } from "@/lib/actions/calls";
+import { CampaignLeadsTable } from "@/components/campanas/CampaignLeadsTable";
 
 export const dynamic = "force-dynamic";
 
@@ -131,6 +133,30 @@ async function CampanasChartsSection({
     );
 }
 
+// ─── LEADS TABLE SECTION ──────────────────────────────────────────────────────
+
+async function CampanasLeadsSection({
+    from, to, filters
+}: {
+    from: string; to: string; filters: AnalyticsFilters;
+}) {
+    const res = await fetchCalls({
+        page: 1,
+        fromDate: from,
+        toDate: to,
+        campana: filters.campana,
+        origen: filters.origen,
+        pais: filters.pais,
+        pageSize: 10,
+    });
+
+    return (
+        <div className="mt-10">
+            <CampaignLeadsTable data={res.data} total={res.count} />
+        </div>
+    );
+}
+
 // ─── PAGE ─────────────────────────────────────────────────────────────────────
 
 export default async function CampanasPage({ searchParams }: { searchParams: Promise<any> }) {
@@ -173,6 +199,16 @@ export default async function CampanasPage({ searchParams }: { searchParams: Pro
                 }
             >
                 <CampanasChartsSection from={from} to={to} isAdmin={isAdmin} filters={filters} />
+            </Suspense>
+
+            {/* Leads Table */}
+            <Suspense
+                key={`camp-leads-${from}-${to}-${JSON.stringify(filters)}`}
+                fallback={
+                    <div className="h-64 w-full bg-muted/20 animate-pulse rounded-[32px]" />
+                }
+            >
+                <CampanasLeadsSection from={from} to={to} filters={filters} />
             </Suspense>
         </div>
     );
