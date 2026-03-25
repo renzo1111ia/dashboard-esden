@@ -41,6 +41,11 @@ const NAV_ITEMS: NavItem[] = [
                 icon: <Megaphone className="h-4 w-4" strokeWidth={1.8} />,
                 subItems: [
                     {
+                        label: "Ver Campañas",
+                        href: "/dashboard/campanas",
+                        icon: <Megaphone className="h-3.5 w-3.5" strokeWidth={1.8} />
+                    },
+                    {
                         label: "Crear Campañas",
                         href: "/dashboard/campanas/nuevo",
                         icon: <PlusCircle className="h-3.5 w-3.5" strokeWidth={1.8} />
