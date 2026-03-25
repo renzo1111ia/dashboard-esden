@@ -6,34 +6,53 @@ import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useTenantStore } from "@/store/tenant";
 
-import { LayoutDashboard, Megaphone, MessageCircle, Clock, History, Settings, X } from "lucide-react";
+import { 
+    LayoutDashboard, Megaphone, MessageCircle, 
+    Clock, History, Settings, X, ChevronDown, PlusCircle 
+} from "lucide-react";
 import { TenantSelector } from "./TenantSelector";
 
-const NAV_ITEMS = [
+interface NavItem {
+    label: string;
+    href: string;
+    icon?: React.ReactNode;
+    subItems?: NavItem[];
+}
+
+const NAV_ITEMS: NavItem[] = [
     {
-        label: "General",
+        label: "Informes",
         href: "/dashboard",
-        icon: <LayoutDashboard className="h-5 w-5" strokeWidth={1.8} />
-    },
-    {
-        label: "Llamadas",
-        href: "/dashboard/minutos",
-        icon: <Clock className="h-5 w-5" strokeWidth={1.8} />
-    },
-    {
-        label: "WhatsApp",
-        href: "/dashboard/whatsapp",
-        icon: <MessageCircle className="h-5 w-5" strokeWidth={1.8} />
-    },
-    {
-        label: "Campañas",
-        href: "/dashboard/campanas",
-        icon: <Megaphone className="h-5 w-5" strokeWidth={1.8} />
-    },
-    {
-        label: "Historial",
-        href: "/dashboard/historial",
-        icon: <History className="h-5 w-5" strokeWidth={1.8} />
+        icon: <LayoutDashboard className="h-5 w-5" strokeWidth={1.8} />,
+        subItems: [
+            {
+                label: "Llamadas",
+                href: "/dashboard/minutos",
+                icon: <Clock className="h-4 w-4" strokeWidth={1.8} />
+            },
+            {
+                label: "WhatsApp",
+                href: "/dashboard/whatsapp",
+                icon: <MessageCircle className="h-4 w-4" strokeWidth={1.8} />
+            },
+            {
+                label: "Campañas",
+                href: "/dashboard/campanas",
+                icon: <Megaphone className="h-4 w-4" strokeWidth={1.8} />,
+                subItems: [
+                    {
+                        label: "Crear Campañas",
+                        href: "/dashboard/campanas/nuevo",
+                        icon: <PlusCircle className="h-3.5 w-3.5" strokeWidth={1.8} />
+                    }
+                ]
+            },
+            {
+                label: "Historial",
+                href: "/dashboard/historial",
+                icon: <History className="h-4 w-4" strokeWidth={1.8} />
+            },
+        ]
     },
     {
         label: "Config",
@@ -49,6 +68,7 @@ export function Sidebar({ isAdmin, mobileOpen, onMobileClose }: {
 }) {
     const pathname = usePathname();
     const [collapsed, setCollapsed] = useState(false);
+    const [expandedItems, setExpandedItems] = useState<string[]>(["Informes", "Campañas"]);
     const isConfigured = useTenantStore((s) => s.isConfigured);
 
     // Close mobile sidebar on navigation
@@ -59,12 +79,74 @@ export function Sidebar({ isAdmin, mobileOpen, onMobileClose }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pathname]);
 
+    const toggleExpand = (label: string) => {
+        setExpandedItems(prev => 
+            prev.includes(label) ? prev.filter(i => i !== label) : [...prev, label]
+        );
+    };
+
     const visibleNavItems = NAV_ITEMS.filter(item => {
         if (item.href === "/dashboard/settings") {
             return isAdmin;
         }
         return true;
     });
+
+    const NavLink = ({ item, depth = 0 }: { item: NavItem, depth?: number }) => {
+        const hasSubItems = item.subItems && item.subItems.length > 0;
+        const isExpanded = expandedItems.includes(item.label);
+        const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
+        
+        const content = (
+            <div className={cn(
+                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-200 cursor-pointer",
+                isActive && !hasSubItems
+                    ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                    : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                depth > 0 && !collapsed && "ml-4 py-2"
+            )}>
+                <span className="relative flex-shrink-0">
+                    {item.icon}
+                    {item.href === "/dashboard/settings" && !isConfigured && (
+                        <span className="absolute -right-1 -top-1 flex h-2.5 w-2.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
+                        </span>
+                    )}
+                </span>
+                {!collapsed && (
+                    <>
+                        <span className="flex-1">{item.label}</span>
+                        {hasSubItems && (
+                            <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isExpanded && "rotate-180")} />
+                        )}
+                    </>
+                )}
+            </div>
+        );
+
+        return (
+            <div key={item.label} className="space-y-1">
+                {hasSubItems ? (
+                    <div onClick={() => toggleExpand(item.label)}>
+                        {content}
+                    </div>
+                ) : (
+                    <Link href={item.href}>
+                        {content}
+                    </Link>
+                )}
+                
+                {hasSubItems && isExpanded && !collapsed && (
+                    <div className="space-y-1">
+                        {item.subItems?.map(subItem => (
+                            <NavLink key={subItem.label} item={subItem} depth={depth + 1} />
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     return (
         <>
@@ -79,10 +161,8 @@ export function Sidebar({ isAdmin, mobileOpen, onMobileClose }: {
             {/* ── DESKTOP Sidebar / MOBILE Drawer ───────────────────────── */}
             <aside
                 className={cn(
-                    // Desktop: always visible, collapsible
                     "relative hidden md:flex h-screen flex-col border-r border-sidebar-border dark:border-slate-800 bg-sidebar dark:bg-slate-950 transition-all duration-300",
                     collapsed ? "w-16" : "w-64",
-                    // Mobile: slide-in drawer
                     "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:flex max-md:w-72 max-md:shadow-2xl",
                     mobileOpen ? "max-md:translate-x-0" : "max-md:-translate-x-full",
                     "max-md:transition-transform max-md:duration-300"
@@ -99,10 +179,9 @@ export function Sidebar({ isAdmin, mobileOpen, onMobileClose }: {
                             </svg>
                         </div>
                     )}
-                    {/* Close button for mobile */}
                     {onMobileClose && (
-                        <button
-                            onClick={onMobileClose}
+                        <button 
+                            onClick={onMobileClose} 
                             className="md:hidden h-9 w-9 flex items-center justify-center rounded-xl text-sidebar-foreground/50 hover:bg-sidebar-accent transition-all"
                             title="Cerrar menú"
                             aria-label="Cerrar menú"
@@ -112,41 +191,14 @@ export function Sidebar({ isAdmin, mobileOpen, onMobileClose }: {
                     )}
                 </div>
 
-                {/* Tenant Selector */}
                 {isAdmin && <TenantSelector collapsed={collapsed} isAdmin={isAdmin} />}
 
-                {/* Navigation */}
                 <nav className="flex-1 overflow-y-auto p-3 space-y-1.5 mt-2">
-                    {visibleNavItems.map((item) => {
-                        const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
-
-                        return (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                className={cn(
-                                    "flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-all duration-200",
-                                    active
-                                        ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
-                                        : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                                )}
-                            >
-                                <span className="relative flex-shrink-0">
-                                    {item.icon}
-                                    {item.href === "/dashboard/settings" && !isConfigured && (
-                                        <span className="absolute -right-1 -top-1 flex h-2.5 w-2.5">
-                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
-                                        </span>
-                                    )}
-                                </span>
-                                {!collapsed && <span>{item.label}</span>}
-                            </Link>
-                        );
-                    })}
+                    {visibleNavItems.map((item) => (
+                        <NavLink key={item.label} item={item} />
+                    ))}
                 </nav>
 
-                {/* Collapse toggle (desktop only) */}
                 <button
                     onClick={() => setCollapsed(!collapsed)}
                     className="hidden md:flex m-3 items-center justify-center rounded-xl py-2.5 text-sidebar-foreground/40 transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -163,7 +215,11 @@ export function Sidebar({ isAdmin, mobileOpen, onMobileClose }: {
 
             {/* ── MOBILE: Bottom Navigation Bar ─────────────────────────── */}
             <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 flex items-center justify-around border-t border-sidebar-border dark:border-slate-800 bg-sidebar/95 dark:bg-slate-950/95 backdrop-blur-md px-1 pb-safe">
-                {visibleNavItems.slice(0, 5).map((item) => {
+                {[
+                    NAV_ITEMS[0], // Informes
+                    ...(NAV_ITEMS[0].subItems?.slice(0, 3) || []), // Minutos, WhatsApp, Campañas
+                    NAV_ITEMS[1] // Config
+                ].filter(Boolean).map((item) => {
                     const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
                     return (
                         <Link
