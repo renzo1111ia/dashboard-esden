@@ -23,6 +23,7 @@ export interface AnalyticsFilters {
 
 export interface KpiGenerales {
     total_llamadas: number;
+    total_segundos: number;
     total_leads: number;
     total_leads_alcanzados: number;
     total_contactados: number;
@@ -52,6 +53,7 @@ export interface KpiGenerales {
 
 export interface KpiMinutos {
     total_minutos: number;
+    total_segundos: number;
     total_llamadas: number;
     minutos_por_dia: ChartRow[];
     duracion_media_segundos: number;
@@ -66,9 +68,6 @@ export interface KpiMinutos {
 export interface KpiWhatsapp {
     total_conversaciones: number;
     total_leads_unicos: number;
-    con_opt_in: number;
-    sin_opt_in: number;
-    tasa_opt_in: number;
     total_agendados: number;
     total_cualificados: number;
     tasa_agendamiento: number;
@@ -78,7 +77,6 @@ export interface KpiWhatsapp {
     por_tipo_lead: ChartRow[];
     por_origen: ChartRow[];
     conversaciones_por_dia: ChartRow[];
-    opt_in_por_campana: ChartRow[];
 }
 
 export interface CampanaRow {
@@ -92,6 +90,7 @@ export interface CampanaRow {
     agendados: number;
     total_llamadas: number;
     total_minutos: number;
+    total_segundos: number;
     duracion_media_seg: number;
 }
 
@@ -104,11 +103,13 @@ export interface KpiCampanas {
     total_agendados: number;
     total_cualificados: number;
     total_minutos: number;
+    total_segundos: number;
     leads_por_dia: ChartRow[];
     contactados_por_campana: ChartRow[];
     cualif_por_campana: ChartRow[];
     agendados_por_campana: ChartRow[];
     minutos_por_campana: ChartRow[];
+    total_leads_alcanzados: number;
 }
 
 // â”€â”€â”€ HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -138,7 +139,7 @@ function applyLeadFilters(query: any, filters: AnalyticsFilters, prefix?: string
 export async function getKpiGenerales(from: string, to: string, filters: AnalyticsFilters = {}): Promise<KpiGenerales> {
     const supabase = await getSupabaseServerClient();
     const empty: KpiGenerales = {
-        total_llamadas: 0, total_leads: 0, total_leads_alcanzados: 0, total_contactados: 0,
+        total_llamadas: 0, total_segundos: 0, total_leads: 0, total_leads_alcanzados: 0, total_contactados: 0,
         total_no_contacto: 0, tasa_contacto: 0, total_minutos: 0, tasa_agendamiento: 0,
         tasa_conversion: 0, tasa_ilocalizables: 0, duracion_media_segundos: 0, total_agendados: 0,
         tiempo_respuesta_promedio_minutos: null, total_cualificados: 0, total_no_cualificados: 0,
@@ -185,6 +186,7 @@ export async function getKpiGenerales(from: string, to: string, filters: Analyti
             total_contactados: contactados.length,
             total_no_contacto: llamadasData.length - contactados.length,
             total_minutos: Math.round(totalSecs / 60),
+            total_segundos: totalSecs,
             duracion_media_segundos: llamadasData.length ? Math.round(totalSecs / llamadasData.length) : 0,
             tasa_contacto: llamadasData.length ? Math.round((contactados.length / llamadasData.length) * 100) : 0,
             total_agendados: agendaData.length,
@@ -209,7 +211,7 @@ export async function getKpiGenerales(from: string, to: string, filters: Analyti
 
 export async function getKpiMinutos(from: string, to: string, filters: AnalyticsFilters = {}): Promise<KpiMinutos> {
     const supabase = await getSupabaseServerClient();
-    const empty: KpiMinutos = { total_minutos: 0, total_llamadas: 0, minutos_por_dia: [], duracion_media_segundos: 0, total_contactadas: 0, tasa_agendamiento: 0, tasa_conversion: 0, minutos_por_campana: [], minutos_por_estado: [], distribucion_duracion: [] };
+    const empty: KpiMinutos = { total_minutos: 0, total_segundos: 0, total_llamadas: 0, minutos_por_dia: [], duracion_media_segundos: 0, total_contactadas: 0, tasa_agendamiento: 0, tasa_conversion: 0, minutos_por_campana: [], minutos_por_estado: [], distribucion_duracion: [] };
     try {
         const q = applyLeadFilters(supabase.from("llamadas").select(`id, estado_llamada, duracion_segundos, fecha_inicio, lead:id_lead!inner(id, pais, origen, campana)`), filters).gte("fecha_inicio", from).lte("fecha_inicio", to);
         const { data } = await q;
@@ -217,10 +219,11 @@ export async function getKpiMinutos(from: string, to: string, filters: Analytics
         if (!rows.length) return empty;
         const totalSecs = rows.reduce((s, l) => s + (l.duracion_segundos || 0), 0);
         const byDay: Record<string, number> = {};
-        rows.forEach(l => { if (l.fecha_inicio) { const d = l.fecha_inicio.slice(0,10); byDay[d] = (byDay[d] || 0) + Math.round(l.duracion_segundos / 60); } });
+        rows.forEach(l => { if (l.fecha_inicio) { const d = l.fecha_inicio.slice(0,10); byDay[d] = (byDay[d] || 0) + (l.duracion_segundos || 0); } });
         return {
             ...empty,
             total_minutos: Math.round(totalSecs / 60),
+            total_segundos: totalSecs,
             total_llamadas: rows.length,
             total_contactadas: rows.filter(r => r.estado_llamada === "CONTACTED").length,
             duracion_media_segundos: Math.round(totalSecs / rows.length),
@@ -231,33 +234,48 @@ export async function getKpiMinutos(from: string, to: string, filters: Analytics
 
 export async function getKpiWhatsapp(from: string, to: string, filters: AnalyticsFilters = {}): Promise<KpiWhatsapp> {
     const supabase = await getSupabaseServerClient();
-    const empty: KpiWhatsapp = { total_conversaciones: 0, total_leads_unicos: 0, con_opt_in: 0, sin_opt_in: 0, tasa_opt_in: 0, total_agendados: 0, total_cualificados: 0, tasa_agendamiento: 0, tasa_conversion: 0, tasa_ilocalizables: 0, por_estado_conversacion: [], por_tipo_lead: [], por_origen: [], conversaciones_por_dia: [], opt_in_por_campana: [] };
+    const empty: KpiWhatsapp = { total_conversaciones: 0, total_leads_unicos: 0, total_agendados: 0, total_cualificados: 0, tasa_agendamiento: 0, tasa_conversion: 0, tasa_ilocalizables: 0, por_estado_conversacion: [], por_tipo_lead: [], por_origen: [], conversaciones_por_dia: [] };
     try {
         const q = applyLeadFilters(supabase.from("conversaciones_whatsapp").select(`id, id_lead, opt_in_whatsapp, lead:id_lead!inner(id, pais, origen, campana)`), filters).gte("fecha_creacion", from).lte("fecha_creacion", to);
         const { data } = await q;
         const rows = (data || []) as any[];
         if (!rows.length) return empty;
         const leads = new Set(rows.map(r => r.id_lead));
-        return { ...empty, total_conversaciones: rows.length, total_leads_unicos: leads.size, con_opt_in: rows.filter(r => r.opt_in_whatsapp).length };
+        return { ...empty, total_conversaciones: rows.length, total_leads_unicos: leads.size };
     } catch { return empty; }
 }
 
 export async function getKpiCampanas(from: string, to: string, filters: AnalyticsFilters = {}): Promise<KpiCampanas> {
     const supabase = await getSupabaseServerClient();
     try {
-        const [lRes, llRes, aRes, qRes] = await Promise.all([
+        const [lRes, llRes, aRes, qRes, wRes] = await Promise.all([
             applyLeadFilters(supabase.from("lead").select("id, campana").gte("fecha_ingreso_crm", from).lte("fecha_ingreso_crm", to), filters),
-            applyLeadFilters(supabase.from("llamadas").select(`id, estado_llamada, duracion_segundos, lead:id_lead!inner(campana)`).gte("fecha_inicio", from).lte("fecha_inicio", to), filters),
+            applyLeadFilters(supabase.from("llamadas").select(`id, estado_llamada, duracion_segundos, id_lead, lead:id_lead!inner(campana)`).gte("fecha_inicio", from).lte("fecha_inicio", to), filters),
             applyLeadFilters(supabase.from("agendamientos").select(`id, lead:id_lead!inner(campana)`).eq("confirmado", true).gte("fecha_creacion", from).lte("fecha_creacion", to), filters),
-            applyLeadFilters(supabase.from("lead_cualificacion").select(`id, cualificacion, lead:id_lead!inner(campana)`).gte("fecha_creacion", from).lte("fecha_creacion", to), filters)
+            applyLeadFilters(supabase.from("lead_cualificacion").select(`id, cualificacion, lead:id_lead!inner(campana)`).gte("fecha_creacion", from).lte("fecha_creacion", to), filters),
+            applyLeadFilters(supabase.from("conversaciones_whatsapp").select(`id_lead, lead:id_lead!inner(campana)`).gte("fecha_creacion", from).lte("fecha_creacion", to), filters),
         ]);
         const campMap: Record<string, any> = {};
-        const getC = (n: string) => campMap[n] || (campMap[n] = { nombre: n, total_leads: 0, contactados: 0, no_contacto: 0, tasa_contacto: 0, cualificados: 0, no_cualificados: 0, agendados: 0, total_llamadas: 0, total_minutos: 0, duracion_media_seg: 0 });
+        const getC = (n: string) => campMap[n] || (campMap[n] = { 
+            nombre: n, 
+            total_leads: 0, 
+            contactados: 0, 
+            no_contacto: 0, 
+            tasa_contacto: 0, 
+            cualificados: 0, 
+            no_cualificados: 0, 
+            agendados: 0, 
+            total_llamadas: 0, 
+            total_minutos: 0, 
+            total_segundos: 0,
+            duracion_media_seg: 0 
+        });
         (lRes.data || []).forEach((l: any) => getC(l.campana || "Sin campaÃ±a").total_leads++);
         (llRes.data || []).forEach((l: any) => {
             const c = getC((l.lead as any).campana || "Sin campaÃ±a");
             c.total_llamadas++;
-            c.total_minutos += Math.round(l.duracion_segundos / 60);
+            c.total_segundos += (l.duracion_segundos || 0);
+            c.total_minutos = Math.round(c.total_segundos / 60);
             if (l.estado_llamada === "CONTACTED") c.contactados++; else c.no_contacto++;
         });
         (aRes.data || []).forEach((a: any) => getC((a.lead as any).campana || "Sin campaÃ±a").agendados++);
@@ -265,26 +283,34 @@ export async function getKpiCampanas(from: string, to: string, filters: Analytic
             const c = getC((q.lead as any).campana || "Sin campaÃ±a");
             if (q.cualificacion && q.cualificacion !== "NO") c.cualificados++; else c.no_cualificados++;
         });
+
+        const reachedSet = new Set([
+            ...(llRes.data || []).map((l: any) => l.id_lead),
+            ...(wRes.data || []).map((w: any) => w.id_lead)
+        ].filter(Boolean));
+
         const campanas = Object.values(campMap).map((c: any) => ({
             ...c,
             tasa_contacto: c.total_llamadas ? Math.round((c.contactados / c.total_llamadas) * 100) : 0,
-            duracion_media_seg: c.total_llamadas ? Math.round((c.total_minutos * 60) / c.total_llamadas) : 0
+            duracion_media_seg: c.total_llamadas ? Math.round(c.total_segundos / c.total_llamadas) : 0
         })).sort((a: any, b: any) => b.total_leads - a.total_leads);
         return { 
             campanas, leads_por_campana: campanas.map((c: any) => ({ label: c.nombre, value: c.total_leads })),
             contactados_por_campana: campanas.map((c: any) => ({ label: c.nombre, value: c.contactados })),
             cualif_por_campana: campanas.map((c: any) => ({ label: c.nombre, value: c.cualificados })),
             agendados_por_campana: campanas.map((c: any) => ({ label: c.nombre, value: c.agendados })),
-            minutos_por_campana: campanas.map((c: any) => ({ label: c.nombre, value: c.total_minutos })),
+            minutos_por_campana: campanas.map((c: any) => ({ label: c.nombre, value: c.total_segundos })),
             total_leads: campanas.reduce((s, c) => s + c.total_leads, 0),
             total_llamadas: campanas.reduce((s, c) => s + c.total_llamadas, 0),
-            total_contactados: campanas.reduce((s, c) => s + c.total_contactados, 0),
-            total_agendados: campanas.reduce((s, c) => s + c.total_agendados, 0),
-            total_cualificados: campanas.reduce((s, c) => s + c.total_cualificados, 0),
+            total_contactados: campanas.reduce((s, c) => s + c.contactados, 0),
+            total_agendados: campanas.reduce((s, c) => s + c.agendados, 0),
+            total_cualificados: campanas.reduce((s, c) => s + c.cualificados, 0),
             total_minutos: campanas.reduce((s, c) => s + c.total_minutos, 0),
+            total_segundos: campanas.reduce((s, c) => s + c.total_segundos, 0),
+            total_leads_alcanzados: reachedSet.size,
             leads_por_dia: []
         };
-    } catch { return { campanas: [], leads_por_campana: [], contactados_por_campana: [], cualif_por_campana: [], agendados_por_campana: [], minutos_por_campana: [], total_leads: 0, total_llamadas: 0, total_contactados: 0, total_agendados: 0, total_cualificados: 0, total_minutos: 0, leads_por_dia: [] }; }
+    } catch { return { campanas: [], leads_por_campana: [], contactados_por_campana: [], cualif_por_campana: [], agendados_por_campana: [], minutos_por_campana: [], total_leads: 0, total_llamadas: 0, total_contactados: 0, total_agendados: 0, total_cualificados: 0, total_minutos: 0, total_segundos: 0, total_leads_alcanzados: 0, leads_por_dia: [] }; }
 }
 
 export async function getUniqueCampaigns(): Promise<string[]> {

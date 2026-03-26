@@ -87,9 +87,6 @@ async function WhatsappKpis({
                     <div className="mt-6 flex flex-wrap gap-8">
                         <HeroStat label="Conversaciones" value={kpi.total_conversaciones.toLocaleString("es-ES")} color="text-slate-900 dark:text-white" />
                         <HeroStat label="Leads únicos" value={kpi.total_leads_unicos.toLocaleString("es-ES")} color="text-slate-700" />
-                        <HeroStat label="Con Opt-in" value={kpi.con_opt_in.toLocaleString("es-ES")} color="text-green-600" />
-                        <HeroStat label="Tasa Opt-in" value={`${kpi.tasa_opt_in}%`} color="text-emerald-600" />
-                        <HeroStat label="Sin Opt-in" value={kpi.sin_opt_in.toLocaleString("es-ES")} color="text-slate-400" />
                     </div>
                 </div>
             }

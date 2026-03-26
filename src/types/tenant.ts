@@ -58,6 +58,7 @@ export interface KpiConfig {
     denomCondVal?: string;
 
     isPercentage?: boolean;
+    valType?: "duration";
     order?: number;
 }
 

@@ -232,7 +232,14 @@ export function HistorialTable({ initialData, fromDate, toDate, columns }: Props
                                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <input type="date" title={which === "from" ? "Fecha inicio" : "Fecha fin"}
                                     value={which === "from" ? draftFrom : draftTo}
-                                    onChange={(e) => { which === "from" ? setDraftFrom(e.target.value) : setDraftTo(e.target.value); setDraftPreset("custom"); }}
+                                    onChange={(e) => { 
+                                        if (which === "from") {
+                                            setDraftFrom(e.target.value);
+                                        } else {
+                                            setDraftTo(e.target.value);
+                                        }
+                                        setDraftPreset("custom"); 
+                                    }}
                                     className="w-[140px] rounded-xl border border-border bg-card py-2 pl-9 pr-3 text-xs font-bold text-card-foreground outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
                                 />
                             </div>
@@ -491,12 +498,14 @@ export function HistorialTable({ initialData, fromDate, toDate, columns }: Props
 
             {/* ── TOP SCROLLBAR (Dummy Div) ─────────────────────────────────── */}
             <div 
+                /* eslint-disable-next-line */
                 ref={topScrollRef}
                 onScroll={onScrollTop}
-                className="overflow-x-auto h-5 mb-2 sticky top-[100px] z-[20] custom-scrollbar scrollbar-thin"
-                style={{ scrollbarWidth: "thin" }}
+                className="overflow-x-auto h-5 mb-2 sticky top-[100px] z-[20] custom-scrollbar scrollbar-thin scrollbar-gutter-stable"
             >
-                <div style={{ width: tableScrollWidth || "100%", height: "1px" }} />
+                <div 
+                    className={cn("h-[1px]", tableScrollWidth ? `[width:${tableScrollWidth}]` : "w-full")}
+                />
             </div>
 
             {/* ── TABLE ───────────────────────────────────────────────────── */}
@@ -582,8 +591,6 @@ export function HistorialTable({ initialData, fromDate, toDate, columns }: Props
 
 // ─── COLUMN DEFINITION ────────────────────────────────────────────────────────
 
-// No default columns anymore, requested to be empty/dynamic from Supabase
-const DEFAULT_COLUMNS: { key: string; label: string }[] = [];
 
 function renderCell(row: HistorialRow, key: string, setDupPhone: (p: string) => void) {
     switch (key) {

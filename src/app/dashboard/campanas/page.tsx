@@ -1,7 +1,12 @@
 import { Suspense } from "react";
+import { Target } from "lucide-react";
 import {
-    getKpiCampanas, getDynamicKpis, getDynamicChartSeries, getUniqueCampaigns,
+    getKpiCampanas,
+    getDynamicKpis,
+    getDynamicChartSeries,
+    getUniqueCampaigns,
     type AnalyticsFilters,
+    type KpiGenerales,
 } from "@/lib/actions/analytics";
 import { getActiveTenantConfig } from "@/lib/actions/tenant";
 import { getAdminStatus } from "@/lib/actions/auth";
@@ -9,7 +14,7 @@ import { KpiSkeleton, ChartSkeleton } from "@/components/charts/DashboardCharts"
 import { SummaryManager } from "@/components/dashboard/SummaryManager";
 import { ChartManager } from "@/components/dashboard/ChartManager";
 import { TenantSetupBanner } from "@/components/layout/TenantSetupBanner";
-import { CAMPANAS_KPIS, CAMPANAS_CHARTS } from "@/lib/constants/kpi-defaults";
+import { CAMPANAS_KPIS, CAMPANAS_CHARTS, CAMPANAS_FUNNEL } from "@/lib/constants/kpi-defaults";
 import { KpiConfig, ChartConfig } from "@/types/tenant";
 import { FilterBar } from "@/components/dashboard/FilterBar";
 import { parseFilters } from "@/lib/utils/date-filters";
@@ -40,7 +45,7 @@ async function CampanasKpis({
     const tenantConfig = await getActiveTenantConfig();
     if (!tenantConfig) return null;
 
-    const currentKpis  = (tenantConfig.config as any)?.kpis_campanas as KpiConfig[] || [];
+    const currentKpis  = (tenantConfig.config as Record<string, unknown>)?.kpis_campanas as KpiConfig[] || [];
     const mergedKpis   = currentKpis.length > 0 ? currentKpis : CAMPANAS_KPIS;
 
     const [kpi, dynamicValues] = await Promise.all([
@@ -52,17 +57,25 @@ async function CampanasKpis({
     const values = {
         total_leads:       kpi.total_leads,
         total_llamadas:    kpi.total_llamadas,
+        total_leads_alcanzados: kpi.total_leads_alcanzados,
         total_contactados: kpi.total_contactados,
         total_agendados:   kpi.total_agendados,
         total_cualificados: kpi.total_cualificados,
-        total_minutos:     kpi.total_minutos,
+        total_minutos:     kpi.total_segundos,
+        total_segundos:    kpi.total_segundos,
         // unused fields
         total_no_contacto: 0, tasa_contacto: 0,
         duracion_media_segundos: 0, tiempo_respuesta_promedio_minutos: null,
         total_no_cualificados: 0, por_estado_llamada: [], por_razon_termino: [],
         por_origen: [], por_tipo_lead: [], por_cualificacion: [],
         por_motivo_anulacion: [], agendados_por_fecha: [], primer_contacto_por_fecha: [],
-    } as any;
+    } as unknown as KpiGenerales;
+
+    const formattedMinutos = (() => {
+        const m = Math.floor(kpi.total_segundos / 60);
+        const s = Math.round(kpi.total_segundos % 60);
+        return s > 0 ? `${m} min ${s} seg` : `${m} min`;
+    })();
 
     return (
         <SummaryManager
@@ -83,12 +96,10 @@ async function CampanasKpis({
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
                         Rendimiento y conversión por campaña en el período seleccionado
                     </p>
-
                     <CampaignSelector 
                         campaigns={availableCampaigns} 
                         currentCampaign={filters.campana} 
                     />
-
                     {/* Hero metrics */}
                     <div className="mt-6 flex flex-wrap gap-8">
                         <HeroStat label="Total Leads"      value={kpi.total_leads.toLocaleString("es-ES")}        color="text-slate-900 dark:text-white" />
@@ -96,7 +107,7 @@ async function CampanasKpis({
                         <HeroStat label="Contactados"      value={kpi.total_contactados.toLocaleString("es-ES")}   color="text-emerald-600" />
                         <HeroStat label="Agendados"        value={kpi.total_agendados.toLocaleString("es-ES")}     color="text-teal-600" />
                         <HeroStat label="Cualificados"     value={kpi.total_cualificados.toLocaleString("es-ES")}  color="text-violet-600" />
-                        <HeroStat label="Minutos IA"       value={`${kpi.total_minutos.toLocaleString("es-ES")} min`} color="text-amber-600" />
+                        <HeroStat label="Minutos IA"       value={formattedMinutos} color="text-amber-600" />
                         <HeroStat label="Campañas"         value={kpi.campanas.length.toString()}                   color="text-slate-500" />
                     </div>
                 </div>
@@ -115,7 +126,7 @@ async function CampanasChartsSection({
     const tenantConfig = await getActiveTenantConfig();
     if (!tenantConfig) return null;
 
-    const savedCharts = (tenantConfig.config as any)?.charts_campanas as ChartConfig[] || [];
+    const savedCharts = (tenantConfig.config as Record<string, unknown>)?.charts_campanas as ChartConfig[] || [];
     const mergedCharts = savedCharts.length > 0 ? savedCharts : CAMPANAS_CHARTS;
 
     const chartData = await getDynamicChartSeries(mergedCharts, from, to, filters);
@@ -130,6 +141,62 @@ async function CampanasChartsSection({
             filters={filters}
             title="Análisis de Campañas"
         />
+    );
+}
+
+// ─── FUNNEL SECTION ───────────────────────────────────────────────────────────
+
+async function CampanasFunnel({
+    from, to, isAdmin, filters,
+}: {
+    from: string; to: string; isAdmin: boolean; filters: AnalyticsFilters;
+}) {
+    const tenantConfig = await getActiveTenantConfig();
+    if (!tenantConfig) return null;
+
+    const currentFunnel = (tenantConfig.config as Record<string, unknown>)?.funnel_campanas as KpiConfig[] || [];
+    const mergedFunnel  = currentFunnel.length > 0 ? currentFunnel : CAMPANAS_FUNNEL;
+
+    const [kpi, dynamicValues] = await Promise.all([
+        getKpiCampanas(from, to, filters),
+        getDynamicKpis(from, to, mergedFunnel.filter(k => !k.staticKey), filters)
+    ]);
+
+    const values = {
+        total_leads:       kpi.total_leads,
+        total_leads_alcanzados: kpi.total_leads_alcanzados,
+        total_contactados: kpi.total_contactados,
+        total_agendados:   kpi.total_agendados,
+        total_cualificados: kpi.total_cualificados,
+        total_segundos:    kpi.total_segundos,
+    } as unknown as KpiGenerales;
+
+    return (
+        <div className="mt-12 mb-8">
+            <div className="flex items-center gap-4 mb-8">
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-[20px]">
+                    <Target className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                    <h2 className="text-[32px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
+                        Embudo de <span className="text-blue-600 dark:text-blue-400">Conversión</span>
+                    </h2>
+                    <p className="text-slate-500 dark:text-slate-400 font-medium text-[15px]">Tasa de conversión y progreso por etapa de campaña</p>
+                </div>
+            </div>
+            <SummaryManager
+                tenant={tenantConfig}
+                initialKpis={mergedFunnel}
+                values={values}
+                dynamicValues={dynamicValues}
+                isAdmin={isAdmin}
+                configKey="funnel_campanas"
+                layout="funnel"
+                from={from}
+                to={to}
+                filters={filters}
+            />
+        </div>
     );
 }
 
@@ -159,7 +226,7 @@ async function CampanasLeadsSection({
 
 // ─── PAGE ─────────────────────────────────────────────────────────────────────
 
-export default async function CampanasPage({ searchParams }: { searchParams: Promise<any> }) {
+export default async function CampanasPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
     const params = await searchParams;
     const { from, to, filters } = parseFilters(params);
     const availableCampaigns = await getUniqueCampaigns();
@@ -199,6 +266,16 @@ export default async function CampanasPage({ searchParams }: { searchParams: Pro
                 }
             >
                 <CampanasChartsSection from={from} to={to} isAdmin={isAdmin} filters={filters} />
+            </Suspense>
+
+            {/* Funnel */}
+            <Suspense
+                key={`camp-funnel-${from}-${to}-${JSON.stringify(filters)}`}
+                fallback={
+                    <div className="h-[400px] w-full bg-muted/20 animate-pulse rounded-[40px]" />
+                }
+            >
+                <CampanasFunnel from={from} to={to} isAdmin={isAdmin} filters={filters} />
             </Suspense>
 
             {/* Leads Table */}

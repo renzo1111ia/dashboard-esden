@@ -17,7 +17,7 @@ export const DEFAULT_SUMMARY_KPIS: KpiConfig[] = [
         size: '3',
         staticKey: 'total_llamadas',
         isVisible: true,
-        group: 'Métricas Generales',
+        group: 'Informes',
     },
     {
         id: 'def-2',
@@ -27,7 +27,7 @@ export const DEFAULT_SUMMARY_KPIS: KpiConfig[] = [
         size: '3',
         staticKey: 'total_leads',
         isVisible: true,
-        group: 'Métricas Generales',
+        group: 'Informes',
     },
     {
         id: 'def-3',
@@ -37,7 +37,7 @@ export const DEFAULT_SUMMARY_KPIS: KpiConfig[] = [
         size: '3',
         staticKey: 'total_contactados',
         isVisible: true,
-        group: 'Métricas Generales',
+        group: 'Informes',
     },
     {
         id: 'def-4',
@@ -48,7 +48,7 @@ export const DEFAULT_SUMMARY_KPIS: KpiConfig[] = [
         staticKey: 'tasa_contacto',
         isVisible: true,
         suffix: '%',
-        group: 'Métricas Generales',
+        group: 'Informes',
     },
 
     // ── GRUPO 2: PERFORMANCE Y CONVERSIÓN ────────────────────────────────────
@@ -102,9 +102,8 @@ export const DEFAULT_SUMMARY_KPIS: KpiConfig[] = [
         icon: 'Clock',
         color: 'bg-purple-600',
         size: '4',
-        staticKey: 'total_minutos',
+        staticKey: 'total_segundos',
         isVisible: true,
-        suffix: ' min',
         group: 'PRODUCTIVIDAD IA',
     },
     {
@@ -195,8 +194,8 @@ export const LLAMADAS_KPIS: KpiConfig[] = [
     { id: 'll-1', label: 'Total Llamadas', icon: 'Phone', color: 'bg-blue-600', size: '4', staticKey: 'total_llamadas', isVisible: true },
     { id: 'll-2', label: 'Contactados', icon: 'PhoneCall', color: 'bg-emerald-600', size: '4', staticKey: 'total_contactados', isVisible: true },
     { id: 'll-3', label: 'Sin Contacto', icon: 'PhoneMissed', color: 'bg-red-600', size: '4', staticKey: 'total_no_contacto', isVisible: true },
-    { id: 'll-4', label: 'Total Minutos IA', icon: 'Clock', color: 'bg-purple-600', size: '4', staticKey: 'total_minutos', isVisible: true, suffix: ' min' },
-    { id: 'll-5', label: 'Duración Media', icon: 'Timer', color: 'bg-cyan-600', size: '4', staticKey: 'duracion_media_segundos', isVisible: true, suffix: ' seg' },
+    { id: 'll-4', label: 'Total Minutos IA', icon: 'Clock', color: 'bg-purple-600', size: '4', staticKey: 'total_segundos', isVisible: true, valType: 'duration' },
+    { id: 'll-5', label: 'Duración Media', icon: 'Timer', color: 'bg-cyan-600', size: '4', staticKey: 'duracion_media_segundos', isVisible: true, valType: 'duration' },
     { id: 'll-6', label: 'Tasa Contacto', icon: 'TrendingUp', color: 'bg-teal-600', size: '4', staticKey: 'tasa_contacto', isVisible: true, suffix: '%' },
     { id: 'll-7', label: '% Agenda', icon: 'Calendar', color: 'bg-orange-600', size: '4', staticKey: 'tasa_agendamiento', isVisible: true, suffix: '%' },
     { id: 'll-8', label: '% Conversión', icon: 'Target', color: 'bg-yellow-600', size: '4', staticKey: 'tasa_conversion', isVisible: true, suffix: '%' },
@@ -210,6 +209,14 @@ export const DEFAULT_FUNNEL: KpiConfig[] = [
     { id: 'fnl-3', label: 'Atendidas', icon: 'PhoneCall', color: 'bg-emerald-600', size: '12', staticKey: 'total_contactados', isVisible: true, group: 'FUNNEL', order: 3 },
     { id: 'fnl-4', label: 'Cualificados', icon: 'Star', color: 'bg-emerald-500', size: '12', staticKey: 'total_cualificados', isVisible: true, group: 'FUNNEL', order: 4 },
     { id: 'fnl-5', label: 'Agendas', icon: 'Calendar', color: 'bg-slate-500', size: '12', staticKey: 'total_agendados', isVisible: true, group: 'FUNNEL', order: 5 },
+];
+
+export const CAMPANAS_FUNNEL: KpiConfig[] = [
+    { id: 'cp-fnl-1', label: 'Leads Ingresados', icon: 'Users', color: 'bg-blue-600', size: '12', staticKey: 'total_leads', isVisible: true, group: 'FUNNEL', order: 1 },
+    { id: 'cp-fnl-2', label: 'Leads Alcanzados', icon: 'Phone', color: 'bg-blue-500', size: '12', staticKey: 'total_leads_alcanzados', isVisible: true, group: 'FUNNEL', order: 2 },
+    { id: 'cp-fnl-3', label: 'Atendidas', icon: 'PhoneCall', color: 'bg-emerald-600', size: '12', staticKey: 'total_contactados', isVisible: true, group: 'FUNNEL', order: 3 },
+    { id: 'cp-fnl-4', label: 'Cualificados', icon: 'Star', color: 'bg-emerald-500', size: '12', staticKey: 'total_cualificados', isVisible: true, group: 'FUNNEL', order: 4 },
+    { id: 'cp-fnl-5', label: 'Agendas', icon: 'Calendar', color: 'bg-slate-500', size: '12', staticKey: 'total_agendados', isVisible: true, group: 'FUNNEL', order: 5 },
 ];
 
 // ─── WHATSAPP KPIs ────────────────────────────────────────────────────────────
@@ -231,7 +238,7 @@ export const CAMPANAS_KPIS: KpiConfig[] = [
     { id: 'cp-3', label: 'Cualificados', icon: 'Star', color: 'bg-yellow-600', size: '4', staticKey: 'total_cualificados', isVisible: true },
     { id: 'cp-4', label: 'Agendados', icon: 'Calendar', color: 'bg-teal-600', size: '4', staticKey: 'total_agendados', isVisible: true },
     { id: 'cp-5', label: 'No Cualificados', icon: 'UserMinus', color: 'bg-rose-600', size: '4', staticKey: 'total_no_cualificados', isVisible: true },
-    { id: 'cp-6', label: 'T. Respuesta', icon: 'Zap', color: 'bg-amber-600', size: '4', staticKey: 'tiempo_respuesta_promedio_minutos', isVisible: true, suffix: ' min' },
+    { id: 'cp-6', label: 'T. Respuesta', icon: 'Zap', color: 'bg-amber-600', size: '4', staticKey: 'total_segundos', isVisible: true },
 ];
 
 // ─── DEFAULT CHARTS PER MODULE ────────────────────────────────────────────────

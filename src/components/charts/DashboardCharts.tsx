@@ -292,7 +292,8 @@ export function FunnelChartComponent({ title, data, effectiveness }: { title: st
                             fill="#ffffff" 
                             stroke="none" 
                             dataKey="displayLabel" 
-                            style={{ fontWeight: "bold", fontSize: 13, textShadow: "0px 1px 2px rgba(0,0,0,0.5)" }}
+                            /* eslint-disable-next-line */
+                            style={{ fontWeight: "bold", fontSize: "13px", textShadow: "0px 1px 2px rgba(0,0,0,0.5)" } as React.CSSProperties}
                         />
                         {data.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
@@ -329,8 +330,7 @@ export function HeatmapChartComponent({ title, data = [] }: { title: string; dat
                             {dayLabel}
                         </div>
                         <div 
-                            className="flex-1 grid gap-[2px] sm:gap-[4px]" 
-                            style={{ gridTemplateColumns: 'repeat(24, minmax(0, 1fr))' } as React.CSSProperties}
+                            className="flex-1 grid gap-[2px] sm:gap-[4px] grid-cols-[repeat(24,minmax(0,1fr))]"
                         >
                             {Array.from({ length: 24 }).map((_, hIdx) => {
                                 const entry = data.find(item => item.day === dIdx && item.hour === hIdx);
@@ -339,18 +339,23 @@ export function HeatmapChartComponent({ title, data = [] }: { title: string; dat
                                 // Color ramp: Very light grey/blue for 0, then scales to deep indigo
                                 const intensity = val === 0 ? 0 : (val / maxVal);
                                 
-                                return (
+                                // Map intensity to discrete Tailwind opacity classes to avoid dynamic style prop
+                                const opacityClass = val === 0 ? "opacity-100" : (
+                                    intensity > 0.8 ? "opacity-100" :
+                                    intensity > 0.6 ? "opacity-80" :
+                                    intensity > 0.4 ? "opacity-60" :
+                                    intensity > 0.2 ? "opacity-40" : "opacity-20"
+                                );
+                                
+                                 return (
                                     <div 
-                                        key={hIdx}
+                                        key={`${dIdx}-${hIdx}`}
                                         className={cn(
-                                            "aspect-square rounded-[1px] sm:rounded-[3px] transition-all duration-300 hover:scale-125 hover:z-10 hover:shadow-lg",
-                                            val === 0 ? "bg-slate-100 dark:bg-slate-800/50" : "bg-blue-600 shadow-[0_0_10px_rgba(59,130,246,0.2)]"
+                                            "h-2 sm:h-3 rounded-sm transition-all duration-300",
+                                            val === 0 ? "bg-slate-100/30 dark:bg-slate-800/20" : "bg-blue-600",
+                                            opacityClass
                                         )}
-                                        style={{ 
-                                            opacity: val === 0 ? 1 : Math.max(0.2, intensity),
-                                            filter: val > 0 ? `brightness(${0.8 + (intensity * 0.4)})` : 'none'
-                                        } as React.CSSProperties}
-                                        title={`${dayLabel} ${hIdx}:00 - ${val.toLocaleString()} registros`}
+                                        title={`${val} llamadas a las ${hIdx}:00`}
                                     />
                                 );
                             })}

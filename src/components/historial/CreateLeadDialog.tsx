@@ -1,9 +1,8 @@
-"use client";
-
 import { useState, useEffect } from "react";
-import { X, User, Phone, Mail, Globe, Save, Loader2, Target } from "lucide-react";
+import { X, User, Phone, Mail, Globe, Save, Loader2, Target, Megaphone } from "lucide-react";
 import { createLead, getPrograms } from "@/lib/actions/calls";
-import type { Programa } from "@/types/database";
+import { getCampaigns } from "@/lib/actions/campanas";
+import type { Programa, Campana } from "@/types/database";
 
 interface Props {
     onClose: () => void;
@@ -13,6 +12,7 @@ interface Props {
 export function CreateLeadDialog({ onClose, onSuccess }: Props) {
     const [loading, setLoading] = useState(false);
     const [programs, setPrograms] = useState<Programa[]>([]);
+    const [campaigns, setCampaigns] = useState<Campana[]>([]);
     const [formData, setFormData] = useState({
         nombre: "",
         apellido: "",
@@ -26,9 +26,16 @@ export function CreateLeadDialog({ onClose, onSuccess }: Props) {
     });
 
     useEffect(() => {
-        getPrograms().then(setPrograms);
+        Promise.all([
+            getPrograms(),
+            getCampaigns()
+        ]).then(([progs, camps]) => {
+            setPrograms(progs);
+            setCampaigns(camps);
+        });
     }, []);
 
+    // ... (rest of handleSubmit remains same)
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         if (!formData.nombre || !formData.telefono) {
@@ -190,13 +197,20 @@ export function CreateLeadDialog({ onClose, onSuccess }: Props) {
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Campaña (Campaign)</label>
-                                <input 
-                                    type="text" 
-                                    value={formData.campana} 
-                                    onChange={e => setFormData({...formData, campana: e.target.value})}
-                                    className="w-full bg-muted/30 border border-border rounded-xl py-3 px-4 text-sm font-bold focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all outline-none"
-                                    placeholder="Ej: venta_invierno"
-                                />
+                                <div className="relative">
+                                    <Megaphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <select 
+                                        value={formData.campana} 
+                                        onChange={e => setFormData({...formData, campana: e.target.value})}
+                                        title="Seleccionar campaña"
+                                        className="w-full bg-muted/30 border border-border rounded-xl py-3 pl-10 pr-4 text-sm font-bold focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all outline-none cursor-pointer"
+                                    >
+                                        <option value="">Sin campaña asignada</option>
+                                        {campaigns.map(c => (
+                                            <option key={c.id} value={c.nombre}>{c.nombre}</option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>

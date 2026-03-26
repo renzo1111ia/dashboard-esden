@@ -1,7 +1,28 @@
 "use server";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import type { HistorialRow, IntentoLlamada } from "@/types/database";
+import type { 
+    HistorialRow, 
+    IntentoLlamada, 
+    LlamadaResumen, 
+    LeadCualificacion, 
+    Agendamiento, 
+    ConversacionWhatsapp, 
+    Notificacion,
+    Lead
+} from "@/types/database";
+
+// ─── LOCAL TYPES FOR SUPABASE JOINS ──────────────────────────────────────────
+
+interface JoinedLead extends Lead {
+    last_program?: { programa: { nombre: string | null } }[];
+    intentos?: { count: number }[];
+    llamadas?: LlamadaResumen[];
+    lead_cualificacion?: LeadCualificacion[];
+    agendamientos?: Agendamiento[];
+    conversaciones_whatsapp?: ConversacionWhatsapp[];
+    notificaciones?: Notificacion[];
+}
 
 // ─── FETCH PARAMS ─────────────────────────────────────────────────────────────
 
@@ -130,29 +151,29 @@ export async function fetchCalls({
         }
 
         // ── Map results to lead-centric HistorialRow ──────────────────────────
-        const rows: HistorialRow[] = (data ?? []).map((lead: any) => {
-            const sortedLlamadas = (lead.llamadas ?? []).sort((a: any, b: any) =>
-                new Date(b.fecha_inicio).getTime() - new Date(a.fecha_inicio).getTime()
+        const rows: HistorialRow[] = ((data as unknown as JoinedLead[]) ?? []).map((lead) => {
+            const sortedLlamadas = (lead.llamadas ?? []).sort((a, b) =>
+                new Date(b.fecha_inicio || 0).getTime() - new Date(a.fecha_inicio || 0).getTime()
             );
 
             const latestCall = sortedLlamadas[0] || {};
             const firstCall = sortedLlamadas[sortedLlamadas.length - 1] || {};
 
-            const latestCual = (lead.lead_cualificacion ?? []).sort((a: any, b: any) =>
-                new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime()
-            )[0] || {};
+            const latestCual = (lead.lead_cualificacion ?? []).sort((a, b) =>
+                new Date(b.fecha_creacion || 0).getTime() - new Date(a.fecha_creacion || 0).getTime()
+            )[0] || ({} as LeadCualificacion);
 
-            const latestAgenda = (lead.agendamientos ?? []).sort((a: any, b: any) =>
-                new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime()
-            )[0] || {};
+            const latestAgenda = (lead.agendamientos ?? []).sort((a, b) =>
+                new Date(b.fecha_creacion || 0).getTime() - new Date(a.fecha_creacion || 0).getTime()
+            )[0] || ({} as Agendamiento);
 
-            const latestWA = (lead.conversaciones_whatsapp ?? []).sort((a: any, b: any) =>
+            const latestWA = (lead.conversaciones_whatsapp ?? []).sort((a, b) =>
                 new Date(b.fecha_ultimo_mensaje || 0).getTime() - new Date(a.fecha_ultimo_mensaje || 0).getTime()
-            )[0] || {};
+            )[0] || ({} as ConversacionWhatsapp);
 
-            const latestNotif = (lead.notificaciones ?? []).sort((a: any, b: any) =>
+            const latestNotif = (lead.notificaciones ?? []).sort((a, b) =>
                 new Date(b.fecha_envio || 0).getTime() - new Date(a.fecha_envio || 0).getTime()
-            )[0] || {};
+            )[0] || ({} as Notificacion);
 
             const programaNombre = lead.last_program?.[0]?.programa?.nombre || null;
 
@@ -249,28 +270,28 @@ export async function getCallsByPhone(phone: string): Promise<HistorialRow[]> {
 
         if (error) throw new Error(error.message);
 
-        return (data ?? []).map((lead: any) => {
-            const sortedLlamadas = (lead.llamadas ?? []).sort((a: any, b: any) =>
-                new Date(b.fecha_inicio).getTime() - new Date(a.fecha_inicio).getTime()
+        return ((data as unknown as JoinedLead[]) ?? []).map((lead) => {
+            const sortedLlamadas = (lead.llamadas ?? []).sort((a, b) =>
+                new Date(b.fecha_inicio || 0).getTime() - new Date(a.fecha_inicio || 0).getTime()
             );
             const latestCall = sortedLlamadas[0] || {};
             const firstCall = sortedLlamadas[sortedLlamadas.length - 1] || {};
 
-            const latestCual = (lead.lead_cualificacion ?? []).sort((a: any, b: any) =>
-                new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime()
-            )[0] || {};
+            const latestCual = (lead.lead_cualificacion ?? []).sort((a, b) =>
+                new Date(b.fecha_creacion || 0).getTime() - new Date(a.fecha_creacion || 0).getTime()
+            )[0] || ({} as LeadCualificacion);
 
-            const latestAgenda = (lead.agendamientos ?? []).sort((a: any, b: any) =>
-                new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime()
-            )[0] || {};
+            const latestAgenda = (lead.agendamientos ?? []).sort((a, b) =>
+                new Date(b.fecha_creacion || 0).getTime() - new Date(a.fecha_creacion || 0).getTime()
+            )[0] || ({} as Agendamiento);
 
-            const latestWA = (lead.conversaciones_whatsapp ?? []).sort((a: any, b: any) =>
+            const latestWA = (lead.conversaciones_whatsapp ?? []).sort((a, b) =>
                 new Date(b.fecha_ultimo_mensaje || 0).getTime() - new Date(a.fecha_ultimo_mensaje || 0).getTime()
-            )[0] || {};
+            )[0] || ({} as ConversacionWhatsapp);
 
-            const latestNotif = (lead.notificaciones ?? []).sort((a: any, b: any) =>
+            const latestNotif = (lead.notificaciones ?? []).sort((a, b) =>
                 new Date(b.fecha_envio || 0).getTime() - new Date(a.fecha_envio || 0).getTime()
-            )[0] || {};
+            )[0] || ({} as Notificacion);
 
             const programaNombre = lead.last_program?.[0]?.programa?.nombre || null;
 
@@ -330,13 +351,12 @@ export async function fetchIntentosByPhone(phone: string): Promise<IntentoLlamad
                 lead:id_lead!inner ( id, nombre, apellido, telefono )
             `)
             .eq("lead.telefono", phone)
-            .order("fecha_creacion", { ascending: false });
-
         if (error) {
             console.error("fetchIntentosByPhone ERROR:", error.message);
             return [];
         }
-        return (data ?? []) as IntentoLlamada[];
+        const leads = (data ?? []) as IntentoLlamada[];
+        return leads;
     } catch (e) {
         console.error("fetchIntentosByPhone EXCEPTION:", e);
         return [];
@@ -364,14 +384,26 @@ export async function fetchWhatsappByPhone(phone: string) {
         return [];
     }
 }
+
 // ─── CREATE LEAD ─────────────────────────────────────────────────────────────
+
+interface SupabaseWorkaround {
+    from: (table: string) => {
+        insert: (values: unknown) => {
+            select: () => {
+                single: () => Promise<{ data: Record<string, unknown> | null; error: { message: string } | null }>;
+            };
+        };
+    };
+}
 
 export async function createLead(data: Partial<HistorialRow> & { id_programa?: string }) {
     try {
-        const supabase = await getSupabaseServerClient();
+        const client = await getSupabaseServerClient();
+        const supabase = client as unknown as SupabaseWorkaround;
         
         // 1. Insert into lead table
-        const leadData = {
+        const leadData: Record<string, unknown> = {
             nombre: data.nombre,
             apellido: data.apellido,
             telefono: data.telefono,
@@ -383,8 +415,8 @@ export async function createLead(data: Partial<HistorialRow> & { id_programa?: s
             fecha_ingreso_crm: new Date().toISOString(),
         };
 
-        const { data: newLead, error: leadError } = await (supabase
-            .from("lead") as any)
+        const { data: newLead, error: leadError } = await supabase
+            .from("lead")
             .insert(leadData)
             .select()
             .single();
@@ -393,19 +425,18 @@ export async function createLead(data: Partial<HistorialRow> & { id_programa?: s
 
         // 2. If program is selected, associate it
         if (data.id_programa && newLead) {
-            const { error: progError } = await (supabase
-                .from("lead_programas") as any)
+            await supabase
+                .from("lead_programas")
                 .insert({
-                    id_lead: (newLead as any).id,
+                    id_lead: newLead.id,
                     id_programa: data.id_programa
                 });
-            if (progError) console.error("Error linking program:", progError.message);
         }
 
-        return { success: true, data: newLead };
-    } catch (e: any) {
-        console.error("createLead ERROR:", e);
-        return { success: false, error: e.message };
+        return { success: true, data: newLead as unknown as Lead };
+    } catch (e) {
+        console.error("createLead ERROR:", e instanceof Error ? e.message : e);
+        return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
 }
 

@@ -73,21 +73,12 @@ interface Props { data: KpiWhatsapp }
 
 export function WhatsappCharts({ data }: Props) {
     const {
-        tasa_opt_in,
-        con_opt_in,
-        sin_opt_in,
         conversaciones_por_dia,
         por_estado_conversacion,
         por_tipo_lead,
         por_origen,
-        opt_in_por_campana,
     } = data;
 
-    // Opt-in donut data
-    const optInDonut = [
-        { name: "Con Opt-in",  value: con_opt_in  },
-        { name: "Sin Opt-in",  value: sin_opt_in  },
-    ].filter(d => d.value > 0);
 
     // Format X-axis dates
     const diasFmt = conversaciones_por_dia.map((r) => ({
@@ -122,59 +113,6 @@ export function WhatsappCharts({ data }: Props) {
                 </ChartCard>
             </div>
 
-            {/* 2. Opt-in donut */}
-            <ChartCard title={`Opt-in WhatsApp — ${tasa_opt_in}%`}>
-                {optInDonut.length === 0 ? <Empty /> : (
-                    <ResponsiveContainer width="100%" height={280}>
-                        <PieChart>
-                            <Pie
-                                data={optInDonut}
-                                cx="50%" cy="50%"
-                                innerRadius={75} outerRadius={110}
-                                paddingAngle={4}
-                                dataKey="value" nameKey="name"
-                                stroke="#ffffff" strokeWidth={3}
-                            >
-                                <Cell fill="#25d366" />
-                                <Cell fill="#e2e8f0" />
-                            </Pie>
-                            <Tooltip content={<TooltipPie />} />
-                            <Legend
-                                layout="vertical" align="right" verticalAlign="middle"
-                                iconType="circle" iconSize={8}
-                                formatter={(val) => <span className="text-xs text-muted-foreground font-bold ml-1">{val}</span>}
-                            />
-                            {/* Center: % */}
-                            <text x="50%" y="48%" textAnchor="middle" dominantBaseline="middle" fontSize={26} fontWeight={900} className="fill-green-600 dark:fill-green-400">
-                                {tasa_opt_in}%
-                            </text>
-                            <text x="50%" y="58%" textAnchor="middle" dominantBaseline="middle" fontSize={10} fontWeight={700} className="fill-muted-foreground">
-                                OPT-IN
-                            </text>
-                        </PieChart>
-                    </ResponsiveContainer>
-                )}
-            </ChartCard>
-
-            {/* 3. Opt-in por campaña – barras horizontales */}
-            <ChartCard title="Opt-in por Campaña">
-                {opt_in_por_campana.length === 0 ? <Empty /> : (
-                    <ResponsiveContainer width="100%" height={280}>
-                        <BarChart data={opt_in_por_campana} layout="vertical" margin={{ left: 8, right: 16 }}>
-                            <defs>
-                                <linearGradient id="optGrad" x1="0" y1="0" x2="1" y2="0">
-                                    <stop offset="0%"   stopColor="#25d366" stopOpacity={0.9} />
-                                    <stop offset="100%" stopColor="#128c7e" stopOpacity={0.6} />
-                                </linearGradient>
-                            </defs>
-                            <XAxis type="number" tick={{ fill: "currentColor", fontSize: 10, fontWeight: 700 }} className="text-muted-foreground" axisLine={false} tickLine={false} />
-                            <YAxis type="category" dataKey="label" tick={{ fill: "currentColor", fontSize: 10, fontWeight: 600 }} className="text-card-foreground" width={110} axisLine={false} tickLine={false} />
-                            <Tooltip content={<TooltipBar />} cursor={{ fill: "rgba(37,211,102,0.04)", radius: 8 }} />
-                            <Bar dataKey="value" radius={[0, 8, 8, 0]} maxBarSize={28} fill="url(#optGrad)" />
-                        </BarChart>
-                    </ResponsiveContainer>
-                )}
-            </ChartCard>
 
             {/* 4. Estado de conversación – barras verticales */}
             <ChartCard title="Estado de Conversación">

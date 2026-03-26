@@ -4,7 +4,7 @@ import { ReactNode, useState } from "react";
 import { KpiConfig, Tenant } from "@/types/tenant";
 import { KpiGenerales } from "@/lib/actions/analytics";
 import { SummaryCard } from "@/components/charts/DashboardCharts";
-import { cn } from "@/lib/utils";
+import { cn, formatDuration } from "@/lib/utils";
 import {
     TrendingUp, Save, X, GripVertical, Check, ChevronRight,
     Bot, Target, Percent, Layout, Settings, Trash2, Database, Plus
@@ -112,13 +112,14 @@ function SortableKpi({ k, isEditing, cycleSize, updateKpi, removeKpi, val, onCon
         isDragging
     } = useSortable({ id: k.id, disabled: !isEditing });
 
+
+    const colSpanClass = COL_SPAN_MAP[k.size || "4"] || "md:col-span-4";
+    const IconComponent = ICON_MAP[k.icon] || TrendingUp;
+
     const style = {
         transform: CSS.Translate.toString(transform),
         transition,
     } as React.CSSProperties;
-
-    const colSpanClass = COL_SPAN_MAP[k.size || "4"] || "md:col-span-4";
-    const IconComponent = ICON_MAP[k.icon] || TrendingUp;
 
     return (
         <div
@@ -126,7 +127,7 @@ function SortableKpi({ k, isEditing, cycleSize, updateKpi, removeKpi, val, onCon
             style={style}
             className={cn(
                 colSpanClass,
-                "relative group transition-all duration-300 w-full min-w-0",
+                "relative group transition-all duration-300 w-full min-w-0 font-outfit",
                 isDragging && "opacity-50"
             )}
         >
@@ -544,7 +545,7 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
                             <svg
                                 viewBox={`0 0 ${svgW} ${svgH}`}
                                 width="100%"
-                                style={{ maxWidth: 520, overflow: 'visible' } as React.CSSProperties}
+                                className="max-w-[520px] overflow-visible"
                             >
                                 <defs>
                                     {steps.map((k, idx) => {
@@ -587,7 +588,16 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
                                         ? (values[k.staticKey as keyof KpiGenerales] as number)
                                         : (previewValues[k.id] ?? dynamicValues[k.id] ?? 0);
                                     if (typeof val === 'number') {
-                                        val = k.isPercentage ? val.toFixed(1) : val.toLocaleString('es-ES');
+                                        const isDuration = k.valType === "duration" || 
+                                                           k.staticKey?.includes("segundos") || 
+                                                           k.suffix === " seg";
+                                        if (isDuration) {
+                                            const m = Math.floor(val / 60);
+                                            const s = Math.round(val % 60);
+                                            val = s > 0 ? `${m}m ${s}s` : `${m}m`;
+                                        } else {
+                                            val = k.isPercentage ? val.toFixed(1) : val.toLocaleString('es-ES');
+                                        }
                                     }
                                     const dval = k.isPercentage ? `${val}%` : (k.suffix ? `${val}${k.suffix}` : val);
                                     const yCtr = yTop + rowH / 2;
@@ -609,13 +619,13 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
                                             {/* Label */}
                                             <text x={cx} y={yCtr - 5} textAnchor="middle" dominantBaseline="middle"
                                                 fill={`rgba(255,255,255,${textAlpha})`} fontSize="12" fontWeight="600"
-                                                style={{ fontFamily: 'Outfit, sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase' } as React.CSSProperties}>
+                                                className="font-outfit tracking-[0.08em] uppercase">
                                                 {k.label}
                                             </text>
                                             {/* Value */}
                                             <text x={cx} y={yCtr + 13} textAnchor="middle" dominantBaseline="middle"
                                                 fill={`rgba(255,255,255,${Math.min(textAlpha + 0.15, 1)})`} fontSize="17" fontWeight="800"
-                                                style={{ fontFamily: 'Outfit, sans-serif' } as React.CSSProperties}>
+                                                className="font-outfit">
                                                 {dval}
                                             </text>
 
@@ -626,7 +636,7 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
                                                     y={yCtr - 22}
                                                     width={50}
                                                     height={44}
-                                                    style={{ overflow: 'visible' } as React.CSSProperties}
+                                                    className="overflow-visible"
                                                 >
                                                     <div className="flex flex-col gap-1">
                                                         {/* Configure data */}
@@ -799,7 +809,7 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
                         >
                             {(() => {
                                 const filtered = kpis.filter(k => isEditing || k.isVisible !== false);
-                                let lastGroup = title ? "" : "Métricas Generales";
+                                let lastGroup = title ? "" : "Informes";
 
                                 return filtered.map((k) => {
                                     // Determine value
@@ -812,7 +822,13 @@ export function SummaryManager({ tenant, initialKpis, values, dynamicValues, isA
 
                                     // Format numeric values
                                     if (typeof val === 'number') {
-                                        if (k.calcType === "avg" || k.isPercentage) {
+                                        const isDuration = k.valType === "duration" || 
+                                                           (k.staticKey && k.staticKey.endsWith("_segundos")) || 
+                                                           k.label.toLowerCase().includes("duración media");
+                                        
+                                        if (isDuration) {
+                                            val = formatDuration(val);
+                                        } else if (k.calcType === "avg" || k.isPercentage) {
                                             val = Number(val).toFixed(1);
                                         } else {
                                             val = Number(val).toLocaleString('es-ES');

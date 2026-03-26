@@ -64,10 +64,6 @@ function SortableChartItem({ c, isEditing, cycleSize, updateChart, removeChart, 
         isDragging
     } = useSortable({ id: c.id, disabled: !isEditing });
 
-    const style = {
-        transform: CSS.Translate.toString(transform),
-        transition,
-    };
 
     const colSpanClass = c.size === "12" ? "lg:col-span-12" : (c.size === "8" ? "lg:col-span-8" : (c.size === "6" ? "lg:col-span-6" : "lg:col-span-4"));
 
@@ -79,11 +75,18 @@ function SortableChartItem({ c, isEditing, cycleSize, updateChart, removeChart, 
         return <AreaChartComponent title={c.title} data={chartData as unknown as ChartRow[]} />;
     };
 
+    const transformStr = transform ? CSS.Translate.toString(transform) : undefined;
+
     return (
         <div 
             ref={setNodeRef} 
-            style={style as React.CSSProperties} 
-            className={cn(colSpanClass, "relative group transition-all duration-300", isDragging && "opacity-50")}
+            className={cn(
+                colSpanClass, 
+                "relative group transition-all duration-300", 
+                isDragging && "opacity-50",
+                transformStr && `[transform:${transformStr}]`,
+                transition && `[transition:${transition}]`
+            )}
         >
             <div className={cn(
                 "h-full transition-all duration-300",

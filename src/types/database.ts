@@ -158,18 +158,22 @@ export interface Notificacion {
     lead?: Lead;
 }
 
+// ─── CAMPANAS ────────────────────────────────────────────────────────────────
+
+export interface Campana {
+    id: string;
+    nombre: string;
+    descripcion?: string | null;
+    estado?: string | null; // "ACTIVA", "PAUSADA", "FINALIZADA"
+    fecha_inicio?: string | null;
+    fecha_fin?: string | null;
+    fecha_creacion?: string | null;
+}
+
 // ─── COMBINED / VIEW TYPES ────────────────────────────────────────────────────
 
 /**
  * Una fila del Historial = UN LEAD con toda su actividad consolidada.
- *
- * DESIGN DECISION: La entidad central es el LEAD, no la llamada.
- * Un lead puede tener N reintentos (llamadas). En `llamadas` se incluye
- * el historial completo ordenado por fecha. La columna principal muestra
- * la última llamada relevante, pero el detalle expande todo el historial.
- *
- * tipo_lead es string libre (no enum) para soportar nuevos tipos de campaña
- * sin cambios de código.
  */
 export interface HistorialRow {
     // ── Identidad del lead ──
@@ -235,6 +239,19 @@ export type Database = {
             programas: { Row: Programa; Insert: Omit<Programa, "id" | "fecha_creacion">; Update: Partial<Programa>; };
             lead_programas: { Row: LeadPrograma; Insert: Omit<LeadPrograma, "id" | "fecha_creacion">; Update: Partial<LeadPrograma>; };
             notificaciones: { Row: Notificacion; Insert: Omit<Notificacion, "id" | "fecha_creacion">; Update: Partial<Notificacion>; };
+            campanas: { Row: Campana; Insert: Omit<Campana, "id" | "fecha_creacion">; Update: Partial<Campana>; };
+        };
+        Views: {
+            [_ in never]: never;
+        };
+        Functions: {
+            [_ in never]: never;
+        };
+        Enums: {
+            [_ in never]: never;
+        };
+        CompositeTypes: {
+            [_ in never]: never;
         };
     };
 };

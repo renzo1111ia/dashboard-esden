@@ -68,15 +68,16 @@ function SortableColumn({ col, onRemove, onLabelChange }: SortableColumnProps) {
         isDragging
     } = useSortable({ id: col.key });
 
+
     const style = {
         transform: CSS.Translate.toString(transform),
         transition,
-    };
+    } as React.CSSProperties;
 
     return (
         <div
             ref={setNodeRef}
-            style={style as React.CSSProperties}
+            style={style}
             className={cn(
                 "flex items-center gap-3 p-3 bg-card border border-border rounded-2xl shadow-sm group",
                 isDragging && "opacity-50 z-50 bg-muted/50 border-primary/50 shadow-2xl"

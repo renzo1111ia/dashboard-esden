@@ -34,6 +34,7 @@ export function TenantSelector({ collapsed, isAdmin }: { collapsed: boolean; isA
         });
         await setTenantCookies(t.supabase_url, t.supabase_anon_key, t.name);
         setIsOpen(false);
+        router.push("/dashboard");
         router.refresh();
     }
 

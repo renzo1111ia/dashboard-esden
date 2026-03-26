@@ -11,7 +11,6 @@ import {
 
 // ─── PALETTE ──────────────────────────────────────────────────────────────────
 
-const PALETTE = ["#3b82f6", "#6366f1", "#0ea5e9", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#ec4899"];
 const PALETTE_CLASSES = ["bg-[#3b82f6]", "bg-[#6366f1]", "bg-[#0ea5e9]", "bg-[#8b5cf6]", "bg-[#10b981]", "bg-[#f59e0b]", "bg-[#ef4444]", "bg-[#ec4899]"];
 
 // ─── TOOLTIPS ─────────────────────────────────────────────────────────────────
@@ -96,7 +95,7 @@ function CampanasTable({ campanas }: { campanas: CampanaRow[] }) {
                                     {c.tasa_contacto}%
                                 </span>
                             </td>
-                            <td className="py-3 pr-4 text-primary font-bold">{c.total_minutos.toLocaleString("es-ES")} min</td>
+                            <td className="py-3 pr-4 text-primary font-bold">{formatDuration(c.total_segundos)}</td>
                             <td className="py-3 pr-4 text-muted-foreground/80">{formatDuration(c.duracion_media_seg)}</td>
                             <td className="py-3 pr-4 text-violet-600 dark:text-violet-400 font-bold">{c.cualificados.toLocaleString("es-ES")}</td>
                             <td className="py-3 pr-4 text-teal-600 dark:text-teal-400 font-bold">{c.agendados.toLocaleString("es-ES")}</td>
@@ -252,9 +251,13 @@ export function CampanasCharts({ data }: Props) {
                                             <stop offset="100%" stopColor="#ef4444" stopOpacity={0.6} />
                                         </linearGradient>
                                     </defs>
-                                    <XAxis type="number" tick={{ fill: "currentColor", fontSize: 10, fontWeight: 700 }} className="text-muted-foreground" axisLine={false} tickLine={false} tickFormatter={(v) => `${v}m`} />
+                                    <XAxis type="number" tick={{ fill: "currentColor", fontSize: 10, fontWeight: 700 }} className="text-muted-foreground" axisLine={false} tickLine={false} tickFormatter={(v) => formatDuration(v)} />
                                     <YAxis type="category" dataKey="label" tick={{ fill: "currentColor", fontSize: 10, fontWeight: 600 }} className="text-card-foreground" width={110} axisLine={false} tickLine={false} />
-                                    <Tooltip content={<TooltipBar />} cursor={{ fill: "rgba(245,158,11,0.04)", radius: 8 }} />
+                                    <Tooltip 
+                                        content={<TooltipBar />} 
+                                        cursor={{ fill: "rgba(245,158,11,0.04)", radius: 8 }}
+                                        formatter={(v: any) => formatDuration(v)}
+                                    />
                                     <Bar dataKey="value" radius={[0, 8, 8, 0]} maxBarSize={32} fill="url(#minCampGrad)" />
                                 </BarChart>
                             </ResponsiveContainer>

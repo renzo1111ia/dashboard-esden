@@ -102,45 +102,51 @@ export function Sidebar({ isAdmin, mobileOpen, onMobileClose }: {
         const isExpanded = expandedItems.includes(item.label);
         const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
         
-        const content = (
-            <div className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-200 cursor-pointer",
-                isActive && !hasSubItems
-                    ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
-                    : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                depth > 0 && !collapsed && "ml-4 py-2"
-            )}>
-                <span className="relative flex-shrink-0">
-                    {item.icon}
-                    {item.href === "/dashboard/settings" && !isConfigured && (
-                        <span className="absolute -right-1 -top-1 flex h-2.5 w-2.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
-                        </span>
-                    )}
-                </span>
-                {!collapsed && (
-                    <>
-                        <span className="flex-1">{item.label}</span>
-                        {hasSubItems && (
-                            <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isExpanded && "rotate-180")} />
-                        )}
-                    </>
-                )}
-            </div>
-        );
-
         return (
             <div key={item.label} className="space-y-1">
-                {hasSubItems ? (
-                    <div onClick={() => toggleExpand(item.label)}>
-                        {content}
-                    </div>
-                ) : (
-                    <Link href={item.href}>
-                        {content}
+                <div className={cn(
+                    "flex items-center gap-1 rounded-xl px-1 text-sm font-semibold transition-all duration-200 group",
+                    isActive && !hasSubItems
+                        ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                        : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                    depth > 0 && !collapsed && "ml-4"
+                )}>
+                    {/* Main Link Area (Icon + Label) */}
+                    <Link 
+                        href={item.href}
+                        className="flex flex-1 items-center gap-3 px-2 py-2.5 outline-none"
+                        onClick={() => {
+                            if (!isExpanded && hasSubItems) toggleExpand(item.label);
+                        }}
+                    >
+                        <span className="relative flex-shrink-0">
+                            {item.icon}
+                            {item.href === "/dashboard/settings" && !isConfigured && (
+                                <span className="absolute -right-1 -top-1 flex h-2.5 w-2.5">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
+                                </span>
+                            )}
+                        </span>
+                        {!collapsed && <span className="flex-1">{item.label}</span>}
                     </Link>
-                )}
+
+                    {/* Expand Toggle (Chevron Area) */}
+                    {!collapsed && hasSubItems && (
+                        <button 
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                toggleExpand(item.label);
+                            }}
+                            className="p-2 mr-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition-colors"
+                            title={isExpanded ? "Contraer" : "Expandir"}
+                            aria-label={isExpanded ? "Contraer submenú" : "Expandir submenú"}
+                        >
+                            <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isExpanded && "rotate-180")} />
+                        </button>
+                    )}
+                </div>
                 
                 {hasSubItems && isExpanded && !collapsed && (
                     <div className="space-y-1">
