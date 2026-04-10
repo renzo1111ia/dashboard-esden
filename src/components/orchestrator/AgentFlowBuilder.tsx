@@ -36,9 +36,15 @@ import {
     Play,
     Share2,
     Sparkles,
+    Search,
+    LayoutGrid,
+    Layers,
+    Activity,
+    ArrowRight,
     LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 
 // ─── Custom Node Types ─────────────────────────────────────────────
 
@@ -206,6 +212,8 @@ interface AgentFlowBuilderProps {
 
 export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: AgentFlowBuilderProps) {
     const [saving, setSaving] = useState(false);
+    const [isNodeLibraryOpen, setIsNodeLibraryOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
 
     const handlePublish = async () => {
         setSaving(true);
@@ -270,12 +278,64 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
                 metadata_key: "",
                 metadata_value: "",
                 tag_name: "",
-                event: "nueva_entrada"
+                event: "nueva_entrada",
+                method: "POST",
+                url: "",
+                action: "SAVE_LEAD",
+                model: "gpt-4o",
+                task: "Clasificar intención"
             },
         };
         setNodes((nds) => nds.concat(newNode));
         setSelectedNodeId(id);
+        setIsNodeLibraryOpen(false);
     };
+
+    const nodeCategories = [
+        {
+            title: "Disparadores",
+            icon: Zap,
+            items: [
+                { type: "flow_trigger", label: "Inicio de Chat", desc: "Se activa cuando llega un nuevo mensaje.", icon: MessageSquare },
+                { type: "flow_trigger", label: "Webhook", desc: "Se activa mediante una URL externa.", icon: Globe },
+            ]
+        },
+        {
+            title: "Interacción",
+            icon: MessageSquare,
+            items: [
+                { type: "flow_message", label: "Enviar Mensaje", desc: "Respuesta automática de la IA.", icon: Sparkles },
+                { type: "flow_question", label: "Hacer Pregunta", desc: "Solicita datos al usuario.", icon: HelpCircle },
+                { type: "flow_wait", label: "Esperar", desc: "Pausa el flujo temporalmente.", icon: Timer },
+            ]
+        },
+        {
+            title: "Lógica y Datos",
+            icon: GitBranch,
+            items: [
+                { type: "flow_condition", label: "Filtrar (IF)", desc: "Ramifica según condiciones.", icon: Layers },
+                { type: "flow_collector", label: "Colector JSON", desc: "Agrupa variables en un objeto.", icon: Database },
+                { type: "flow_book", label: "Agendar Cita", desc: "Cierra el flujo agendando.", icon: Calendar },
+            ]
+        },
+        {
+            title: "Integraciones",
+            icon: Globe,
+            items: [
+                { type: "flow_http", label: "Petición HTTP", desc: "Conecta con cualquier API.", icon: Terminal },
+                { type: "flow_db", label: "Acción DB", desc: "Guarda o lee de la base de datos.", icon: Activity },
+                { type: "flow_ai", label: "Tarea IA Pro", desc: "Procesos cognitivos complejos.", icon: Brain },
+            ]
+        }
+    ];
+
+    const filteredCategories = nodeCategories.map(cat => ({
+        ...cat,
+        items: cat.items.filter(item => 
+            item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.desc.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+    })).filter(cat => cat.items.length > 0);
 
     const selectedNode = nodes.find(n => n.id === selectedNodeId);
 
@@ -359,11 +419,94 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
                         <Brain className="h-5 w-5" />
                     </button>
                     <div className="mt-auto">
-                        <div className="h-10 w-10 rounded-xl border border-white/5 flex items-center justify-center text-white/10">
+                        <button 
+                            onClick={() => setIsNodeLibraryOpen(true)}
+                            className="h-10 w-10 rounded-xl border border-primary/20 bg-primary/10 flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all shadow-lg active:scale-90"
+                            title="Añadir nuevo bloque"
+                        >
                             <Plus className="h-5 w-5" />
-                        </div>
+                        </button>
                     </div>
                 </div>
+
+                {/* ── Node Library Overlay ── */}
+                <AnimatePresence>
+                    {isNodeLibraryOpen && (
+                        <div className="absolute inset-0 z-[100] flex items-center justify-center p-8 bg-slate-950/80 backdrop-blur-md">
+                            <motion.div 
+                                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                                className="w-full max-w-5xl bg-slate-900 rounded-[32px] border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+                            >
+                                {/* Library Header */}
+                                <div className="p-8 border-b border-white/5 bg-white/[0.01] flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-12 w-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                                            <LayoutGrid className="h-6 w-6 text-primary" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xl font-black uppercase tracking-tight">Librería de Nodos</h3>
+                                            <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">Selecciona el módulo que deseas añadir a tu flujo</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-4">
+                                        <div className="relative">
+                                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/20" />
+                                            <input 
+                                                autoFocus
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                placeholder="Buscar módulo..."
+                                                className="h-12 w-80 bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 text-sm text-white focus:border-primary/50 outline-none transition-all font-bold placeholder:text-white/10"
+                                            />
+                                        </div>
+                                        <button 
+                                            onClick={() => setIsNodeLibraryOpen(false)}
+                                            className="h-12 w-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-red-500/20 hover:border-red-500/30 text-white/20 hover:text-red-400 transition-all"
+                                        >
+                                            <X className="h-6 w-6" />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Library Content */}
+                                <div className="flex-1 overflow-y-auto p-8 space-y-12 no-scrollbar">
+                                    {filteredCategories.map((cat, idx) => (
+                                        <div key={idx} className="space-y-6">
+                                            <div className="flex items-center gap-3 px-2">
+                                                <cat.icon className="h-4 w-4 text-white/30" />
+                                                <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">{cat.title}</h4>
+                                                <div className="flex-1 h-px bg-white/5 ml-2" />
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                {cat.items.map((item, itemIdx) => (
+                                                    <button
+                                                        key={itemIdx}
+                                                        onClick={() => addNode(item.type)}
+                                                        className="group p-6 rounded-[24px] bg-white/[0.02] border border-white/5 hover:bg-primary/10 hover:border-primary/30 text-left transition-all hover:scale-[1.02] hover:shadow-2xl hover:shadow-primary/10"
+                                                    >
+                                                        <div className="flex items-start gap-5">
+                                                            <div className="h-12 w-12 rounded-2xl bg-white/5 group-hover:bg-primary/20 flex items-center justify-center shrink-0 transition-colors">
+                                                                <item.icon className="h-6 w-6 text-white/40 group-hover:text-primary transition-colors" />
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <h5 className="font-bold text-sm text-white group-hover:text-primary transition-colors">{item.label}</h5>
+                                                                <p className="text-[11px] text-white/30 leading-relaxed mt-1 line-clamp-2">{item.desc}</p>
+                                                            </div>
+                                                            <ArrowRight className="h-4 w-4 text-white/10 group-hover:text-primary group-hover:translate-x-1 transition-all mt-1" />
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>
 
                 <div className="flex-1 relative">
                     <ReactFlow
@@ -629,6 +772,123 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
                                             placeholder="nombre, email, presupuesto, fuente"
                                         />
                                         <p className="text-[8px] text-white/20 italic">Estos campos se empaquetarán en un objeto JSON dentro del array final.</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {selectedNode.type === 'flow_http' && (
+                                <div className="space-y-5">
+                                    <div className="space-y-3">
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Método y URL</label>
+                                        <div className="flex gap-2">
+                                            <select 
+                                                value={selectedNode.data.method || "POST"}
+                                                onChange={(e) => updateNodeData(selectedNode.id, { method: e.target.value })}
+                                                className="w-24 h-11 bg-orange-500/10 border border-orange-500/20 rounded-xl px-3 text-[10px] font-black text-orange-400"
+                                            >
+                                                <option value="GET">GET</option>
+                                                <option value="POST">POST</option>
+                                                <option value="PUT">PUT</option>
+                                                <option value="DELETE">DELETE</option>
+                                            </select>
+                                            <input 
+                                                value={selectedNode.data.url || ""}
+                                                onChange={(e) => updateNodeData(selectedNode.id, { url: e.target.value })}
+                                                className="flex-1 h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-xs text-white/80 font-mono"
+                                                placeholder="https://api..."
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-3">
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Headers (JSON)</label>
+                                        <textarea 
+                                            value={selectedNode.data.headers || '{\n  "Content-Type": "application/json"\n}'}
+                                            onChange={(e) => updateNodeData(selectedNode.id, { headers: e.target.value })}
+                                            className="w-full min-h-[100px] bg-black/40 border border-white/5 rounded-2xl p-4 text-[10px] font-mono text-white/40 focus:text-white/80 transition-all outline-none"
+                                        />
+                                    </div>
+                                    <div className="space-y-3">
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Body / Payload</label>
+                                        <textarea 
+                                            value={selectedNode.data.payload || '{\n  "lead_id": "{{lead_id}}",\n  "status": "contacted"\n}'}
+                                            onChange={(e) => updateNodeData(selectedNode.id, { payload: e.target.value })}
+                                            className="w-full min-h-[120px] bg-black/40 border border-white/5 rounded-2xl p-4 text-[10px] font-mono text-white/40 focus:text-white/80 transition-all outline-none"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {selectedNode.type === 'flow_db' && (
+                                <div className="space-y-5">
+                                    <div className="space-y-3">
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Acción</label>
+                                        <select 
+                                            value={selectedNode.data.action || "SAVE_LEAD"}
+                                            onChange={(e) => updateNodeData(selectedNode.id, { action: e.target.value })}
+                                            className="w-full h-11 bg-cyan-500/10 border border-cyan-500/20 rounded-xl px-4 text-xs font-black text-cyan-400"
+                                        >
+                                            <option value="SAVE_LEAD">Guardar/Actualizar Lead</option>
+                                            <option value="LOAD_CONTEXT">Cargar Contexto Histórico</option>
+                                            <option value="UPDATE_VAR">Actualizar Variable Global</option>
+                                            <option value="QUERY_CUSTOM">Consulta Personalizada</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-3">
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Tabla Destino</label>
+                                        <input 
+                                            value={selectedNode.data.table || "lead"}
+                                            onChange={(e) => updateNodeData(selectedNode.id, { table: e.target.value })}
+                                            className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-xs text-white/80"
+                                            placeholder="Nombre de la tabla..."
+                                        />
+                                    </div>
+                                    <div className="space-y-3">
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Mapeo de Datos (Key: Value)</label>
+                                        <textarea 
+                                            value={selectedNode.data.mapping || '{\n  "nombre": "{{nombre}}",\n  "cualificacion": "{{score}}"\n}'}
+                                            onChange={(e) => updateNodeData(selectedNode.id, { mapping: e.target.value })}
+                                            className="w-full min-h-[100px] bg-black/40 border border-white/5 rounded-2xl p-4 text-[10px] font-mono text-cyan-200/40 focus:text-cyan-200/80 transition-all outline-none"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {selectedNode.type === 'flow_ai' && (
+                                <div className="space-y-5">
+                                    <div className="space-y-3">
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Modelo</label>
+                                        <select 
+                                            value={selectedNode.data.model || "gpt-4o"}
+                                            onChange={(e) => updateNodeData(selectedNode.id, { model: e.target.value })}
+                                            className="w-full h-11 bg-purple-500/10 border border-purple-500/20 rounded-xl px-4 text-xs font-black text-purple-400"
+                                        >
+                                            <option value="gpt-4o">GPT-4o (Máxima Calidad)</option>
+                                            <option value="gpt-4o-mini">GPT-4o Mini (Velocidad)</option>
+                                            <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-3">
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Tarea Predeterminada</label>
+                                        <select 
+                                            value={selectedNode.data.task || "Clasificar intención"}
+                                            onChange={(e) => updateNodeData(selectedNode.id, { task: e.target.value })}
+                                            className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-xs text-white/80"
+                                        >
+                                            <option value="sentiment">Análisis de Sentimiento</option>
+                                            <option value="scoring">Puntuación de Lead (0-100)</option>
+                                            <option value="summary">Resumir Conversación</option>
+                                            <option value="extraction">Extraer Entidades (JSON)</option>
+                                            <option value="classification">Clasificar Categoría</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-3">
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Instrucciones Específicas</label>
+                                        <textarea 
+                                            value={selectedNode.data.instructions || ""}
+                                            onChange={(e) => updateNodeData(selectedNode.id, { instructions: e.target.value })}
+                                            className="w-full min-h-[120px] bg-purple-500/5 border border-purple-500/10 rounded-2xl p-4 text-[11px] text-purple-100 leading-relaxed outline-none focus:border-purple-500 transition-all"
+                                            placeholder="Define cómo debe procesar la IA esta tarea específica..."
+                                        />
                                     </div>
                                 </div>
                             )}
