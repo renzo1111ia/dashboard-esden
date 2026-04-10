@@ -6,8 +6,8 @@ import { retellBridge, RetellConfig } from "../integrations/retell";
 import { getAgentVariants } from "../actions/agents";
 import { getOrchestratorConfigForTenant, TenantOrchestratorConfig, OrchestratorSequenceStep } from "../actions/orchestrator-config";
 import { enqueueLeadStep, LeadSequenceJob } from "./queue/lead-sequence-queue";
-import { logOrchestrationStep, bookAppointment } from "./scheduler";
-import { Lead, PlannedAction, AIAgentVariant } from "@/types/database";
+import { logOrchestrationStep } from "./scheduler";
+import { Lead, PlannedAction, AIAgentVariant, Programa, LeadPrograma } from "@/types/database";
 
 /**
  * ORCHESTRATOR CORE v3.0
@@ -166,10 +166,13 @@ export class Orchestrator {
         }
 
         // Construct dynamic variables to send to Retell LLM context
+        const courseContext = await this.getCourseContext(lead.id, tenantId);
+        
         const dynamicVariables: Record<string, string> = {
             lead_name: lead.nombre || "Cliente",
             lead_phone: lead.telefono || "",
-            company_name: "Empresa v3" // Can be dynamically injected from tenant later
+            company_name: config.company_name || "Esden",
+            ...courseContext
         };
 
         await retellBridge.createCall(
@@ -230,9 +233,11 @@ export class Orchestrator {
         const promptVariantData = variants[0] as AIAgentVariant;
         console.log(`[ORCHESTRATOR] AI Agent ${agentId} variant ${variant}: ${promptVariantData.version_label}`);
 
-        // Stub LLM execution
-        // TODO: Replace with actual LangChain call using promptVariantData.prompt_text
-        const analysis = "Lead shows high interest. Recommend scheduling.";
+        // Fetch course context for AI Agent
+        const courseContext = await this.getCourseContext(lead.id, tenantId);
+
+        // Stub LLM execution with injected context
+        const analysis = `Contexto del Curso: ${courseContext.course_info}. Requisitos: ${courseContext.qualification_rules}. Interés del Lead: Alta.`;
 
         await logOrchestrationStep({
             tenantId, leadId: lead.id, step: step.step,
@@ -240,6 +245,60 @@ export class Orchestrator {
             abVariant: variant, result: "SUCCESS",
             metadata: { analysis, promptVersion: promptVariantData.version_label }
         });
+    }
+
+    /**
+     * Helper to fetch course-specific information and qualification rules.
+     * Maps to course_info and qualification_rules variables in the prompt.
+     */
+    private async getCourseContext(leadId: string, tenantId: string): Promise<Record<string, string>> {
+        const supabase = await getSupabaseServerClient();
+        
+        // 1. Get the programs this lead is interested in
+        const { data: leadPrograms } = await supabase
+            .from("lead_programas")
+            .select("id_programa")
+            .eq("id_lead", leadId)
+            .returns<LeadPrograma[]>();
+
+        if (!leadPrograms || leadPrograms.length === 0) {
+            return {
+                course_info: "No hay información de curso específica disponible.",
+                qualification_rules: "Criterios generales de cualificación."
+            };
+        }
+
+        // 2. Get details for the first/primary program
+        const { data: program } = await supabase
+            .from("programas")
+            .select("*")
+            .eq("id", leadPrograms[0].id_programa)
+            .single();
+
+        if (!program) {
+            return {
+                course_info: "Programa no encontrado.",
+                qualification_rules: ""
+            };
+        }
+
+        const p = program as Programa;
+        const details = [
+            p.presentacion && `Presentación: ${p.presentacion}`,
+            p.objetivos && `Objetivos: ${p.objetivos}`,
+            p.precio && `Precio: ${p.precio}`,
+            p.becas_financiacion && `Becas: ${p.becas_financiacion}`,
+            p.metodologia && `Metodología: ${p.metodologia}`,
+            p.beneficios && `Beneficios: ${p.beneficios}`,
+            p.practicas && `Prácticas: ${p.practicas}`,
+            p.fechas_inicio && `Fechas de inicio: ${p.fechas_inicio}`,
+        ].filter(Boolean).join("\n");
+
+        return {
+            course_name: p.nombre,
+            course_info: details || "Sin detalles específicos.",
+            qualification_rules: p.requisitos_cualificacion || "Cualificación estándar basada en interés y disponibilidad."
+        };
     }
 
     // ─── A/B AGENT SELECTOR ────────────────────────────────────────
@@ -303,8 +362,12 @@ export class Orchestrator {
             case "CALL": {
                 const retellConfig: RetellConfig = { apiKey: tenantConf?.retell?.apiKey };
                 await retellBridge.createCall(
-                    lead.telefono || "", conf?.agentId, tenantConf?.retell?.fromNumber,
-                    { lead_id: lead.id }, retellConfig
+                    lead.telefono || "", 
+                    conf?.agentId, 
+                    tenantConf?.retell?.fromNumber,
+                    { lead_id: lead.id }, 
+                    {}, // empty dynamic variables for legacy
+                    retellConfig
                 );
                 break;
             }

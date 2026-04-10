@@ -134,6 +134,15 @@ export interface Programa {
     tenant_id: string;
     nombre: string;
     id_producto?: string | null;
+    presentacion?: string | null;
+    objetivos?: string | null;
+    precio?: string | null;
+    becas_financiacion?: string | null;
+    metodologia?: string | null;
+    beneficios?: string | null;
+    practicas?: string | null;
+    fechas_inicio?: string | null;
+    requisitos_cualificacion?: string | null;
     fecha_creacion?: string | null;
 }
 

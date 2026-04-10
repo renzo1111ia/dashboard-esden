@@ -35,6 +35,7 @@ export interface TenantOrchestratorConfig {
     sequence: OrchestratorSequenceStep[];
     ab_testing: OrchestratorABConfig;
     retell: OrchestratorRetellConfig;
+    company_name?: string;
 }
 
 const DEFAULT_CONFIG: TenantOrchestratorConfig = {
@@ -64,7 +65,8 @@ const DEFAULT_CONFIG: TenantOrchestratorConfig = {
     retell: {
         api_key: "",
         from_number: ""
-    }
+    },
+    company_name: "Esden Analytics"
 };
 
 // ─── Server Actions ───────────────────────────────────────────────
