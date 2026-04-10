@@ -279,6 +279,32 @@ export interface FeatureFlag {
     created_at?: string;
 }
 
+export interface VoiceAgent {
+    id: string;
+    tenant_id: string;
+    name: string;
+    description: string | null;
+    status: 'ACTIVE' | 'PAUSED';
+    provider: 'RETELL' | 'ULTRAVOX' | 'INTERNAL';
+    provider_agent_id: string | null;
+    voice_id: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface VoiceAgentVariant {
+    id: string;
+    agent_id: string;
+    version_label: string;
+    prompt_text: string;
+    is_active: boolean;
+    is_variant_b: boolean;
+    weight: number;
+    metrics: Record<string, unknown> | null;
+    created_at: string;
+    updated_at: string;
+}
+
 // ─── COMBINED / VIEW TYPES ────────────────────────────────────────────────────
 
 /**
@@ -357,6 +383,8 @@ export type Database = {
             planned_actions: { Row: PlannedAction; Insert: Omit<PlannedAction, "id" | "created_at" | "updated_at">; Update: Partial<PlannedAction>; };
             ai_agents: { Row: AIAgent; Insert: Omit<AIAgent, "id" | "created_at" | "updated_at">; Update: Partial<AIAgent>; };
             ai_agent_variants: { Row: AIAgentVariant; Insert: Omit<AIAgentVariant, "id" | "created_at" | "updated_at">; Update: Partial<AIAgentVariant>; };
+            voice_agents: { Row: VoiceAgent; Insert: Omit<VoiceAgent, "id" | "created_at" | "updated_at">; Update: Partial<VoiceAgent>; };
+            voice_agent_variants: { Row: VoiceAgentVariant; Insert: Omit<VoiceAgentVariant, "id" | "created_at" | "updated_at">; Update: Partial<VoiceAgentVariant>; };
             tenant_orchestrator_config: { Row: { id: string; tenant_id: string; config: Record<string, unknown>; created_at: string; updated_at: string }; Insert: { tenant_id: string; config: Record<string, unknown> }; Update: { config?: Record<string, unknown> }; };
             advisors: { Row: { id: string; tenant_id: string; name: string; email: string | null; phone: string | null; is_active: boolean; created_at: string }; Insert: { tenant_id: string; name: string; email?: string | null; phone?: string | null; is_active?: boolean }; Update: Partial<{ name: string; email: string | null; phone: string | null; is_active: boolean }>; };
             availability_slots: { Row: { id: string; advisor_id: string; day_of_week: number; start_time: string; end_time: string; slot_duration_minutes: number }; Insert: { advisor_id: string; day_of_week: number; start_time: string; end_time: string; slot_duration_minutes?: number }; Update: Partial<{ day_of_week: number; start_time: string; end_time: string }>; };
