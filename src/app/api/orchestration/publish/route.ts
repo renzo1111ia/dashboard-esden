@@ -25,8 +25,8 @@ export async function POST(req: Request) {
         const supabase = await getAdminSupabaseClient();
 
         // 1. Save the visual graph state for this specific workflow
-        const { error: graphError } = await supabase
-            .from("orchestration_graphs")
+        const { error: graphError } = await (supabase
+            .from("orchestration_graphs" as any) as any)
             .upsert({
                 tenant_id: tenantId,
                 workflow_id: workflowId,
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
         if (graphError) throw graphError;
 
         // 2. Flatten the graph into execution rules
-        const executionSteps = flattenGraph(graphData.nodes, graphData.edges);
+        const executionSteps = flattenGraph(graphData.nodes as any, graphData.edges as any);
 
         // 3. Clear existing rules for THIS workflow and insert new ones
         await supabase
@@ -46,8 +46,8 @@ export async function POST(req: Request) {
             .eq("workflow_id", workflowId);
 
         if (executionSteps.length > 0) {
-            const { error: rulesError } = await supabase
-                .from("orchestration_rules")
+            const { error: rulesError } = await (supabase
+                .from("orchestration_rules" as any) as any)
                 .insert(executionSteps.map((step, index) => ({
                     tenant_id: tenantId,
                     workflow_id: workflowId,

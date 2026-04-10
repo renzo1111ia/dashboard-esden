@@ -1,5 +1,5 @@
-import { getSupabaseServerClient, getAdminSupabaseClient } from "@/lib/supabase/server";
-import { Lead, Programa, LeadPrograma, AIAgentVariant } from "@/types/database";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { Programa } from "@/types/database";
 import { ChatOpenAI } from "@langchain/openai";
 import { PromptTemplate } from "@langchain/core/prompts";
 import { StructuredOutputParser } from "@langchain/core/output_parsers";
@@ -15,9 +15,9 @@ export class QualificationProcessor {
 
     constructor() {
         this.llm = new ChatOpenAI({
-            modelName: "gpt-4o",
+            model: "gpt-4o",
             temperature: 0,
-            openAIApiKey: process.env.OPENAI_API_KEY
+            apiKey: process.env.OPENAI_API_KEY
         });
     }
 
@@ -33,8 +33,8 @@ export class QualificationProcessor {
         const supabase = await getSupabaseServerClient();
 
         // 1. Get Course details for this lead
-        const { data: leadProgramas } = await supabase
-            .from("lead_programas")
+        const { data: leadProgramas } = await (supabase
+            .from("lead_programas" as any) as any)
             .select("id_programa")
             .eq("id_lead", params.leadId);
 
@@ -42,8 +42,8 @@ export class QualificationProcessor {
         let qualRules = "Busca interés general en formación profesional.";
 
         if (leadProgramas && leadProgramas.length > 0) {
-            const { data: program } = await supabase
-                .from("programas")
+            const { data: program } = await (supabase
+                .from("programas" as any) as any)
                 .select("*")
                 .eq("id", leadProgramas[0].id_programa)
                 .single();
@@ -59,7 +59,7 @@ export class QualificationProcessor {
         const analysis = await this.analyzeTranscript(params.transcript, courseDetails, qualRules);
 
         // 3. Persist results
-        const { error } = await supabase.from("lead_cualificacion").insert({
+        const { error } = await (supabase.from("lead_cualificacion" as any) as any).insert({
             tenant_id: params.tenantId,
             id_lead: params.leadId,
             id_llamada: params.callId,
@@ -68,14 +68,14 @@ export class QualificationProcessor {
             objeciones: analysis.objections.join(", "),
             analisis_profundo: analysis as any,
             fecha_creacion: new Date().toISOString()
-        } as never);
+        });
 
         if (error) console.error("[QUAL-PROCESSOR] Error saving results:", error);
 
         // 4. Update Lead Status
-        await supabase.from("lead").update({
+        await (supabase.from("lead" as any) as any).update({
             tipo_lead: analysis.interest_score >= 7 ? "CALIFICADO" : "Poco Interés"
-        } as never).eq("id", params.leadId);
+        }).eq("id", params.leadId);
 
         console.log(`[QUAL-PROCESSOR] ✅ Deep analysis completed for lead ${params.leadId}. Score: ${analysis.interest_score}`);
     }
@@ -111,7 +111,7 @@ export class QualificationProcessor {
         });
 
         const input = await prompt.format({ courseInfo, rules, transcript });
-        const response = await this.llm.call([
+        const response = await this.llm.invoke([
             { role: "user", content: input } as any
         ]);
 

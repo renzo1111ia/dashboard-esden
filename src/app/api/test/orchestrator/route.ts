@@ -8,12 +8,12 @@ export async function GET() {
         const tenantId = "test-tenant-123";
 
         // 1. Ensure a Baseline Workflow exists
-        let { data: workflows } = await supabase.from("workflows").select("*").eq("tenant_id", tenantId).limit(1);
+        let { data: workflows } = await (supabase.from("workflows" as any) as any).select("*").eq("tenant_id", tenantId).limit(1);
         let workflow = workflows && workflows.length > 0 ? workflows[0] : null;
 
         if (!workflow) {
             console.log("[PLAYGROUND] Creating Baseline Workflow...");
-            const { data: newWf, error: wfE } = await supabase.from("workflows").insert({
+            const { data: newWf, error: wfE } = await (supabase.from("workflows" as any) as any).insert({
                 tenant_id: tenantId,
                 name: "Workflow de Prueba A/B",
                 is_active: true,
@@ -24,7 +24,7 @@ export async function GET() {
             workflow = newWf;
 
             // Add a Rule
-            const { error: ruleE } = await supabase.from("orchestration_rules").insert({
+            const { error: ruleE } = await (supabase.from("orchestration_rules" as any) as any).insert({
                 tenant_id: tenantId,
                 workflow_id: workflow.id,
                 step_name: "AI Qualification",
@@ -36,7 +36,7 @@ export async function GET() {
         }
 
         // 2. Create Mock Lead
-        const { data: lead, error: leadE } = await supabase.from("lead").insert({
+        const { data: lead, error: leadE } = await (supabase.from("lead" as any) as any).insert({
             tenant_id: tenantId,
             nombre: "Test",
             apellido: "Orchestrator",

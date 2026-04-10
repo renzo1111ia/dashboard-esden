@@ -254,7 +254,6 @@ export async function updateTenant(id: string, updates: Partial<Tenant> & { pass
             data: {
                 ...data,
                 is_admin: !!(data.config as Record<string,unknown>)?.is_admin,
-        api_type: ((data.config as Record<string,unknown>)?.api_type as 'internal' | 'client') || 'internal',
                 api_type: ((data.config as Record<string,unknown>)?.api_type as 'internal' | 'client') || 'internal',
                 username: ((data.config as Record<string,unknown>)?.username as string) || ""
             }

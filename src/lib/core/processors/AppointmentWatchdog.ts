@@ -1,6 +1,4 @@
 import { getAdminSupabaseClient } from "@/lib/supabase/server";
-import { orchestrator } from "../orchestrator";
-import { getOrchestratorConfigForTenant } from "../../actions/orchestrator-config";
 
 /**
  * Appointment Watchdog
@@ -19,10 +17,10 @@ export class AppointmentWatchdog {
         // 1. Find appointments in the past (more than 30 mins ago) that aren't processed
         const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
         
-        const { data: staleAppointments, error } = await supabase
-            .from("appointments")
+        const { data: staleAppointments, error } = await (supabase
+            .from("appointments" as any) as any)
             .select("*, lead(*)")
-            .eq("status", "PENDING") // Or "SCHEDULED"
+            .in("status", ["PENDING", "SCHEDULED"])
             .lte("scheduled_at", thirtyMinsAgo)
             .eq("watchdog_processed", false);
 
@@ -41,8 +39,8 @@ export class AppointmentWatchdog {
         for (const apt of staleAppointments) {
             try {
                 // 2. Mark as processed to avoid double triggers
-                await supabase
-                    .from("appointments")
+                await (supabase
+                    .from("appointments" as any) as any)
                     .update({ watchdog_processed: true, status: "NO_SHOW" })
                     .eq("id", apt.id);
 

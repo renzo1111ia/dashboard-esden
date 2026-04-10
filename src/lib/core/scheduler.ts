@@ -44,8 +44,8 @@ export async function findAvailableAdvisor(
     const timeStr = `${String(localTime.getHours()).padStart(2, "0")}:${String(localTime.getMinutes()).padStart(2, "0")}`;
 
     // 2. Find all active advisors with an availability slot matching this day + time
-    let query = supabase
-        .from("availability_slots")
+    let query = (supabase
+        .from("availability_slots" as any) as any)
         .select("advisor_id, advisors!inner(id, name, email, is_active, tenant_id)")
         .eq("day_of_week", dayOfWeek)
         .lte("start_time", timeStr)
@@ -55,13 +55,13 @@ export async function findAvailableAdvisor(
 
     // Filter by program specialization if provided
     if (options.programaId) {
-        const { data: specialists } = await supabase
-            .from("advisor_programas")
+        const { data: specialists } = await (supabase
+            .from("advisor_programas" as any) as any)
             .select("advisor_id")
             .eq("programa_id", options.programaId);
         
         if (specialists && specialists.length > 0) {
-            query = query.in("advisor_id", specialists.map(s => s.advisor_id));
+            query = query.in("advisor_id", specialists.map((s: any) => s.advisor_id));
         }
     }
 
@@ -72,14 +72,14 @@ export async function findAvailableAdvisor(
         return null;
     }
 
-    const advisorIds = slots.map((s) => s.advisor_id);
+    const advisorIds = slots.map((s: any) => s.advisor_id);
 
     // 3. Count appointments this week for each advisor
     const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 }); // Monday
     const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
 
-    const { data: weeklyLoad } = await supabase
-        .from("appointments")
+    const { data: weeklyLoad } = await (supabase
+        .from("appointments" as any) as any)
         .select("advisor_id")
         .in("advisor_id", advisorIds)
         .eq("tenant_id", tenantId)
@@ -89,13 +89,13 @@ export async function findAvailableAdvisor(
 
     // Count load per advisor
     const loadMap: Record<string, number> = {};
-    advisorIds.forEach((id) => (loadMap[id] = 0));
-    weeklyLoad?.forEach((apt) => {
+    advisorIds.forEach((id: string) => (loadMap[id] = 0));
+    (weeklyLoad as any[])?.forEach((apt: any) => {
         loadMap[apt.advisor_id] = (loadMap[apt.advisor_id] || 0) + 1;
     });
 
     // 4. Build sorted list (least loaded first = Round Robin)
-    const advisorList: AdvisorWithLoad[] = slots.map((slot) => {
+    const advisorList: AdvisorWithLoad[] = slots.map((slot: any) => {
         const advisor = slot.advisors as any;
         return {
             id: advisor.id,
@@ -107,7 +107,7 @@ export async function findAvailableAdvisor(
 
     // Remove duplicates (same advisor might have multiple matching slots)
     const seen = new Set<string>();
-    const unique = advisorList.filter((a) => {
+    const unique = advisorList.filter((a: AdvisorWithLoad) => {
         if (seen.has(a.id)) return false;
         seen.add(a.id);
         return true;
@@ -159,8 +159,8 @@ export async function bookAppointment(
 
     // 2. Check for double-booking this advisor at this exact time
     const slotEnd = new Date(requestedAt.getTime() + (options.durationMinutes || 30) * 60 * 1000);
-    const { data: conflicts } = await supabase
-        .from("appointments")
+    const { data: conflicts } = await (supabase
+        .from("appointments" as any) as any)
         .select("id")
         .eq("advisor_id", advisor.id)
         .gte("scheduled_at", requestedAt.toISOString())
@@ -175,8 +175,8 @@ export async function bookAppointment(
     }
 
     // 3. Create the appointment
-    const { data: appointment, error } = await supabase
-        .from("appointments")
+    const { data: appointment, error } = await (supabase
+        .from("appointments" as any) as any)
         .insert({
             tenant_id: tenantId,
             advisor_id: advisor.id,
@@ -187,7 +187,7 @@ export async function bookAppointment(
             agent_used: options.agentUsed || null,
             ab_variant: options.abVariant || null,
             notes: options.notes || null,
-        } as never)
+        })
         .select()
         .single();
 
@@ -225,7 +225,7 @@ export async function logOrchestrationStep(params: {
 }): Promise<void> {
     try {
         const supabase = await getSupabaseServerClient();
-        await supabase.from("orchestration_logs").insert({
+        await (supabase.from("orchestration_logs" as any) as any).insert({
             tenant_id: params.tenantId,
             lead_id: params.leadId,
             workflow_id: params.workflowId || null,
@@ -236,7 +236,7 @@ export async function logOrchestrationStep(params: {
             result: params.result,
             error_message: params.errorMessage || null,
             metadata: params.metadata || {},
-        } as never);
+        });
     } catch (e) {
         console.error("[SCHEDULER] Failed to write orchestration log:", e);
     }

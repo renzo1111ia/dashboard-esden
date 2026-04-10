@@ -41,8 +41,8 @@ export async function getRecentLeads(limit = 20) {
         const tenant = await getActiveTenantConfig();
         if (!tenant) return { error: "No active tenant" };
 
-        const { data, error } = await supabase
-            .from("lead")
+        const { data, error } = await (supabase
+            .from("lead" as any) as any)
             .select("id, nombre, apellido, telefono, origen, fecha_creacion")
             .eq("tenant_id", tenant.id)
             .order("fecha_creacion", { ascending: false })
@@ -64,8 +64,8 @@ export async function getTenantWorkflows() {
         const tenant = await getActiveTenantConfig();
         if (!tenant) return { error: "No active tenant" };
 
-        const { data, error } = await supabase
-            .from("workflows")
+        const { data, error } = await (supabase
+            .from("workflows" as any) as any)
             .select("id, name, is_primary, is_active")
             .eq("tenant_id", tenant.id)
             .order("created_at", { ascending: false });
@@ -83,8 +83,8 @@ export async function getTenantWorkflows() {
 export async function getWorkflowRules(workflowId: string) {
     try {
         const supabase = await getSupabaseServerClient();
-        const { data, error } = await supabase
-            .from("orchestration_rules")
+        const { data, error } = await (supabase
+            .from("orchestration_rules" as any) as any)
             .select("*")
             .eq("workflow_id", workflowId)
             .eq("is_active", true)
@@ -107,8 +107,8 @@ export async function triggerOrchestratorForLead(leadId: string, workflowId: str
         if (!tenant) return { error: "No active tenant" };
 
         // Fetch lead
-        const { data: lead, error: leadError } = await supabase
-            .from("lead")
+        const { data: lead, error: leadError } = await (supabase
+            .from("lead" as any) as any)
             .select("*")
             .eq("id", leadId)
             .single();

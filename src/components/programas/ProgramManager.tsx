@@ -191,10 +191,11 @@ export default function ProgramManager() {
                                         </div>
                                         
                                         <div className="space-y-2">
-                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
+                                            <label htmlFor="program-price" className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
                                                 <CreditCard className="h-3 w-3" /> Precio y Financiación
                                             </label>
                                             <textarea 
+                                                id="program-price"
                                                 value={selectedProgram.precio || ""}
                                                 onChange={(e) => updateField("precio", e.target.value)}
                                                 rows={2}
@@ -203,10 +204,11 @@ export default function ProgramManager() {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
+                                            <label htmlFor="program-dates" className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
                                                 <Calendar className="h-3 w-3" /> Fechas de Inicio
                                             </label>
                                             <input 
+                                                id="program-dates"
                                                 value={selectedProgram.fechas_inicio || ""}
                                                 onChange={(e) => updateField("fechas_inicio", e.target.value)}
                                                 className="w-full h-11 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 text-xs font-bold outline-none focus:border-blue-500/50"
@@ -221,8 +223,9 @@ export default function ProgramManager() {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Metodología</label>
+                                            <label htmlFor="program-method" className="text-[9px] font-black uppercase tracking-widest text-slate-400">Metodología</label>
                                             <textarea 
+                                                id="program-method"
                                                 value={selectedProgram.metodologia || ""}
                                                 onChange={(e) => updateField("metodologia", e.target.value)}
                                                 rows={2}
@@ -231,8 +234,9 @@ export default function ProgramManager() {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Becas Disponibles</label>
+                                            <label htmlFor="program-scholarships" className="text-[9px] font-black uppercase tracking-widest text-slate-400">Becas Disponibles</label>
                                             <input 
+                                                id="program-scholarships"
                                                 value={selectedProgram.becas_financiacion || ""}
                                                 onChange={(e) => updateField("becas_financiacion", e.target.value)}
                                                 className="w-full h-11 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 text-xs font-bold outline-none focus:border-emerald-500/50"

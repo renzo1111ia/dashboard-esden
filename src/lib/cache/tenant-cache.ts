@@ -32,10 +32,10 @@ async function getRedisClient(): Promise<RedisClientType | null> {
 
         const client = createClient({
             url: REDIS_URL,
-            socket: {
-                tls: isTLS,
-                rejectUnauthorized: false, // Upstash uses self-signed certs in some regions
-            },
+            socket: isTLS ? {
+                tls: true,
+                rejectUnauthorized: false,
+            } : undefined,
         }) as RedisClientType;
 
         client.on("error", (err: Error) => {

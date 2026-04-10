@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useCallback, useMemo, useState, useEffect } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { 
     ReactFlow, 
     Background, 
     Controls, 
     Connection, 
-    Node, 
+    Node,
+    Edge,
     addEdge, 
     useNodesState, 
     useEdgesState,
@@ -33,8 +34,6 @@ import {
     Globe,
     Brain,
     Plus,
-    Play,
-    Share2,
     Sparkles,
     Search,
     LayoutGrid,
@@ -45,6 +44,36 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+
+interface FlowNodeData {
+    text?: string;
+    ifLabel?: string;
+    elseLabel?: string;
+    delay_value?: number;
+    delay_unit?: string;
+    command_type?: string;
+    fields?: string[];
+    target_variable?: string;
+    webhook_url?: string;
+    metadata_key?: string;
+    metadata_value?: string;
+    tag_name?: string;
+    event?: string;
+    method?: string;
+    url?: string;
+    headers?: string;
+    payload?: string;
+    action?: string;
+    table?: string;
+    mapping?: string;
+    model?: string;
+    task?: string;
+    instructions?: string;
+    label?: string;
+    validation?: string;
+    config?: Record<string, unknown>;
+    [key: string]: unknown;
+}
 
 // ─── Custom Node Types ─────────────────────────────────────────────
 
@@ -204,8 +233,8 @@ const BookNode = ({ selected }: { selected?: boolean }) => (
 // ─── Component ─────────────────────────────────────────────────────
 
 interface AgentFlowBuilderProps {
-    initialFlow: { nodes: any[]; edges: any[] };
-    onSave: (flow: { nodes: any[]; edges: any[] }) => void;
+    initialFlow: { nodes: Node<FlowNodeData>[]; edges: Edge[] };
+    onSave: (flow: { nodes: Node<FlowNodeData>[]; edges: Edge[] }) => void;
     onClose: () => void;
     agentName: string;
 }
@@ -238,7 +267,7 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
         flow_ai: AITaskNode,
     }), []);
 
-    const [nodes, setNodes, onNodesChange] = useNodesState(
+    const [nodes, setNodes, onNodesChange] = useNodesState<Node<FlowNodeData>>(
         initialFlow.nodes && initialFlow.nodes.length > 0 ? initialFlow.nodes : [
             { id: "start", type: "flow_trigger", position: { x: 250, y: 0 }, data: {} }
         ]
@@ -251,17 +280,17 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
         [setEdges]
     );
 
-    const onNodeClick = useCallback((_: any, node: Node) => {
+    const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
         setSelectedNodeId(node.id);
     }, []);
 
-    const updateNodeData = (id: string, newData: any) => {
+    const updateNodeData = (id: string, newData: Partial<FlowNodeData>) => {
         setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, ...newData } } : n));
     };
 
     const addNode = (type: string) => {
         const id = `${type}_${Date.now()}`;
-        const newNode: Node = {
+        const newNode: Node<FlowNodeData> = {
             id,
             type,
             position: { x: Math.random() * 200 + 100, y: Math.random() * 200 + 100 },
@@ -464,6 +493,8 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
                                         </div>
                                         <button 
                                             onClick={() => setIsNodeLibraryOpen(false)}
+                                            title="Cerrar librería"
+                                            aria-label="Cerrar librería de módulos"
                                             className="h-12 w-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-red-500/20 hover:border-red-500/30 text-white/20 hover:text-red-400 transition-all"
                                         >
                                             <X className="h-6 w-6" />
@@ -561,7 +592,12 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
                                 <Settings className="h-4 w-4 text-primary" />
                                 <h3 className="text-sm font-black uppercase tracking-widest">Propiedades</h3>
                             </div>
-                            <button onClick={() => setSelectedNodeId(null)} className="h-8 w-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-white/10">
+                            <button 
+                                onClick={() => setSelectedNodeId(null)} 
+                                title="Cerrar propiedades"
+                                aria-label="Cerrar panel de propiedades de nodo"
+                                className="h-8 w-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-white/10"
+                            >
                                 <X className="h-4 w-4 text-white/30" />
                             </button>
                         </div>
@@ -627,6 +663,8 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
                                     <select 
                                         value={selectedNode.data.event || "nueva_entrada"}
                                         onChange={(e) => updateNodeData(selectedNode.id, { event: e.target.value })}
+                                        title="Seleccionar evento de activación"
+                                        aria-label="Evento de activación del flujo"
                                         className="w-full h-12 bg-white/5 border border-white/10 rounded-2xl px-4 text-xs text-white/80 focus:border-yellow-500/40 outline-none"
                                     >
                                         <option value="nueva_entrada">Nueva Entrada de Usuario</option>
@@ -639,19 +677,23 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
 
                             {selectedNode.type === 'flow_condition' && (
                                 <div className="space-y-4">
-                                    <div className="space-y-3">
-                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Etiqueta SI (Verdad)</label>
+                                        <label htmlFor="flow-if-label" className="text-[9px] font-black uppercase tracking-widest text-white/30">Etiqueta SI (Verdad)</label>
                                         <input 
+                                            id="flow-if-label"
                                             value={selectedNode.data.ifLabel || ""}
                                             onChange={(e) => updateNodeData(selectedNode.id, { ifLabel: e.target.value })}
+                                            aria-label="Etiqueta para caso positivo"
+                                            placeholder="SI"
                                             className="w-full h-10 bg-white/5 border border-white/10 rounded-xl px-4 text-xs text-emerald-400 font-bold"
                                         />
-                                    </div>
                                     <div className="space-y-3">
-                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Etiqueta NO (Falso)</label>
+                                        <label htmlFor="flow-else-label" className="text-[9px] font-black uppercase tracking-widest text-white/30">Etiqueta NO (Falso)</label>
                                         <input 
+                                            id="flow-else-label"
                                             value={selectedNode.data.elseLabel || ""}
                                             onChange={(e) => updateNodeData(selectedNode.id, { elseLabel: e.target.value })}
+                                            aria-label="Etiqueta para caso negativo"
+                                            placeholder="NO"
                                             className="w-full h-10 bg-white/5 border border-white/10 rounded-xl px-4 text-xs text-red-400 font-bold"
                                         />
                                     </div>
@@ -661,11 +703,14 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
                             {selectedNode.type === 'flow_wait' && (
                                 <div className="space-y-4">
                                     <div className="space-y-3">
-                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Valor de Espera</label>
+                                        <label htmlFor="flow-wait-value" className="text-[9px] font-black uppercase tracking-widest text-white/30">Valor de Espera</label>
                                         <input 
+                                            id="flow-wait-value"
                                             type="number"
                                             value={selectedNode.data.delay_value || 0}
                                             onChange={(e) => updateNodeData(selectedNode.id, { delay_value: parseInt(e.target.value) })}
+                                            aria-label="Cantidad de tiempo de espera"
+                                            placeholder="0"
                                             className="w-full h-10 bg-white/5 border border-white/10 rounded-xl px-4 text-xs text-amber-400 font-bold"
                                         />
                                     </div>
@@ -674,6 +719,8 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
                                         <select 
                                             value={selectedNode.data.delay_unit || "minutos"}
                                             onChange={(e) => updateNodeData(selectedNode.id, { delay_unit: e.target.value })}
+                                            title="Unidad de tiempo para la espera"
+                                            aria-label="Unidad de tiempo"
                                             className="w-full h-10 bg-white/5 border border-white/10 rounded-xl px-4 text-xs text-white/80 font-bold"
                                         >
                                             <option value="minutos">Minutos</option>
@@ -691,6 +738,8 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
                                         <select 
                                             value={selectedNode.data.command_type || "update_status"}
                                             onChange={(e) => updateNodeData(selectedNode.id, { command_type: e.target.value })}
+                                            title="Seleccionar tipo de comando a ejecutar"
+                                            aria-label="Tipo de comando"
                                             className="w-full h-10 bg-white/5 border border-white/10 rounded-xl px-4 text-xs text-white/80 font-bold"
                                         >
                                             <option value="update_status">Actualizar Estado Lead</option>
@@ -782,8 +831,10 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
                                         <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Método y URL</label>
                                         <div className="flex gap-2">
                                             <select 
+                                                id="http-method"
                                                 value={selectedNode.data.method || "POST"}
                                                 onChange={(e) => updateNodeData(selectedNode.id, { method: e.target.value })}
+                                                title="Seleccionar método HTTP"
                                                 className="w-24 h-11 bg-orange-500/10 border border-orange-500/20 rounded-xl px-3 text-[10px] font-black text-orange-400"
                                             >
                                                 <option value="GET">GET</option>
@@ -800,18 +851,24 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
                                         </div>
                                     </div>
                                     <div className="space-y-3">
-                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Headers (JSON)</label>
+                                        <label htmlFor="http-headers" className="text-[9px] font-black uppercase tracking-widest text-white/30">Headers (JSON)</label>
                                         <textarea 
+                                            id="http-headers"
                                             value={selectedNode.data.headers || '{\n  "Content-Type": "application/json"\n}'}
                                             onChange={(e) => updateNodeData(selectedNode.id, { headers: e.target.value })}
+                                            title="Headers de la petición HTTP"
+                                            placeholder='{\n  "Content-Type": "application/json"\n}'
                                             className="w-full min-h-[100px] bg-black/40 border border-white/5 rounded-2xl p-4 text-[10px] font-mono text-white/40 focus:text-white/80 transition-all outline-none"
                                         />
                                     </div>
                                     <div className="space-y-3">
-                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Body / Payload</label>
+                                        <label htmlFor="http-payload" className="text-[9px] font-black uppercase tracking-widest text-white/30">Body / Payload</label>
                                         <textarea 
+                                            id="http-payload"
                                             value={selectedNode.data.payload || '{\n  "lead_id": "{{lead_id}}",\n  "status": "contacted"\n}'}
                                             onChange={(e) => updateNodeData(selectedNode.id, { payload: e.target.value })}
+                                            title="Cuerpo de la petición HTTP"
+                                            placeholder='{\n  "lead_id": "{{lead_id}}",\n  "status": "contacted"\n}'
                                             className="w-full min-h-[120px] bg-black/40 border border-white/5 rounded-2xl p-4 text-[10px] font-mono text-white/40 focus:text-white/80 transition-all outline-none"
                                         />
                                     </div>
@@ -821,10 +878,12 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
                             {selectedNode.type === 'flow_db' && (
                                 <div className="space-y-5">
                                     <div className="space-y-3">
-                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Acción</label>
+                                        <label htmlFor="db-action" className="text-[9px] font-black uppercase tracking-widest text-white/30">Acción</label>
                                         <select 
+                                            id="db-action"
                                             value={selectedNode.data.action || "SAVE_LEAD"}
                                             onChange={(e) => updateNodeData(selectedNode.id, { action: e.target.value })}
+                                            title="Seleccionar acción de base de datos"
                                             className="w-full h-11 bg-cyan-500/10 border border-cyan-500/20 rounded-xl px-4 text-xs font-black text-cyan-400"
                                         >
                                             <option value="SAVE_LEAD">Guardar/Actualizar Lead</option>
@@ -843,10 +902,13 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
                                         />
                                     </div>
                                     <div className="space-y-3">
-                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Mapeo de Datos (Key: Value)</label>
+                                        <label htmlFor="db-mapping" className="text-[9px] font-black uppercase tracking-widest text-white/30">Mapeo de Datos (Key: Value)</label>
                                         <textarea 
+                                            id="db-mapping"
                                             value={selectedNode.data.mapping || '{\n  "nombre": "{{nombre}}",\n  "cualificacion": "{{score}}"\n}'}
                                             onChange={(e) => updateNodeData(selectedNode.id, { mapping: e.target.value })}
+                                            title="Mapeo de datos para la base de datos"
+                                            placeholder='{\n  "nombre": "{{nombre}}",\n  "cualificacion": "{{score}}"\n}'
                                             className="w-full min-h-[100px] bg-black/40 border border-white/5 rounded-2xl p-4 text-[10px] font-mono text-cyan-200/40 focus:text-cyan-200/80 transition-all outline-none"
                                         />
                                     </div>
@@ -856,10 +918,12 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
                             {selectedNode.type === 'flow_ai' && (
                                 <div className="space-y-5">
                                     <div className="space-y-3">
-                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Modelo</label>
+                                        <label htmlFor="ai-model" className="text-[9px] font-black uppercase tracking-widest text-white/30">Modelo</label>
                                         <select 
+                                            id="ai-model"
                                             value={selectedNode.data.model || "gpt-4o"}
                                             onChange={(e) => updateNodeData(selectedNode.id, { model: e.target.value })}
+                                            title="Seleccionar modelo de IA"
                                             className="w-full h-11 bg-purple-500/10 border border-purple-500/20 rounded-xl px-4 text-xs font-black text-purple-400"
                                         >
                                             <option value="gpt-4o">GPT-4o (Máxima Calidad)</option>
@@ -868,10 +932,12 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
                                         </select>
                                     </div>
                                     <div className="space-y-3">
-                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Tarea Predeterminada</label>
+                                        <label htmlFor="ai-task" className="text-[9px] font-black uppercase tracking-widest text-white/30">Tarea Predeterminada</label>
                                         <select 
+                                            id="ai-task"
                                             value={selectedNode.data.task || "Clasificar intención"}
                                             onChange={(e) => updateNodeData(selectedNode.id, { task: e.target.value })}
+                                            title="Seleccionar tarea de IA"
                                             className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-xs text-white/80"
                                         >
                                             <option value="sentiment">Análisis de Sentimiento</option>
@@ -907,7 +973,7 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
     );
 }
 
-function ToolButton({ onClick, icon: Icon, label, color }: { onClick: () => void; icon: any; label: string; color: string }) {
+function ToolButton({ onClick, icon: Icon, label, color }: { onClick: () => void; icon: LucideIcon; label: string; color: string }) {
     return (
         <button 
             onClick={onClick} 

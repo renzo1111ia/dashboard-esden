@@ -40,7 +40,7 @@ export async function loginAction(email: string, password: string) {
     if (!isAdmin && data.user) {
         const tenant = await getTenantByUserId(data.user.id);
         if (tenant) {
-            await setTenantCookies(tenant.supabase_url, tenant.supabase_anon_key, tenant.name);
+            await setTenantCookies(tenant.id, tenant.name);
         }
     }
 

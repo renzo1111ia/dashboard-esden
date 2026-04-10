@@ -38,8 +38,8 @@ export class Orchestrator {
         if (!isNativeEnabled) return;
 
         const supabase = await getSupabaseServerClient();
-        const { data: lead, error } = await supabase
-            .from("lead").select("*").eq("id", leadId).single();
+        const { data: lead, error } = await (supabase
+            .from("lead" as any) as any).select("*").eq("id", leadId).single();
         if (error || !lead) return;
 
         // Load tenant's orchestrator config
@@ -137,8 +137,8 @@ export class Orchestrator {
      */
     public async executeWorkflow(workflowId: string, lead: Lead, tenantId: string, context: Record<string, unknown>) {
         const supabase = await getSupabaseServerClient();
-        const { data: rules } = await supabase
-            .from("orchestration_rules").select("*")
+        const { data: rules } = await (supabase
+            .from("orchestration_rules" as any) as any).select("*")
             .eq("workflow_id", workflowId).eq("is_active", true)
             .order("sequence_order", { ascending: true });
 
@@ -255,11 +255,10 @@ export class Orchestrator {
         const supabase = await getSupabaseServerClient();
         
         // 1. Get the programs this lead is interested in
-        const { data: leadPrograms } = await supabase
-            .from("lead_programas")
+        const { data: leadPrograms } = await (supabase
+            .from("lead_programas" as any) as any)
             .select("id_programa")
-            .eq("id_lead", leadId)
-            .returns<LeadPrograma[]>();
+            .eq("id_lead", leadId);
 
         if (!leadPrograms || leadPrograms.length === 0) {
             return {
@@ -269,8 +268,8 @@ export class Orchestrator {
         }
 
         // 2. Get details for the first/primary program
-        const { data: program } = await supabase
-            .from("programas")
+        const { data: program } = await (supabase
+            .from("programas" as any) as any)
             .select("*")
             .eq("id", leadPrograms[0].id_programa)
             .single();
@@ -341,7 +340,7 @@ export class Orchestrator {
             tenantId,
             workflowId: "sequence",
             step: stepIndex,
-            action: step.action,
+            action: step.action as any,
             template: step.template,
         };
 
@@ -392,8 +391,8 @@ export class Orchestrator {
         }
 
         // Continue chain
-        const { data: nextRule } = await supabase
-            .from("orchestration_rules").select("*")
+        const { data: nextRule } = await (supabase
+            .from("orchestration_rules" as any) as any).select("*")
             .eq("workflow_id", workflow_id).eq("is_active", true)
             .eq("sequence_order", (rule.sequence_order || 1) + 1).single();
 

@@ -209,6 +209,8 @@ export default function SettingsPage() {
                                                         <button
                                                             type="button"
                                                             onClick={() => setShowNewForm(false)}
+                                                            title="Cerrar formulario"
+                                                            aria-label="Cerrar formulario de nuevo cliente"
                                                             className="h-9 w-9 flex items-center justify-center rounded-xl bg-white text-slate-400 hover:text-red-500 border border-slate-100 shadow-sm transition-all"
                                                         >
                                                             <X className="h-5 w-5" />
@@ -463,8 +465,22 @@ export default function SettingsPage() {
                                             </td>
                                             <td className="px-6 py-4 text-right pr-8">
                                                 <div className="flex items-center justify-end gap-2">
-                                                    <button onClick={() => startEdit(t)} className="h-9 w-9 flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"><Edit2 className="h-4 w-4" /></button>
-                                                    <button onClick={() => handleDelete(t.id)} className="h-9 w-9 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 className="h-4 w-4" /></button>
+                                                    <button 
+                                                        onClick={() => startEdit(t)} 
+                                                        title="Editar cliente"
+                                                        aria-label={`Editar cliente ${t.name}`}
+                                                        className="h-9 w-9 flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                                    >
+                                                        <Edit2 className="h-4 w-4" />
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleDelete(t.id)} 
+                                                        title="Eliminar cliente"
+                                                        aria-label={`Eliminar cliente ${t.name}`}
+                                                        className="h-9 w-9 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </button>
                                                 </div>
                                             </td>
                                         </>

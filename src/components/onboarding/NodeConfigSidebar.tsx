@@ -317,7 +317,7 @@ export function NodeConfigSidebar({ node, onSave, onClose }: NodeConfigSidebarPr
                             </button>
                         </div>
 
-                        {config.sendWhatsApp && (
+                        {Boolean(config.sendWhatsApp) && (
                             <motion.div 
                                 initial={{ opacity: 0, height: 0 }}
                                 animate={{ opacity: 1, height: 'auto' }}

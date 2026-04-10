@@ -7,8 +7,8 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 export async function isFeatureEnabled(tenantId: string, flagKey: string): Promise<boolean> {
     const supabase = await getSupabaseServerClient();
     
-    const { data, error } = await supabase
-        .from("feature_flags")
+    const { data, error } = await (supabase
+        .from("feature_flags" as any) as any)
         .select("is_enabled")
         .or(`tenant_id.eq.${tenantId},tenant_id.is.null`) // Check tenant or global
         .eq("flag_key", flagKey)

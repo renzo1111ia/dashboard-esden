@@ -81,8 +81,8 @@ export async function getOrchestratorConfig(): Promise<{ success: boolean; data?
         if (!tenant) return { success: false, error: "No active tenant" };
 
         const supabase = await getSupabaseServerClient();
-        const { data, error } = await supabase
-            .from("tenant_orchestrator_config")
+        const { data, error } = await (supabase
+            .from("tenant_orchestrator_config" as any) as any)
             .select("config")
             .eq("tenant_id", tenant.id)
             .single();
@@ -110,9 +110,9 @@ export async function saveOrchestratorConfig(config: TenantOrchestratorConfig): 
         if (!tenant) return { success: false, error: "No active tenant" };
 
         const supabase = await getSupabaseServerClient();
-        const { error } = await supabase
-            .from("tenant_orchestrator_config")
-            .upsert({ tenant_id: tenant.id, config } as never, { onConflict: "tenant_id" });
+        const { error } = await (supabase
+            .from("tenant_orchestrator_config" as any) as any)
+            .upsert({ tenant_id: tenant.id, config }, { onConflict: "tenant_id" });
 
         if (error) return { success: false, error: error.message };
         return { success: true };
@@ -129,8 +129,8 @@ export async function saveOrchestratorConfig(config: TenantOrchestratorConfig): 
 export async function getOrchestratorConfigForTenant(tenantId: string): Promise<TenantOrchestratorConfig> {
     try {
         const supabase = await getSupabaseServerClient();
-        const { data } = await supabase
-            .from("tenant_orchestrator_config")
+        const { data } = await (supabase
+            .from("tenant_orchestrator_config" as any) as any)
             .select("config")
             .eq("tenant_id", tenantId)
             .single();

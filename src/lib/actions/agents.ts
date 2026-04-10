@@ -20,8 +20,8 @@ async function getTenantClient() {
  */
 export async function getAIAgents() {
     const supabase = await getTenantClient();
-    const { data, error } = await supabase
-        .from("ai_agents")
+    const { data, error } = await (supabase
+        .from("ai_agents" as any) as any)
         .select("*")
         .order("created_at", { ascending: false });
 
@@ -34,8 +34,8 @@ export async function getAIAgents() {
  */
 export async function getAgentVariants(agentId: string) {
     const supabase = await getTenantClient();
-    const { data, error } = await supabase
-        .from("ai_agent_variants")
+    const { data, error } = await (supabase
+        .from("ai_agent_variants" as any) as any)
         .select("*")
         .eq("agent_id", agentId)
         .order("version_label", { ascending: true });
@@ -49,8 +49,8 @@ export async function getAgentVariants(agentId: string) {
  */
 export async function saveAIAgent(agent: Partial<AIAgent>) {
     const supabase = await getTenantClient();
-    const { data, error } = await supabase
-        .from("ai_agents")
+    const { data, error } = await (supabase
+        .from("ai_agents" as any) as any)
         .upsert(agent as any) // Supabase UPSERT type helper can be picky
         .select()
         .single();
@@ -64,8 +64,8 @@ export async function saveAIAgent(agent: Partial<AIAgent>) {
  */
 export async function saveAgentVariant(variant: Partial<AIAgentVariant>) {
     const supabase = await getTenantClient();
-    const { data, error } = await supabase
-        .from("ai_agent_variants")
+    const { data, error } = await (supabase
+        .from("ai_agent_variants" as any) as any)
         .upsert(variant as any)
         .select()
         .single();

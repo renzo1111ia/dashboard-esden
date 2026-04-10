@@ -38,7 +38,7 @@ export class AgentFactory {
             case "GEMINI":
                 return new ChatGoogleGenerativeAI({
                     apiKey: config.apiKey,
-                    modelName: config.modelName || "gemini-1.5-pro",
+                    model: config.modelName || "gemini-1.5-pro",
                     temperature: config.temperature || 0.7,
                 });
             default:

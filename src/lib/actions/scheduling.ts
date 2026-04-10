@@ -41,8 +41,8 @@ export async function getAdvisors() {
     if (!tenant) return { error: "No tenant" };
 
     const supabase = await getSupabaseServerClient();
-    const { data, error } = await supabase
-        .from("advisors")
+    const { data, error } = await (supabase
+        .from("advisors" as any) as any)
         .select("*")
         .eq("tenant_id", tenant.id)
         .order("name");
@@ -59,8 +59,8 @@ export async function saveAdvisor(advisor: Partial<Advisor> & { id?: string }) {
     const payload = { ...advisor, tenant_id: tenant.id };
 
     const { data, error } = advisor.id
-        ? await supabase.from("advisors").update(payload as never).eq("id", advisor.id).select().single()
-        : await supabase.from("advisors").insert(payload as never).select().single();
+        ? await (supabase.from("advisors" as any) as any).update(payload as any).eq("id", advisor.id).select().single()
+        : await (supabase.from("advisors" as any) as any).insert(payload as any).select().single();
 
     if (error) return { error: error.message };
     return { success: true, data };
@@ -68,7 +68,7 @@ export async function saveAdvisor(advisor: Partial<Advisor> & { id?: string }) {
 
 export async function deleteAdvisor(advisorId: string) {
     const supabase = await getSupabaseServerClient();
-    const { error } = await supabase.from("advisors").delete().eq("id", advisorId);
+    const { error } = await (supabase.from("advisors" as any) as any).delete().eq("id", advisorId);
     if (error) return { error: error.message };
     return { success: true };
 }
@@ -77,8 +77,8 @@ export async function deleteAdvisor(advisorId: string) {
 
 export async function getAdvisorSlots(advisorId: string) {
     const supabase = await getSupabaseServerClient();
-    const { data, error } = await supabase
-        .from("availability_slots")
+    const { data, error } = await (supabase
+        .from("availability_slots" as any) as any)
         .select("*")
         .eq("advisor_id", advisorId)
         .order("day_of_week");
@@ -90,13 +90,13 @@ export async function getAdvisorSlots(advisorId: string) {
 export async function saveAdvisorSlots(advisorId: string, slots: Partial<AvailabilitySlot>[]) {
     const supabase = await getSupabaseServerClient();
     // Delete existing and re-insert (simplest approach for slot management)
-    await supabase.from("availability_slots").delete().eq("advisor_id", advisorId);
+    await (supabase.from("availability_slots" as any) as any).delete().eq("advisor_id", advisorId);
 
     if (slots.length === 0) return { success: true };
 
-    const { error } = await supabase
-        .from("availability_slots")
-        .insert(slots.map(s => ({ ...s, advisor_id: advisorId })) as never);
+    const { error } = await (supabase
+        .from("availability_slots" as any) as any)
+        .insert(slots.map(s => ({ ...s, advisor_id: advisorId })) as any);
 
     if (error) return { error: error.message };
     return { success: true };
@@ -114,8 +114,8 @@ export async function getAppointments(options?: {
     if (!tenant) return { error: "No tenant" };
 
     const supabase = await getSupabaseServerClient();
-    let query = supabase
-        .from("appointments")
+    let query = (supabase
+        .from("appointments" as any) as any)
         .select("*, advisors(name), lead(nombre, apellido, telefono)")
         .eq("tenant_id", tenant.id)
         .order("scheduled_at", { ascending: true });
@@ -132,9 +132,9 @@ export async function getAppointments(options?: {
 
 export async function updateAppointmentStatus(appointmentId: string, status: string) {
     const supabase = await getSupabaseServerClient();
-    const { error } = await supabase
-        .from("appointments")
-        .update({ status, updated_at: new Date().toISOString() } as never)
+    const { error } = await (supabase
+        .from("appointments" as any) as any)
+        .update({ status, updated_at: new Date().toISOString() } as any)
         .eq("id", appointmentId);
 
     if (error) return { error: error.message };
@@ -148,8 +148,8 @@ export async function getABMetrics(agentId?: string) {
     if (!tenant) return { error: "No tenant" };
 
     const supabase = await getSupabaseServerClient();
-    let query = supabase
-        .from("orchestration_logs")
+    let query = (supabase
+        .from("orchestration_logs" as any) as any)
         .select("ab_variant, result, action_type, agent_used, executed_at")
         .eq("tenant_id", tenant.id)
         .not("ab_variant", "is", null);
@@ -161,7 +161,7 @@ export async function getABMetrics(agentId?: string) {
 
     // Aggregate
     const stats = { A: { total: 0, success: 0 }, B: { total: 0, success: 0 } };
-    (data || []).forEach((row) => {
+    (data || []).forEach((row: any) => {
         const v = row.ab_variant as "A" | "B";
         if (!stats[v]) return;
         stats[v].total++;

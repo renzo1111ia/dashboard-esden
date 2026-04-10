@@ -109,7 +109,12 @@ export default function AgentsPage() {
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button onClick={loadAgents} className="h-11 w-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all font-bold">
+                    <button 
+                        onClick={loadAgents} 
+                        title="Recargar agentes"
+                        aria-label="Recargar lista de agentes"
+                        className="h-11 w-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all font-bold"
+                    >
                         <RotateCcw className="h-4 w-4 text-white/40" />
                     </button>
                     <button 

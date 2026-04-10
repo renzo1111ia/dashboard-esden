@@ -20,8 +20,8 @@ export async function GET() {
 
         // 1. Get pending actions that are due
         const now = new Date().toISOString();
-        const { data: actions, error: fetchError } = await supabase
-            .from("planned_actions")
+        const { data: actions, error: fetchError } = await (supabase
+            .from("planned_actions" as any) as any)
             .select("*, lead(*), workflows(*)")
             .eq("status", "PENDING")
             .lte("scheduled_for", now)
@@ -44,8 +44,8 @@ export async function GET() {
                 await orchestrator.executePlannedAction(action);
 
                 // 3. Mark as executed
-                await supabase
-                    .from("planned_actions")
+                await (supabase
+                    .from("planned_actions" as any) as any)
                     .update({ status: "EXECUTED", updated_at: new Date().toISOString() })
                     .eq("id", action.id);
                 
@@ -54,8 +54,8 @@ export async function GET() {
                 console.error(`[SWEEP] Failed to process action ${action.id}:`, err.message);
                 
                 // 4. Mark as failed
-                await supabase
-                    .from("planned_actions")
+                await (supabase
+                    .from("planned_actions" as any) as any)
                     .update({ 
                         status: "FAILED", 
                         error_message: err.message,

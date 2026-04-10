@@ -22,8 +22,8 @@ export async function GET(req: Request) {
         if (!tenantId) return NextResponse.json({ error: "Missing tenantId" }, { status: 400 });
 
         const supabase = await getAdminSupabaseClient();
-        const { data, error } = await supabase
-            .from("workflows")
+        const { data, error } = await (supabase
+            .from("workflows" as any) as any)
             .select("*")
             .eq("tenant_id", tenantId)
             .order("created_at", { ascending: false });
@@ -53,15 +53,15 @@ export async function POST(req: Request) {
 
         // If setting as primary, unset others first
         if (isPrimary) {
-            const { error: clearError } = await supabase
-                .from("workflows")
+            const { error: clearError } = await (supabase
+                .from("workflows" as any) as any)
                 .update({ is_primary: false })
                 .eq("tenant_id", tenantId);
             if (clearError) throw clearError;
         }
 
-        const { data: workflowData, error: workflowError } = await supabase
-            .from("workflows")
+        const { data: workflowData, error: workflowError } = await (supabase
+            .from("workflows" as any) as any)
             .insert({
                 tenant_id: tenantId,
                 name: name,
@@ -81,8 +81,8 @@ export async function POST(req: Request) {
         }
 
         // Initialize a blank graph for this workflow - MUST succeed
-        const { error: graphError } = await supabase
-            .from("orchestration_graphs")
+        const { error: graphError } = await (supabase
+            .from("orchestration_graphs" as any) as any)
             .insert({
                 tenant_id: tenantId,
                 workflow_id: workflowData.id,

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { retellBridge, RetellConfig } from "@/lib/integrations/retell";
 import { z } from "zod";
+import { Tenant } from "@/types/tenant";
 
 const callSchema = z.object({
     phoneNumber: z.string().min(8),
@@ -22,8 +23,8 @@ export async function POST(req: Request) {
         const supabase = await getSupabaseServerClient();
 
         // 1. Fetch Tenant Config (API Keys)
-        const { data: tenant, error: tenantError } = await (supabase
-            .from("tenants") as any)
+        const { data: tenant, error: tenantError } = await supabase
+            .from("tenants")
             .select("*")
             .eq("id", tenantId)
             .single();
@@ -32,10 +33,15 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
         }
 
-        const config = tenant.config as any;
-        const retellConfig: RetellConfig = { apiKey: config?.retell?.apiKey };
-        const targetAgentId = agentId || config?.retell?.qualifyAgentId;
-        const fromNumber = config?.retell?.fromNumber;
+        const tenantData = tenant as unknown as Tenant;
+        const config = (tenantData.config || {}) as Record<string, unknown>;
+        const retell = (config.retell || {}) as Record<string, unknown>;
+        
+        const apiKey = typeof retell.apiKey === "string" ? retell.apiKey : "";
+        const targetAgentId = agentId || (typeof retell.qualifyAgentId === "string" ? retell.qualifyAgentId : "");
+        const fromNumber = typeof retell.fromNumber === "string" ? retell.fromNumber : "";
+
+        const retellConfig: RetellConfig = { apiKey };
 
         if (!retellConfig.apiKey || !targetAgentId || !fromNumber) {
             return NextResponse.json({ error: "Retell configuration incomplete for this tenant" }, { status: 400 });
@@ -51,13 +57,11 @@ export async function POST(req: Request) {
             retellConfig
         );
 
-        // 3. Log attempt (Optional but recommended)
-        // await supabase.from('intentos_llamadas').insert({...});
-
         return NextResponse.json({ success: true, callId: callData.call_id });
 
-    } catch (error: any) {
-        console.error("[API_MANUAL_CALL] Error:", error.message);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : "An unknown error occurred";
+        console.error("[API_MANUAL_CALL] Error:", msg);
+        return NextResponse.json({ error: msg }, { status: 500 });
     }
 }

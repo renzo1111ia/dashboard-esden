@@ -1,6 +1,6 @@
 "use server";
 
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseServerClient, getActiveTenantId } from "@/lib/supabase/server";
 import type { 
     HistorialRow, 
     IntentoLlamada, 
@@ -102,7 +102,7 @@ export async function fetchCalls({
                     confirmado,
                     fecha_creacion
                 ),
-                intentos ( id ),
+                intentos:intentos_llamadas ( id ),
                 conversaciones_whatsapp (
                     opt_in_whatsapp,
                     estado,
@@ -254,7 +254,7 @@ export async function getCallsByPhone(phone: string): Promise<HistorialRow[]> {
                 agendamientos (
                     fecha_agendada_cliente, confirmado, fecha_creacion
                 ),
-                intentos ( id ),
+                intentos:intentos_llamadas ( id ),
                 conversaciones_whatsapp (
                     opt_in_whatsapp,
                     estado,
@@ -345,7 +345,7 @@ export async function fetchIntentosByPhone(phone: string): Promise<IntentoLlamad
     try {
         const supabase = await getSupabaseServerClient();
         const { data, error } = await supabase
-            .from("intentos")
+            .from("intentos_llamadas")
             .select(`
                 *,
                 lead:id_lead!inner ( id, nombre, apellido, telefono )
@@ -387,23 +387,17 @@ export async function fetchWhatsappByPhone(phone: string) {
 
 // ─── CREATE LEAD ─────────────────────────────────────────────────────────────
 
-interface SupabaseWorkaround {
-    from: (table: string) => {
-        insert: (values: unknown) => {
-            select: () => {
-                single: () => Promise<{ data: Record<string, unknown> | null; error: { message: string } | null }>;
-            };
-        };
-    };
-}
 
 export async function createLead(data: Partial<HistorialRow> & { id_programa?: string }) {
     try {
         const client = await getSupabaseServerClient();
-        const supabase = client as unknown as SupabaseWorkaround;
+        const tenantId = await getActiveTenantId();
         
+        if (!tenantId) throw new Error("No active tenant selected");
+
         // 1. Insert into lead table
-        const leadData: Record<string, unknown> = {
+        const leadData = {
+            tenant_id: tenantId,
             nombre: data.nombre,
             apellido: data.apellido,
             telefono: data.telefono,
@@ -415,9 +409,10 @@ export async function createLead(data: Partial<HistorialRow> & { id_programa?: s
             fecha_ingreso_crm: new Date().toISOString(),
         };
 
-        const { data: newLead, error: leadError } = await supabase
+        const { data: newLead, error: leadError } = await client
             .from("lead")
-            .insert(leadData)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .insert(leadData as any)
             .select()
             .single();
 
@@ -425,12 +420,12 @@ export async function createLead(data: Partial<HistorialRow> & { id_programa?: s
 
         // 2. If program is selected, associate it
         if (data.id_programa && newLead) {
-            await supabase
+            await client
                 .from("lead_programas")
                 .insert({
-                    id_lead: newLead.id,
+                    id_lead: (newLead as any).id, // eslint-disable-line @typescript-eslint/no-explicit-any
                     id_programa: data.id_programa
-                });
+                } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
         }
 
         return { success: true, data: newLead as unknown as Lead };

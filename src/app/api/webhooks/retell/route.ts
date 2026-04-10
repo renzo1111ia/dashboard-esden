@@ -51,8 +51,8 @@ export async function POST(req: Request) {
         const supabaseAdmin = getAdminSupabase();
 
         // 1. Insert formal call record in `llamadas` table for Analytics and History
-        const { error: llamadaError, data: llamadaInsertRaw } = await supabaseAdmin
-            .from("llamadas")
+        const { error: llamadaError, data: llamadaInsertRaw } = await (supabaseAdmin
+            .from("llamadas" as any) as any)
             .insert({
                 tenant_id: tenantId,
                 id_lead: leadId,
@@ -85,8 +85,8 @@ export async function POST(req: Request) {
         });
 
         // 3. Insert as a system log type message in the Inbox
-        const { error: insertError } = await supabaseAdmin
-            .from("chat_messages")
+        const { error: insertError } = await (supabaseAdmin
+            .from("chat_messages" as any) as any)
             .insert({
                 tenant_id: tenantId,
                 lead_id: leadId,
