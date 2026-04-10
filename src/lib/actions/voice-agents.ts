@@ -16,8 +16,8 @@ export async function getVoiceAgents() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("No autenticado");
 
-        const { data, error } = await supabase
-            .from('voice_agents')
+        const { data, error } = await (supabase
+            .from('voice_agents' as any) as any)
             .select('*')
             .order('created_at', { ascending: false });
 
@@ -31,8 +31,8 @@ export async function getVoiceAgents() {
 
 export async function getVoiceAgentVariants(agentId: string) {
     try {
-        const { data, error } = await supabase
-            .from('voice_agent_variants')
+        const { data, error } = await (supabase
+            .from('voice_agent_variants' as any) as any)
             .select('*')
             .eq('agent_id', agentId)
             .order('created_at', { ascending: true });
@@ -50,17 +50,17 @@ export async function saveVoiceAgent(agent: Partial<VoiceAgent>) {
         if (!user) throw new Error("No autenticado");
 
         // Obtenemos el tenant activo del usuario para inyectarlo
-        const { data: userData } = await supabase
-            .from('tenants')
+        const { data: userData } = await (supabase
+            .from('tenants' as any) as any)
             .select('id')
             .eq('id', user.id) // En este esquema user.id suele ser el tenant_id admin
             .single();
 
-        const tenantId = userData?.id || user.id;
+        const tenantId = (userData as any)?.id || user.id;
 
         if (agent.id) {
-            const { data, error } = await supabase
-                .from('voice_agents')
+            const { data, error } = await (supabase
+                .from('voice_agents' as any) as any)
                 .update({ ...agent, updated_at: new Date().toISOString() })
                 .eq('id', agent.id)
                 .select()
@@ -68,17 +68,17 @@ export async function saveVoiceAgent(agent: Partial<VoiceAgent>) {
             if (error) throw error;
             return { success: true, data: data as VoiceAgent };
         } else {
-            const { data, error } = await supabase
-                .from('voice_agents')
+            const { data, error } = await (supabase
+                .from('voice_agents' as any) as any)
                 .insert([{ ...agent, tenant_id: tenantId }])
                 .select()
                 .single();
             if (error) throw error;
             
             // Crear variantes iniciales por defecto A y B
-            await supabase.from('voice_agent_variants').insert([
-                { agent_id: data.id, is_variant_b: false, version_label: 'v1.0', prompt_text: 'Instrucciones iniciales...', weight: 0.5 },
-                { agent_id: data.id, is_variant_b: true, version_label: 'v1.0', prompt_text: 'Instrucciones iniciales...', weight: 0.5 }
+            await (supabase.from('voice_agent_variants' as any) as any).insert([
+                { agent_id: (data as any).id, is_variant_b: false, version_label: 'v1.0', prompt_text: 'Instrucciones iniciales...', weight: 0.5 },
+                { agent_id: (data as any).id, is_variant_b: true, version_label: 'v1.0', prompt_text: 'Instrucciones iniciales...', weight: 0.5 }
             ]);
 
             return { success: true, data: data as VoiceAgent };
@@ -91,14 +91,14 @@ export async function saveVoiceAgent(agent: Partial<VoiceAgent>) {
 export async function saveVoiceVariant(variant: Partial<VoiceAgentVariant>) {
     try {
         if (variant.id) {
-            const { error } = await supabase
-                .from('voice_agent_variants')
+            const { error } = await (supabase
+                .from('voice_agent_variants' as any) as any)
                 .update({ ...variant, updated_at: new Date().toISOString() })
                 .eq('id', variant.id);
             if (error) throw error;
         } else {
-            const { error } = await supabase
-                .from('voice_agent_variants')
+            const { error } = await (supabase
+                .from('voice_agent_variants' as any) as any)
                 .insert([variant]);
             if (error) throw error;
         }
