@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useEffect, useState } from "react";
@@ -14,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { 
     Plus, Trash2, Edit2, Check, X, Shield, Globe, Building2, Zap 
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Tenant } from "@/types/tenant";
 import { KpiBuilder } from "./KpiBuilder";
 import { IntegrationsManager } from "./IntegrationsManager";
@@ -377,7 +379,7 @@ export default function SettingsPage() {
                                                                     <Zap className="h-4 w-4 text-blue-600" /> Servidodes Externos e Integraciones
                                                                 </h3>
                                                                 <IntegrationsManager 
-                                                                    config={(typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : (editForm.config || {}))}
+                                                                    config={(typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : (editForm.config as Record<string, unknown>))}
                                                                     onChange={(newConf) => {
                                                                         setEditForm({ ...editForm, config: JSON.stringify(newConf, null, 2) as any });
                                                                     }}
