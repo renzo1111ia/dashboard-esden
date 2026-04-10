@@ -13,30 +13,52 @@ console.log("[WORKER] 🚀 ESDEN Lead Sequence Worker starting...");
 console.log(`[WORKER] Redis: ${process.env.REDIS_URL || "redis://localhost:6379"}`);
 
 const worker = createLeadWorker(async (job) => {
-    const { leadId, tenantId, workflowId, step, action } = job.data;
+    const { leadId, tenantId, workflowId, step, action, transcript, callId } = job.data;
     
-    console.log(`[WORKER] Processing job ${job.id}: Lead ${leadId} step ${step} (${action})`);
+    console.log(`[WORKER] Incoming job ${job.id}: Action: ${action} | Lead: ${leadId}`);
 
-    // Fetch the lead from the database
-    const supabase = await getSupabaseServerClient();
-    const { data: lead, error } = await supabase
-        .from("lead")
-        .select("*")
-        .eq("id", leadId)
-        .single();
-
-    if (error || !lead) {
-        throw new Error(`Lead ${leadId} not found: ${error?.message}`);
+    // 1. HANDLER: Recurring Watchdog Scan
+    if (action === "WATCHDOG_SCAN") {
+        const { appointmentWatchdog } = await import("./src/lib/core/processors/AppointmentWatchdog.js");
+        await appointmentWatchdog.run();
+        return;
     }
 
-    // Load tenant config
-    const { getOrchestratorConfigForTenant } = await import("./src/lib/actions/orchestrator-config.js");
-    const config = await getOrchestratorConfigForTenant(tenantId);
-    const sequence = config.sequence;
+    // 2. HANDLER: Deep Qualification Analysis (Post-Call)
+    if (action === "QUALIFY_ANALYSIS") {
+        const { qualificationProcessor } = await import("./src/lib/core/processors/QualificationProcessor.js");
+        if (!transcript) throw new Error("Missing transcript for analysis");
+        await qualificationProcessor.process({ leadId, tenantId, transcript, callId });
+        return;
+    }
 
-    // Execute the specific step
-    await orchestrator.executeSequenceStep(lead as any, tenantId, sequence, step, config);
+    // 3. HANDLER: Standard Lead Sequence Step (Calls, WhatsApp, etc)
+    if (action === "call" || action === "whatsapp" || action === "ai_agent") {
+        // Fetch the lead
+        const supabase = await getSupabaseServerClient();
+        const { data: lead, error } = await supabase
+            .from("lead")
+            .select("*")
+            .eq("id", leadId)
+            .single();
+
+        if (error || !lead) throw new Error(`Lead ${leadId} not found`);
+
+        // Load tenant config
+        const { getOrchestratorConfigForTenant } = await import("./src/lib/actions/orchestrator-config.js");
+        const config = await getOrchestratorConfigForTenant(tenantId);
+        const sequence = config.sequence;
+
+        // Execute step
+        if (step !== undefined) {
+            await orchestrator.executeSequenceStep(lead as any, tenantId, sequence, step, config);
+        }
+    }
 });
+
+// Initialize Cron for Watchdog (If running as a background process)
+import { setupWatchdogCron } from "./src/lib/core/queue/lead-sequence-queue.js";
+setupWatchdogCron().catch(err => console.error("[WORKER] Failed to setup watchdog cron:", err));
 
 // Graceful shutdown
 process.on("SIGTERM", async () => {

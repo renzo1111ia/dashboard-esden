@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { Database } from "@/types/database";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
  * Handle Retell Webhook Callback
@@ -72,24 +75,14 @@ export async function POST(req: Request) {
              console.error("[RETELL WEBHOOK] Error saving llamada:", llamadaError);
         }
 
-        // 2. Update the Lead Qualification based on AI custom extraction
-        const qualification = callAnalysis.calificacion || callAnalysis.qualification;
-        if (qualification) {
-             await supabaseAdmin.from("lead_cualificacion").insert({
-                  tenant_id: tenantId,
-                  id_lead: leadId,
-                  id_llamada: llamadaInsert?.id,
-                  cualificacion: String(qualification).substring(0, 250),
-             } as never);
-        }
-
-        // Silent Lead pipeline/status update
-        const extractedTipo = callAnalysis.tipo_lead || callAnalysis.lead_status;
-        if (extractedTipo) {
-            await supabaseAdmin.from("lead").update({ 
-                tipo_lead: String(extractedTipo).toUpperCase().substring(0, 50) 
-            } as never).eq("id", leadId);
-        }
+        // 2. Delegate Deep Qualification Analysis to Background Worker
+        const { enqueueQualificationAnalysis } = await import("@/lib/core/queue/lead-sequence-queue");
+        await enqueueQualificationAnalysis({
+            leadId,
+            tenantId,
+            transcript,
+            callId: llamadaInsert?.id
+        });
 
         // 3. Insert as a system log type message in the Inbox
         const { error: insertError } = await supabaseAdmin
@@ -108,7 +101,7 @@ export async function POST(req: Request) {
                     analysis: callAnalysis,
                     llamada_db_id: llamadaInsert?.id
                 }
-            } as never);
+            } as any);
 
         if (insertError) {
             console.error("[RETELL WEBHOOK] Failed to insert chat_message:", insertError);
@@ -125,9 +118,6 @@ export async function POST(req: Request) {
 }
 
 // Ensure we have an admin client instance for the webhook
-import { createClient } from "@supabase/supabase-js";
-import { Database } from "@/types/database";
-
 function getAdminSupabase() {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY!; // Admin key

@@ -30,8 +30,12 @@ export interface AppointmentResult {
 export async function findAvailableAdvisor(
     tenantId: string,
     requestedAt: Date,
-    timezone = "Europe/Madrid"
+    options: {
+        timezone?: string;
+        programaId?: string;
+    } = {}
 ): Promise<AdvisorWithLoad | null> {
+    const timezone = options.timezone || "Europe/Madrid";
     const supabase = await getSupabaseServerClient();
 
     // 1. Get the local time in the tenant's timezone
@@ -40,7 +44,7 @@ export async function findAvailableAdvisor(
     const timeStr = `${String(localTime.getHours()).padStart(2, "0")}:${String(localTime.getMinutes()).padStart(2, "0")}`;
 
     // 2. Find all active advisors with an availability slot matching this day + time
-    const { data: slots, error: slotsError } = await supabase
+    let query = supabase
         .from("availability_slots")
         .select("advisor_id, advisors!inner(id, name, email, is_active, tenant_id)")
         .eq("day_of_week", dayOfWeek)
@@ -48,6 +52,20 @@ export async function findAvailableAdvisor(
         .gte("end_time", timeStr)
         .eq("advisors.tenant_id", tenantId)
         .eq("advisors.is_active", true);
+
+    // Filter by program specialization if provided
+    if (options.programaId) {
+        const { data: specialists } = await supabase
+            .from("advisor_programas")
+            .select("advisor_id")
+            .eq("programa_id", options.programaId);
+        
+        if (specialists && specialists.length > 0) {
+            query = query.in("advisor_id", specialists.map(s => s.advisor_id));
+        }
+    }
+
+    const { data: slots, error: slotsError } = await query;
 
     if (slotsError || !slots || slots.length === 0) {
         console.warn(`[SCHEDULER] No advisors available on day ${dayOfWeek} at ${timeStr} for tenant ${tenantId}`);
@@ -126,7 +144,10 @@ export async function bookAppointment(
     const advisor = await findAvailableAdvisor(
         tenantId,
         requestedAt,
-        options.timezone || "Europe/Madrid"
+        {
+            timezone: options.timezone || "Europe/Madrid",
+            // We'll need to pass programaId here eventually from the lead context
+        }
     );
 
     if (!advisor) {

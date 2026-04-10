@@ -48,12 +48,14 @@ export const LEAD_QUEUE_NAME = "lead_sequence_queue";
 export interface LeadSequenceJob {
     leadId: string;
     tenantId: string;
-    workflowId: string;
-    step: number;       // Which step in the sequence to execute
-    action: string;     // "call" | "whatsapp" | "ai_agent"
-    agentId?: string;   // Pre-selected agent (after A/B decision)
+    workflowId?: string;
+    step?: number;       // Which step in the sequence to execute
+    action: "call" | "whatsapp" | "ai_agent" | "QUALIFY_ANALYSIS" | "WATCHDOG_SCAN"; 
+    agentId?: string;   // Pre-selected agent
     template?: string;  // WhatsApp template
     abVariant?: "A" | "B";
+    transcript?: string; // For analysis jobs
+    callId?: string;     // For analysis jobs
 }
 
 /**
@@ -99,6 +101,40 @@ export async function enqueueLeadStep(
 
     console.log(`[QUEUE] Enqueued ${jobName} with delay ${Math.round(delayMs / 1000 / 60)}min`);
     return job.id || jobName;
+}
+
+/**
+ * Special enqueuer for deep qualification analysis jobs.
+ */
+export async function enqueueQualificationAnalysis(data: {
+    leadId: string;
+    tenantId: string;
+    transcript: string;
+    callId: string;
+}) {
+    const queue = getLeadQueue();
+    await queue.add(`qual:${data.leadId}:${data.callId}`, {
+        ...data,
+        action: "QUALIFY_ANALYSIS"
+    });
+}
+
+/**
+ * Special enqueuer for recurring watchdog scans.
+ * (Should be called once at initialization)
+ */
+export async function setupWatchdogCron() {
+    const queue = getLeadQueue();
+    await queue.add("watchdog_scan", { 
+        action: "WATCHDOG_SCAN", 
+        leadId: "system", 
+        tenantId: "system" 
+    }, {
+        repeat: { 
+            pattern: "*/15 * * * *" // Every 15 minutes
+        },
+        jobId: "watchdog_cron"
+    });
 }
 
 /**
