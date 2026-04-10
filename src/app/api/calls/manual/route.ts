@@ -47,6 +47,7 @@ export async function POST(req: Request) {
             targetAgentId,
             fromNumber,
             { source: "manual_dialer", tenant_id: tenantId },
+            {}, // No dynamic variables for manual call
             retellConfig
         );
 
