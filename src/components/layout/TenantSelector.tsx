@@ -27,12 +27,13 @@ export function TenantSelector({ collapsed, isAdmin }: { collapsed: boolean; isA
 
     async function handleSelect(t: Tenant) {
         setTenant({
-            supabaseUrl: t.supabase_url,
-            supabaseAnonKey: t.supabase_anon_key,
+            tenantId: t.id,
             tenantName: t.name,
-            config: t.config
+            config: t.config,
+            isAdmin: !!t.is_admin,
         });
-        await setTenantCookies(t.supabase_url, t.supabase_anon_key, t.name);
+        // Set a cookie with the tenant_id so server components can use it for RLS
+        await setTenantCookies(t.id, t.name);
         setIsOpen(false);
         router.push("/dashboard");
         router.refresh();
@@ -76,6 +77,7 @@ export function TenantSelector({ collapsed, isAdmin }: { collapsed: boolean; isA
                                     tenantName === t.name ? "text-primary font-bold bg-primary/10" : "text-popover-foreground font-medium"
                                 )}
                             >
+                                <Building2 className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
                                 <span className="flex-1 truncate">{t.name}</span>
                                 {tenantName === t.name && <Check className="h-4 w-4" />}
                             </button>

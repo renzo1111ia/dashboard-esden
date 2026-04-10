@@ -1,7 +1,7 @@
 "use server";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseServerClient, getActiveTenantId } from "@/lib/supabase/server";
 import { KpiConfig, ChartConfig } from "@/types/tenant";
 
 // â”€â”€â”€ SHARED TYPES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -138,6 +138,7 @@ function applyLeadFilters(query: any, filters: AnalyticsFilters, prefix?: string
 
 export async function getKpiGenerales(from: string, to: string, filters: AnalyticsFilters = {}): Promise<KpiGenerales> {
     const supabase = await getSupabaseServerClient();
+    const tenantId = await getActiveTenantId();
     const empty: KpiGenerales = {
         total_llamadas: 0, total_segundos: 0, total_leads: 0, total_leads_alcanzados: 0, total_contactados: 0,
         total_no_contacto: 0, tasa_contacto: 0, total_minutos: 0, tasa_agendamiento: 0,
@@ -149,13 +150,15 @@ export async function getKpiGenerales(from: string, to: string, filters: Analyti
         tiempo_ahorrado_formateado: "0h 0m"
     };
 
+    if (!tenantId) return empty;
+
     try {
         const [lRes, llRes, cRes, aRes, wRes] = await Promise.all([
-            applyLeadFilters(supabase.from("lead").select("id, pais, origen, campana, tipo_lead, fecha_ingreso_crm").gte("fecha_ingreso_crm", from).lte("fecha_ingreso_crm", to), filters),
-            applyLeadFilters(supabase.from("llamadas").select(`id, estado_llamada, razon_termino, fecha_inicio, duracion_segundos, lead:id_lead!inner(id, pais, origen, campana, tipo_lead)`).gte("fecha_inicio", from).lte("fecha_inicio", to), filters),
-            applyLeadFilters(supabase.from("lead_cualificacion").select(`cualificacion, motivo_anulacion, lead:id_lead!inner(id, pais, origen, campana, tipo_lead)`).gte("fecha_creacion", from).lte("fecha_creacion", to), filters),
-            applyLeadFilters(supabase.from("agendamientos").select(`id, fecha_agendada_cliente, confirmado, lead:id_lead!inner(id, pais, origen, campana, tipo_lead)`).eq("confirmado", true).gte("fecha_creacion", from).lte("fecha_creacion", to), filters),
-            applyLeadFilters(supabase.from("conversaciones_whatsapp").select(`id_lead, opt_in_whatsapp, lead:id_lead!inner(id, pais, origen, campana, tipo_lead)`).gte("fecha_creacion", from).lte("fecha_creacion", to), filters),
+            applyLeadFilters(supabase.from("lead").select("id, pais, origen, campana, tipo_lead, fecha_ingreso_crm").eq("tenant_id", tenantId).gte("fecha_ingreso_crm", from).lte("fecha_ingreso_crm", to), filters),
+            applyLeadFilters(supabase.from("llamadas").select(`id, estado_llamada, razon_termino, fecha_inicio, duracion_segundos, lead:id_lead!inner(id, pais, origen, campana, tipo_lead)`).eq("tenant_id", tenantId).gte("fecha_inicio", from).lte("fecha_inicio", to), filters),
+            applyLeadFilters(supabase.from("lead_cualificacion").select(`cualificacion, motivo_anulacion, lead:id_lead!inner(id, pais, origen, campana, tipo_lead)`).eq("tenant_id", tenantId).gte("fecha_creacion", from).lte("fecha_creacion", to), filters),
+            applyLeadFilters(supabase.from("agendamientos").select(`id, fecha_agendada_cliente, confirmado, lead:id_lead!inner(id, pais, origen, campana, tipo_lead)`).eq("tenant_id", tenantId).eq("confirmado", true).gte("fecha_creacion", from).lte("fecha_creacion", to), filters),
+            applyLeadFilters(supabase.from("conversaciones_whatsapp").select(`id_lead, opt_in_whatsapp, lead:id_lead!inner(id, pais, origen, campana, tipo_lead)`).eq("tenant_id", tenantId).gte("fecha_creacion", from).lte("fecha_creacion", to), filters),
         ]);
 
         const leadsData = (lRes.data || []) as any[];
@@ -209,11 +212,14 @@ export async function getKpiGenerales(from: string, to: string, filters: Analyti
     } catch { return empty; }
 }
 
+
 export async function getKpiMinutos(from: string, to: string, filters: AnalyticsFilters = {}): Promise<KpiMinutos> {
     const supabase = await getSupabaseServerClient();
+    const tenantId = await getActiveTenantId();
     const empty: KpiMinutos = { total_minutos: 0, total_segundos: 0, total_llamadas: 0, minutos_por_dia: [], duracion_media_segundos: 0, total_contactadas: 0, tasa_agendamiento: 0, tasa_conversion: 0, minutos_por_campana: [], minutos_por_estado: [], distribucion_duracion: [] };
+    if (!tenantId) return empty;
     try {
-        const q = applyLeadFilters(supabase.from("llamadas").select(`id, estado_llamada, duracion_segundos, fecha_inicio, lead:id_lead!inner(id, pais, origen, campana)`), filters).gte("fecha_inicio", from).lte("fecha_inicio", to);
+        const q = applyLeadFilters(supabase.from("llamadas").select(`id, estado_llamada, duracion_segundos, fecha_inicio, lead:id_lead!inner(id, pais, origen, campana)`).eq("tenant_id", tenantId), filters).gte("fecha_inicio", from).lte("fecha_inicio", to);
         const { data } = await q;
         const rows = (data || []) as any[];
         if (!rows.length) return empty;
@@ -234,9 +240,11 @@ export async function getKpiMinutos(from: string, to: string, filters: Analytics
 
 export async function getKpiWhatsapp(from: string, to: string, filters: AnalyticsFilters = {}): Promise<KpiWhatsapp> {
     const supabase = await getSupabaseServerClient();
+    const tenantId = await getActiveTenantId();
     const empty: KpiWhatsapp = { total_conversaciones: 0, total_leads_unicos: 0, total_agendados: 0, total_cualificados: 0, tasa_agendamiento: 0, tasa_conversion: 0, tasa_ilocalizables: 0, por_estado_conversacion: [], por_tipo_lead: [], por_origen: [], conversaciones_por_dia: [] };
+    if (!tenantId) return empty;
     try {
-        const q = applyLeadFilters(supabase.from("conversaciones_whatsapp").select(`id, id_lead, opt_in_whatsapp, lead:id_lead!inner(id, pais, origen, campana)`), filters).gte("fecha_creacion", from).lte("fecha_creacion", to);
+        const q = applyLeadFilters(supabase.from("conversaciones_whatsapp").select(`id, id_lead, opt_in_whatsapp, lead:id_lead!inner(id, pais, origen, campana)`).eq("tenant_id", tenantId), filters).gte("fecha_creacion", from).lte("fecha_creacion", to);
         const { data } = await q;
         const rows = (data || []) as any[];
         if (!rows.length) return empty;
@@ -247,13 +255,15 @@ export async function getKpiWhatsapp(from: string, to: string, filters: Analytic
 
 export async function getKpiCampanas(from: string, to: string, filters: AnalyticsFilters = {}): Promise<KpiCampanas> {
     const supabase = await getSupabaseServerClient();
+    const tenantId = await getActiveTenantId();
+    if (!tenantId) return { campanas: [], leads_por_campana: [], contactados_por_campana: [], cualif_por_campana: [], agendados_por_campana: [], minutos_por_campana: [], total_leads: 0, total_llamadas: 0, total_contactados: 0, total_agendados: 0, total_cualificados: 0, total_minutos: 0, total_segundos: 0, total_leads_alcanzados: 0, leads_por_dia: [] };
     try {
         const [lRes, llRes, aRes, qRes, wRes] = await Promise.all([
-            applyLeadFilters(supabase.from("lead").select("id, campana").gte("fecha_ingreso_crm", from).lte("fecha_ingreso_crm", to), filters),
-            applyLeadFilters(supabase.from("llamadas").select(`id, estado_llamada, duracion_segundos, id_lead, lead:id_lead!inner(campana)`).gte("fecha_inicio", from).lte("fecha_inicio", to), filters),
-            applyLeadFilters(supabase.from("agendamientos").select(`id, lead:id_lead!inner(campana)`).eq("confirmado", true).gte("fecha_creacion", from).lte("fecha_creacion", to), filters),
-            applyLeadFilters(supabase.from("lead_cualificacion").select(`id, cualificacion, lead:id_lead!inner(campana)`).gte("fecha_creacion", from).lte("fecha_creacion", to), filters),
-            applyLeadFilters(supabase.from("conversaciones_whatsapp").select(`id_lead, lead:id_lead!inner(campana)`).gte("fecha_creacion", from).lte("fecha_creacion", to), filters),
+            applyLeadFilters(supabase.from("lead").select("id, campana").eq("tenant_id", tenantId).gte("fecha_ingreso_crm", from).lte("fecha_ingreso_crm", to), filters),
+            applyLeadFilters(supabase.from("llamadas").select(`id, estado_llamada, duracion_segundos, id_lead, lead:id_lead!inner(campana)`).eq("tenant_id", tenantId).gte("fecha_inicio", from).lte("fecha_inicio", to), filters),
+            applyLeadFilters(supabase.from("agendamientos").select(`id, lead:id_lead!inner(campana)`).eq("tenant_id", tenantId).eq("confirmado", true).gte("fecha_creacion", from).lte("fecha_creacion", to), filters),
+            applyLeadFilters(supabase.from("lead_cualificacion").select(`id, cualificacion, lead:id_lead!inner(campana)`).eq("tenant_id", tenantId).gte("fecha_creacion", from).lte("fecha_creacion", to), filters),
+            applyLeadFilters(supabase.from("conversaciones_whatsapp").select(`id_lead, lead:id_lead!inner(campana)`).eq("tenant_id", tenantId).gte("fecha_creacion", from).lte("fecha_creacion", to), filters),
         ]);
         const campMap: Record<string, any> = {};
         const getC = (n: string) => campMap[n] || (campMap[n] = { 
@@ -315,8 +325,10 @@ export async function getKpiCampanas(from: string, to: string, filters: Analytic
 
 export async function getUniqueCampaigns(): Promise<string[]> {
     const supabase = await getSupabaseServerClient();
+    const tenantId = await getActiveTenantId();
+    if (!tenantId) return [];
     try {
-        const { data } = await supabase.from("lead").select("campana").not("campana", "is", null).not("campana", "eq", "");
+        const { data } = await supabase.from("lead").select("campana").eq("tenant_id", tenantId).not("campana", "is", null).not("campana", "eq", "");
         return Array.from(new Set((data || []).map((d: any) => d.campana))).sort();
     } catch { return []; }
 }
@@ -439,6 +451,8 @@ async function getGenericPartData(supabase: any, part: any, from: string, to: st
 
 export async function getSingleDynamicKpi(kpi: KpiConfig, from: string, to: string, filters: AnalyticsFilters) {
     const supabase = await getSupabaseServerClient();
+    const tenantId = await getActiveTenantId();
+    if (!tenantId) return 0;
     try {
         let num: number;
         if (kpi.isAdvanced && kpi.parts) {
@@ -514,6 +528,8 @@ export async function getDynamicChartSeries(
     filters: AnalyticsFilters = {}
 ): Promise<Record<string, any[]>> {
     const supabase = await getSupabaseServerClient();
+    const tenantId = await getActiveTenantId();
+    if (!tenantId) return {};
 
     const dynamicCharts = charts.filter(c => !c.isAdvanced && c.xKey);
 

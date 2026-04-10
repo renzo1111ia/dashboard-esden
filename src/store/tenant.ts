@@ -9,15 +9,17 @@ interface TenantState extends TenantConfig {
 }
 
 const DEFAULT_STATE: TenantConfig = {
-    supabaseUrl: "",
-    supabaseAnonKey: "",
+    tenantId: "",
     tenantName: "",
     config: {},
+    isAdmin: false,
 };
 
 /**
  * Zustand store for multi-tenant configuration.
  * Persists to sessionStorage so credentials clear on tab close.
+ * In the V2 centralized SaaS model, we only need tenantId + tenantName.
+ * All DB access uses the central Supabase instance with RLS enforcing isolation.
  */
 export const useTenantStore = create<TenantState>()(
     persist(
@@ -28,7 +30,7 @@ export const useTenantStore = create<TenantState>()(
             setTenant: (config) =>
                 set({
                     ...config,
-                    isConfigured: !!(config.supabaseUrl && config.supabaseAnonKey),
+                    isConfigured: !!config.tenantId,
                 }),
 
             clearTenant: () =>

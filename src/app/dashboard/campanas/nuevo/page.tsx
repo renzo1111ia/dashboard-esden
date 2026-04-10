@@ -1,25 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { 
     Megaphone, ArrowLeft, Save, Loader2, 
-    Calendar, FileText, Activity, CheckCircle2 
+    Calendar, FileText, Activity, CheckCircle2,
+    MessageSquare, Phone, Bot, Sparkles
 } from "lucide-react";
 import Link from "next/link";
 import { createCampaign } from "@/lib/actions/campanas";
+import { getAIAgents } from "@/lib/actions/agents";
+import { AIAgent } from "@/types/database";
 import { cn } from "@/lib/utils";
 
 export default function CreateCampaignPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
+    const [agents, setAgents] = useState<AIAgent[]>([]);
     const [formData, setFormData] = useState({
         nombre: "",
         descripcion: "",
         estado: "ACTIVA",
         fecha_inicio: new Date().toISOString().split('T')[0],
+        agente_texto_id: "",
+        agente_llamada_id: "",
     });
+
+    useEffect(() => {
+        async function loadAgents() {
+            const res = await getAIAgents();
+            if (res.success && res.data) {
+                setAgents(res.data);
+            }
+        }
+        loadAgents();
+    }, []);
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -153,6 +169,67 @@ export default function CreateCampaignPage() {
                                 placeholder="Breve descripción del objetivo de la campaña..."
                                 title="Descripción de la campaña"
                             />
+                        </div>
+                    </div>
+
+                    {/* Sección: Configuración de Agentes */}
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-2 px-1">
+                            <Bot className="h-4 w-4 text-primary" />
+                            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Inteligencia y Automatización</h3>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8 rounded-3xl bg-primary/5 border border-primary/10">
+                            <div className="space-y-3">
+                                <label 
+                                    htmlFor="text-agent"
+                                    className="text-[11px] font-black text-muted-foreground uppercase tracking-widest ml-1 flex items-center gap-2"
+                                >
+                                    <MessageSquare className="h-3 w-3 text-primary" />
+                                    Agente de Chat (WhatsApp)
+                                </label>
+                                <select 
+                                    id="text-agent"
+                                    value={formData.agente_texto_id}
+                                    onChange={e => setFormData({...formData, agente_texto_id: e.target.value})}
+                                    className="w-full bg-background border border-border rounded-2xl py-4 px-6 text-sm font-bold focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all outline-none appearance-none cursor-pointer"
+                                    title="Seleccionar agente de texto"
+                                >
+                                    <option value="">Sin Agente de Texto</option>
+                                    {agents.map(agent => (
+                                        <option key={agent.id} value={agent.id}>{agent.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="space-y-3">
+                                <label 
+                                    htmlFor="call-agent"
+                                    className="text-[11px] font-black text-muted-foreground uppercase tracking-widest ml-1 flex items-center gap-2"
+                                >
+                                    <Phone className="h-3 w-3 text-primary" />
+                                    Agente de Voz (Llamadas)
+                                </label>
+                                <select 
+                                    id="call-agent"
+                                    value={formData.agente_llamada_id}
+                                    onChange={e => setFormData({...formData, agente_llamada_id: e.target.value})}
+                                    className="w-full bg-background border border-border rounded-2xl py-4 px-6 text-sm font-bold focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all outline-none appearance-none cursor-pointer"
+                                    title="Seleccionar agente de voz"
+                                >
+                                    <option value="">Sin Agente de Voz</option>
+                                    {agents.map(agent => (
+                                        <option key={agent.id} value={agent.id}>{agent.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="col-span-full flex items-center gap-3 p-4 bg-white/5 rounded-2xl border border-white/5 mt-2">
+                                <Sparkles className="h-4 w-4 text-yellow-500" />
+                                <p className="text-[10px] text-muted-foreground font-medium leading-relaxed">
+                                    Los agentes seleccionados se encargarán de procesar las interacciones de los leads que ingresen a través de esta campaña.
+                                </p>
+                            </div>
                         </div>
                     </div>
 

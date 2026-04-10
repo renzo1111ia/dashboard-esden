@@ -7,6 +7,7 @@ export interface Tenant {
     client_email?: string;
     is_admin?: boolean;
     auth_user_id?: string;
+    api_type?: 'internal' | 'client';
     config: Record<string, unknown>;
     created_at?: string;
     updated_at?: string;
@@ -86,10 +87,8 @@ export interface ChartConfig {
 }
 
 export interface TenantConfig {
-    supabaseUrl: string;
-    supabaseAnonKey: string;
+    tenantId: string;
     tenantName: string;
-    kpis?: KpiConfig[];
-    charts?: ChartConfig[];
     config?: Record<string, unknown>;
+    isAdmin?: boolean;
 }

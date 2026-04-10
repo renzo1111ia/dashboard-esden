@@ -8,7 +8,9 @@ import { useTenantStore } from "@/store/tenant";
 
 import { 
     LayoutDashboard, Megaphone, MessageCircle, 
-    Clock, History, Settings, X, ChevronDown, PlusCircle 
+    Clock, History, Settings, X, ChevronDown, PlusCircle,
+    Workflow, Bot, ShieldCheck, BarChart3, PhoneCall, Terminal,
+    Calendar, Zap, MessageSquare, FlaskConical
 } from "lucide-react";
 import { TenantSelector } from "./TenantSelector";
 
@@ -20,6 +22,48 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+    {
+        label: "Gestión v2.0",
+        href: "/dashboard/onboarding",
+        icon: <Workflow className="h-5 w-5" strokeWidth={1.8} />,
+        subItems: [
+            {
+                label: "Constructor",
+                href: "/dashboard/onboarding",
+                icon: <PlusCircle className="h-4 w-4" strokeWidth={1.8} />
+            },
+            {
+                label: "Agentes AI",
+                href: "/dashboard/agents",
+                icon: <Bot className="h-4 w-4" strokeWidth={1.8} />
+            },
+            {
+                label: "Orquestador",
+                href: "/dashboard/orchestrator",
+                icon: <Zap className="h-4 w-4" strokeWidth={1.8} />
+            },
+            {
+                label: "Conversaciones",
+                href: "/dashboard/conversaciones",
+                icon: <MessageSquare className="h-4 w-4" strokeWidth={1.8} />
+            },
+            {
+                label: "Calendario",
+                href: "/dashboard/calendar",
+                icon: <Calendar className="h-4 w-4" strokeWidth={1.8} />
+            },
+            {
+                label: "Playground",
+                href: "/dashboard/playground",
+                icon: <Terminal className="h-4 w-4" strokeWidth={1.8} />
+            },
+            {
+                label: "Admin Panel",
+                href: "/dashboard/admin",
+                icon: <ShieldCheck className="h-4 w-4" strokeWidth={1.8} />
+            },
+        ]
+    },
     {
         label: "Informes",
         href: "/dashboard",
@@ -64,6 +108,11 @@ const NAV_ITEMS: NavItem[] = [
         href: "/dashboard/settings",
         icon: <Settings className="h-5 w-5" strokeWidth={1.8} />
     },
+    {
+        label: "Simulador",
+        href: "/dashboard/demo",
+        icon: <FlaskConical className="h-5 w-5 text-purple-500" strokeWidth={1.8} />
+    },
 ];
 
 export function Sidebar({ isAdmin, mobileOpen, onMobileClose }: {
@@ -91,7 +140,7 @@ export function Sidebar({ isAdmin, mobileOpen, onMobileClose }: {
     };
 
     const visibleNavItems = NAV_ITEMS.filter(item => {
-        if (item.href === "/dashboard/settings") {
+        if (item.href === "/dashboard/settings" || item.href === "/dashboard/demo") {
             return isAdmin;
         }
         return true;
@@ -234,7 +283,7 @@ export function Sidebar({ isAdmin, mobileOpen, onMobileClose }: {
                     const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
                     return (
                         <Link
-                            key={item.href}
+                            key={`${item.href}-${item.label}`}
                             href={item.href}
                             className={cn(
                                 "flex flex-col items-center gap-0.5 px-2 py-2 min-w-[48px] rounded-xl transition-all",

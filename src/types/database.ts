@@ -9,17 +9,13 @@
 
 export interface Lead {
     id: string;
+    tenant_id: string;
     id_lead_externo?: string | null;
     nombre?: string | null;
     apellido?: string | null;
     telefono?: string | null;
     email?: string | null;
     pais?: string | null;
-    /**
-     * Tipo de lead: campo libre (string), no enum cerrado.
-     * Valores actuales: "nuevo", "ilocalizable", "localizable".
-     * Pueden añadirse nuevos tipos según el tipo de campaña sin cambiar código.
-     */
     tipo_lead?: string | null;
     origen?: string | null;
     campana?: string | null;
@@ -32,6 +28,7 @@ export interface Lead {
 
 export interface Llamada {
     id: string;
+    tenant_id: string;
     id_lead: string;
     id_llamada_retell?: string | null;
     tipo_agente?: string | null;
@@ -70,6 +67,7 @@ export interface LlamadaResumen {
 
 export interface IntentoLlamada {
     id: string;
+    tenant_id: string;
     id_lead: string;
     id_llamada?: string | null;
     tipo_intento?: string | null;   // "LLAMADA" | "WHATSAPP"
@@ -87,6 +85,7 @@ export interface IntentoLlamada {
 
 export interface ConversacionWhatsapp {
     id: string;
+    tenant_id: string;
     id_lead: string;
     id_conversacion_chatwoot?: string | null;
     opt_in_whatsapp?: boolean | null;
@@ -101,6 +100,7 @@ export interface ConversacionWhatsapp {
 
 export interface Agendamiento {
     id: string;
+    tenant_id: string;
     id_lead: string;
     fecha_agendada_cliente?: string | null;
     fecha_agendada_lead?: string | null;
@@ -114,6 +114,7 @@ export interface Agendamiento {
 
 export interface LeadCualificacion {
     id: string;
+    tenant_id: string;
     id_lead: string;
     id_llamada?: string | null;
     motivo_anulacion?: string | null;
@@ -130,6 +131,7 @@ export interface LeadCualificacion {
 
 export interface Programa {
     id: string;
+    tenant_id: string;
     nombre: string;
     id_producto?: string | null;
     fecha_creacion?: string | null;
@@ -149,6 +151,7 @@ export interface LeadPrograma {
 
 export interface Notificacion {
     id: string;
+    tenant_id: string;
     id_lead: string;
     tipo: string;
     fecha_envio?: string | null;
@@ -162,12 +165,99 @@ export interface Notificacion {
 
 export interface Campana {
     id: string;
+    tenant_id: string;
     nombre: string;
     descripcion?: string | null;
     estado?: string | null; // "ACTIVA", "PAUSADA", "FINALIZADA"
     fecha_inicio?: string | null;
     fecha_fin?: string | null;
+    agente_texto_id?: string | null;
+    agente_llamada_id?: string | null;
     fecha_creacion?: string | null;
+}
+
+// ─── NEW V2.0 TABLES ─────────────────────────────────────────────────────────
+
+export interface OrchestrationRule {
+    id: string;
+    tenant_id: string;
+    workflow_id: string;
+    step_name: string;
+    action_type: string;
+    sequence_order: number;
+    config?: Record<string, unknown> | null;
+    is_active?: boolean;
+    created_at?: string;
+}
+
+export interface Workflow {
+    id: string;
+    tenant_id: string;
+    name: string;
+    description?: string | null;
+    is_active?: boolean;
+    is_primary?: boolean;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface OrchestrationGraph {
+    id: string;
+    tenant_id: string;
+    workflow_id: string;
+    graph_data: unknown;
+    updated_at?: string;
+}
+
+export interface PlannedAction {
+    id: string;
+    tenant_id: string;
+    lead_id: string;
+    workflow_id: string;
+    action_type: string;
+    config: Record<string, unknown> | null;
+    scheduled_for: string;
+    status: string;
+    error_message?: string | null;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface AIAgent {
+    id: string;
+    tenant_id: string;
+    name: string;
+    description: string | null;
+    type: 'QUALIFY' | 'REMINDER' | 'CLOSER' | 'SUPPORT';
+    status: 'ACTIVE' | 'PAUSED';
+    flow_config: {
+        nodes: any[];
+        edges: any[];
+    } | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface AIAgentVariant {
+    id: string;
+    agent_id: string;
+    version_label: string;
+    prompt_text: string;
+    is_active: boolean;
+    is_variant_b: boolean;
+    weight: number;
+    metrics: Record<string, unknown> | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface FeatureFlag {
+    id: string;
+    tenant_id?: string | null;
+    flag_key: string;
+    is_enabled: boolean;
+    metadata?: Record<string, unknown> | null;
+    created_at?: string;
 }
 
 // ─── COMBINED / VIEW TYPES ────────────────────────────────────────────────────
@@ -223,7 +313,7 @@ export interface HistorialRow {
     total_llamadas: number;            // = llamadas.length
 
     // ── Dynamic / Extra Fields ──
-    [key: string]: any; 
+    [key: string]: unknown; 
 }
 
 /** Supabase database shape (for createClient generic) */
@@ -240,7 +330,21 @@ export type Database = {
             lead_programas: { Row: LeadPrograma; Insert: Omit<LeadPrograma, "id" | "fecha_creacion">; Update: Partial<LeadPrograma>; };
             notificaciones: { Row: Notificacion; Insert: Omit<Notificacion, "id" | "fecha_creacion">; Update: Partial<Notificacion>; };
             campanas: { Row: Campana; Insert: Omit<Campana, "id" | "fecha_creacion">; Update: Partial<Campana>; };
+            orchestration_rules: { Row: OrchestrationRule; Insert: Omit<OrchestrationRule, "id" | "created_at">; Update: Partial<OrchestrationRule>; };
+            feature_flags: { Row: FeatureFlag; Insert: Omit<FeatureFlag, "id" | "created_at">; Update: Partial<FeatureFlag>; };
+            workflows: { Row: Workflow; Insert: Omit<Workflow, "id" | "created_at" | "updated_at">; Update: Partial<Workflow>; };
+            orchestration_graphs: { Row: OrchestrationGraph; Insert: Omit<OrchestrationGraph, "id" | "updated_at">; Update: Partial<OrchestrationGraph>; };
+            planned_actions: { Row: PlannedAction; Insert: Omit<PlannedAction, "id" | "created_at" | "updated_at">; Update: Partial<PlannedAction>; };
+            ai_agents: { Row: AIAgent; Insert: Omit<AIAgent, "id" | "created_at" | "updated_at">; Update: Partial<AIAgent>; };
+            ai_agent_variants: { Row: AIAgentVariant; Insert: Omit<AIAgentVariant, "id" | "created_at" | "updated_at">; Update: Partial<AIAgentVariant>; };
+            tenant_orchestrator_config: { Row: { id: string; tenant_id: string; config: Record<string, unknown>; created_at: string; updated_at: string }; Insert: { tenant_id: string; config: Record<string, unknown> }; Update: { config?: Record<string, unknown> }; };
+            advisors: { Row: { id: string; tenant_id: string; name: string; email: string | null; phone: string | null; is_active: boolean; created_at: string }; Insert: { tenant_id: string; name: string; email?: string | null; phone?: string | null; is_active?: boolean }; Update: Partial<{ name: string; email: string | null; phone: string | null; is_active: boolean }>; };
+            availability_slots: { Row: { id: string; advisor_id: string; day_of_week: number; start_time: string; end_time: string; slot_duration_minutes: number }; Insert: { advisor_id: string; day_of_week: number; start_time: string; end_time: string; slot_duration_minutes?: number }; Update: Partial<{ day_of_week: number; start_time: string; end_time: string }>; };
+            appointments: { Row: { id: string; tenant_id: string; advisor_id: string; lead_id: string | null; scheduled_at: string; duration_minutes: number; status: string; notes: string | null; agent_used: string | null; ab_variant: string | null; created_at: string; updated_at: string }; Insert: { tenant_id: string; advisor_id: string; lead_id?: string | null; scheduled_at: string; duration_minutes?: number; status?: string; notes?: string | null; agent_used?: string | null; ab_variant?: string | null }; Update: Partial<{ status: string; notes: string | null; updated_at: string }>; };
+            orchestration_logs: { Row: { id: string; tenant_id: string; lead_id: string | null; workflow_id: string | null; step_number: number; action_type: string; agent_used: string | null; ab_variant: string | null; result: string; error_message: string | null; metadata: Record<string, unknown>; executed_at: string }; Insert: { tenant_id: string; lead_id?: string | null; workflow_id?: string | null; step_number: number; action_type: string; agent_used?: string | null; ab_variant?: string | null; result: string; error_message?: string | null; metadata?: Record<string, unknown> }; Update: Partial<{ result: string }>; };
+            chat_messages: { Row: { id: string; tenant_id: string; lead_id: string; direction: string; message_type: string; content: string; sent_by: string | null; status: string; created_at: string; metadata: Record<string, unknown> }; Insert: Omit<{ id: string; tenant_id: string; lead_id: string; direction: string; message_type: string; content: string; sent_by: string | null; status: string; created_at: string; metadata: Record<string, unknown> }, 'id' | 'created_at' | 'status' | 'metadata'>; Update: Partial<{ status: string; metadata: Record<string, unknown> }>; };
         };
+
         Views: {
             [_ in never]: never;
         };

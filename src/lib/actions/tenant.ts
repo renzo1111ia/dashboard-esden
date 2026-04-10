@@ -2,22 +2,25 @@
 
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
-import { AUTH_SUPABASE_URL, AUTH_SUPABASE_ANON_KEY, AUTH_SUPABASE_SERVICE_ROLE_KEY } from "@/lib/auth-config";
+import { AUTH_SUPABASE_URL, AUTH_SUPABASE_ANON_KEY } from "@/lib/auth-config";
 import { Tenant } from "@/types/tenant";
 
-export async function setTenantCookies(url: string, key: string, name: string = "") {
+/**
+ * Sets the active tenant cookie using tenantId (V2 multi-tenant model).
+ * No longer stores supabase URL/key — the central DB handles all tenants.
+ */
+export async function setTenantCookies(tenantId: string, name: string = "") {
     const cookieStore = await cookies();
 
-    if (url && key) {
-        cookieStore.set("esden-tenant-url", url, { path: "/", maxAge: 30 * 24 * 60 * 60 });
-        cookieStore.set("esden-tenant-key", key, { path: "/", maxAge: 30 * 24 * 60 * 60 });
+    if (tenantId) {
+        cookieStore.set("esden-tenant-id", tenantId, { path: "/", maxAge: 30 * 24 * 60 * 60 });
         cookieStore.set("esden-tenant-name", name, { path: "/", maxAge: 30 * 24 * 60 * 60 });
     } else {
-        cookieStore.delete("esden-tenant-url");
-        cookieStore.delete("esden-tenant-key");
+        cookieStore.delete("esden-tenant-id");
         cookieStore.delete("esden-tenant-name");
     }
 }
+
 
 async function getAdminSupabase() {
     if (!AUTH_SUPABASE_URL || !AUTH_SUPABASE_ANON_KEY) {
@@ -91,11 +94,12 @@ export async function getTenants(): Promise<Tenant[]> {
             return [];
         }
 
-        // Map is_admin and username from config to top level for UI convenience
+        // Map is_admin, username and api_type from config to top level for UI convenience
         return (data || []).map(t => ({
             ...t,
-            is_admin: !!(t.config as any)?.is_admin,
-            username: (t.config as any)?.username || ""
+            is_admin: !!(t.config as Record<string,unknown>)?.is_admin,
+            api_type: ((t.config as Record<string,unknown>)?.api_type as 'internal' | 'client') || 'internal',
+            username: ((t.config as Record<string,unknown>)?.username as string) || ""
         }));
     } catch (e) {
         console.error("CRITICAL ERROR IN getTenants:", e);
@@ -105,18 +109,18 @@ export async function getTenants(): Promise<Tenant[]> {
 
 export async function getActiveTenantConfig(): Promise<Tenant | null> {
     const cookieStore = await cookies();
-    const url = cookieStore.get("esden-tenant-url")?.value;
-    if (!url) return null;
+    const tenantId = cookieStore.get("esden-tenant-id")?.value;
+    if (!tenantId) return null;
 
     const supabase = await getAdminSupabase();
-    // Using supabase_url to find the tenant might work assuming they are unique
-    const { data, error } = await supabase.from("tenants").select("*").eq("supabase_url", url).single();
+    const { data, error } = await supabase.from("tenants").select("*").eq("id", tenantId).single();
     if (error || !data) return null;
 
     return {
         ...data,
-        is_admin: !!(data.config as any)?.is_admin,
-        username: (data.config as any)?.username || ""
+        is_admin: !!(data.config as Record<string,unknown>)?.is_admin,
+        api_type: ((data.config as Record<string,unknown>)?.api_type as 'internal' | 'client') || 'internal',
+        username: ((data.config as Record<string,unknown>)?.username as string) || ""
     } as Tenant;
 }
 
@@ -127,8 +131,9 @@ export async function getTenantByUserId(userId: string): Promise<Tenant | null> 
 
     return {
         ...data,
-        is_admin: !!(data.config as any)?.is_admin,
-        username: (data.config as any)?.username || ""
+        is_admin: !!(data.config as Record<string,unknown>)?.is_admin,
+        api_type: ((data.config as Record<string,unknown>)?.api_type as 'internal' | 'client') || 'internal',
+        username: ((data.config as Record<string,unknown>)?.username as string) || ""
     } as Tenant;
 }
 
@@ -159,13 +164,13 @@ export async function createTenant(tenant: Partial<Tenant> & { password?: string
             authUserId = authData.user?.id;
         }
 
-        // 2. Insert into tenants table
-        // We move is_admin and username into config to avoid needing a new column in the table
-        const { password, is_admin, username, ...tenantData } = tenant;
+        // We move is_admin, username and api_type into config, then remove them from the top-level insert
+        const { password: _pw, is_admin, username, api_type, ...tenantData } = tenant;
         const config = {
             ...(tenantData.config || {}),
             is_admin: !!is_admin,
-            username: username || ""
+            username: username || "",
+            api_type: api_type || "internal"
         };
 
         const { data, error } = await supabase
@@ -183,9 +188,10 @@ export async function createTenant(tenant: Partial<Tenant> & { password?: string
             return { error: `Error en Base de Datos: ${error.message}` };
         }
         return { success: true, data };
-    } catch (e: any) {
+    } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Error desconocido";
         console.error("UNEXPECTED CREATE TENANT ERROR:", e);
-        return { error: `Error inesperado: ${e.message || "Error desconocido"}` };
+        return { error: `Error inesperado: ${msg}` };
     }
 }
 
@@ -227,13 +233,14 @@ export async function updateTenant(id: string, updates: Partial<Tenant> & { pass
             }
         }
 
-        // 2. Update record
         // We move is_admin and username into config to avoid needing a new column in the table
-        const { password, is_admin, username, ...cleanUpdates } = updates;
+        // We move is_admin, username and api_type into config to avoid needing a new column in the table
+        const { password: _pw2, is_admin, username, api_type, ...cleanUpdates } = updates;
 
         const newConfig = { ...(cleanUpdates.config || {}) };
         if (is_admin !== undefined) newConfig.is_admin = !!is_admin;
         if (username !== undefined) newConfig.username = username;
+        if (api_type !== undefined) newConfig.api_type = api_type;
 
         cleanUpdates.config = newConfig;
 
@@ -246,13 +253,16 @@ export async function updateTenant(id: string, updates: Partial<Tenant> & { pass
             success: true,
             data: {
                 ...data,
-                is_admin: !!(data.config as any)?.is_admin,
-                username: (data.config as any)?.username || ""
+                is_admin: !!(data.config as Record<string,unknown>)?.is_admin,
+        api_type: ((data.config as Record<string,unknown>)?.api_type as 'internal' | 'client') || 'internal',
+                api_type: ((data.config as Record<string,unknown>)?.api_type as 'internal' | 'client') || 'internal',
+                username: ((data.config as Record<string,unknown>)?.username as string) || ""
             }
         };
-    } catch (e: any) {
+    } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Error desconocido";
         console.error("UNEXPECTED UPDATE TENANT ERROR:", e);
-        return { error: `Error inesperado: ${e.message || "Error desconocido"}` };
+        return { error: `Error inesperado: ${msg}` };
     }
 }
 
@@ -265,3 +275,4 @@ export async function deleteTenant(id: string) {
     }
     return true;
 }
+

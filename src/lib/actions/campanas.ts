@@ -14,6 +14,8 @@ export async function createCampaign(data: Partial<Campana>) {
             estado: data.estado || "ACTIVA",
             fecha_inicio: data.fecha_inicio || new Date().toISOString(),
             fecha_fin: data.fecha_fin,
+            agente_texto_id: data.agente_texto_id,
+            agente_llamada_id: data.agente_llamada_id,
         };
 
         const { data: newCampaign, error } = await (supabase

@@ -1,0 +1,145 @@
+"use client";
+
+import { useState } from "react";
+import { useTenantStore } from "@/store/tenant";
+import { injectDemoData } from "@/lib/actions/demo";
+import { FlaskConical, DatabaseZap, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+export default function DemoSimulatorPage() {
+    const { tenantId, tenantName, isConfigured } = useTenantStore();
+    const [loading, setLoading] = useState(false);
+    const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+    const [message, setMessage] = useState('');
+
+    const handleInject = async () => {
+        if (!tenantId) {
+            setStatus('error');
+            setMessage('No hay ningún cliente seleccionado.');
+            return;
+        }
+
+        if (!confirm(`¿Estás seguro de inyectar datos de prueba en el cliente "${tenantName}"?`)) {
+            return;
+        }
+
+        setLoading(true);
+        setStatus('idle');
+        setMessage('');
+
+        try {
+            const res = await injectDemoData(tenantId);
+            if (res.error) {
+                setStatus('error');
+                setMessage(res.error);
+            } else {
+                setStatus('success');
+                setMessage(res.message || "Datos inyectados correctamente.");
+            }
+        } catch (err: any) {
+            setStatus('error');
+            setMessage(err.message || 'Error desconocido.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500 pt-6">
+            <div className="flex items-center gap-4 border-b border-sidebar-border pb-6">
+                <div className="h-14 w-14 rounded-2xl bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                    <FlaskConical className="h-7 w-7" />
+                </div>
+                <div>
+                    <h1 className="text-2xl font-black tracking-tight text-foreground">Laboratorio Demo</h1>
+                    <p className="text-muted-foreground mt-1 font-medium">Inyecta datos de prueba para validar el sistema de {tenantName || 'tu cliente'}.</p>
+                </div>
+            </div>
+
+            {!isConfigured ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 flex flex-col items-center justify-center text-center space-y-3">
+                    <AlertTriangle className="h-10 w-10 text-amber-500" />
+                    <h3 className="font-bold text-amber-800">Cliente no configurado</h3>
+                    <p className="text-amber-700 text-sm max-w-sm">No puedes inyectar datos todavía. Ve a Configuración y guarda los detalles del cliente primero.</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="rounded-2xl border border-sidebar-border bg-card shadow-sm overflow-hidden">
+                        <div className="p-6 border-b border-sidebar-border bg-slate-50/50 dark:bg-slate-900/50">
+                            <div className="flex items-center gap-3 mb-2">
+                                <DatabaseZap className="h-5 w-5 text-blue-500" />
+                                <h2 className="text-lg font-bold text-card-foreground">Paquete: Generador Omnicanal</h2>
+                            </div>
+                            <p className="text-sm text-muted-foreground">Inyecta un flujo completo de prueba en la base de datos de <strong>{tenantName}</strong>.</p>
+                        </div>
+                        <div className="p-6 space-y-6">
+                            <ul className="space-y-3 text-sm font-medium text-slate-600 dark:text-slate-300">
+                                <li className="flex items-center gap-2"><div className="h-1.5 w-1.5 rounded-full bg-blue-500" /> Crea <span className="font-bold">1</span> Programa / Campaña</li>
+                                <li className="flex items-center gap-2"><div className="h-1.5 w-1.5 rounded-full bg-blue-500" /> Inserta <span className="font-bold">5</span> Leads (Prospectos)</li>
+                                <li className="flex items-center gap-2"><div className="h-1.5 w-1.5 rounded-full bg-blue-500" /> Simula <span className="font-bold">2</span> Llamadas Telefónicas (Retell AI)</li>
+                                <li className="flex items-center gap-2"><div className="h-1.5 w-1.5 rounded-full bg-blue-500" /> Simula <span className="font-bold">2</span> Mensajes de WhatsApp</li>
+                            </ul>
+
+                            <button
+                                onClick={handleInject}
+                                disabled={loading}
+                                className={cn(
+                                    "w-full h-12 rounded-xl text-sm font-bold shadow-md transition-all flex items-center justify-center gap-2 text-white",
+                                    loading ? "bg-slate-400 cursor-not-allowed" : "bg-purple-600 hover:bg-purple-700 hover:shadow-lg hover:shadow-purple-500/30"
+                                )}
+                            >
+                                {loading ? (
+                                    <><Loader2 className="h-5 w-5 animate-spin" /> Inyectando datos...</>
+                                ) : (
+                                    <><FlaskConical className="h-5 w-5" /> Inyectar Datos de Prueba</>
+                                )}
+                            </button>
+
+                            {status === 'success' && (
+                                <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 flex items-start gap-3">
+                                    <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+                                    <div>
+                                        <h4 className="text-sm font-bold text-emerald-800">¡Inyección Completada!</h4>
+                                        <p className="text-xs text-emerald-600 mt-1">{message}</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {status === 'error' && (
+                                <div className="rounded-xl bg-red-50 border border-red-200 p-4 flex items-start gap-3">
+                                    <AlertTriangle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                                    <div>
+                                        <h4 className="text-sm font-bold text-red-800">Error en la inyección</h4>
+                                        <p className="text-xs text-red-600 mt-1">{message}</p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="rounded-2xl border border-sidebar-border bg-card p-6 shadow-sm">
+                            <h3 className="font-bold text-card-foreground mb-2 flex items-center gap-2">
+                                <span className="h-6 w-6 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs">1</span> 
+                                Aislamiento Multi-Tenant
+                            </h3>
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                                Todos los datos inyectados heredan instantáneamente el <code>tenant_id</code> de <strong>{tenantName}</strong>. 
+                                Las políticas de seguridad RLS (Row Level Security) garantizan que estos datos jamás crucen a otro cliente.
+                            </p>
+                        </div>
+                        <div className="rounded-2xl border border-sidebar-border bg-card p-6 shadow-sm">
+                            <h3 className="font-bold text-card-foreground mb-2 flex items-center gap-2">
+                                <span className="h-6 w-6 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs">2</span> 
+                                Efectos en el Dashboard
+                            </h3>
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                                Al inyectar datos, los gráficos del dashboard, la bandeja de WhatsApp y el orquestador registrarán al instante interacciones como si acabaran de ocurrir en tiempo real.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}

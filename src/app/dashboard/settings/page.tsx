@@ -1,37 +1,35 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
     getTenants,
     createTenant,
     updateTenant,
     deleteTenant,
-    setTenantCookies
 } from "@/lib/actions/tenant";
 import { useTenantStore } from "@/store/tenant";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Edit2, Check, X, Shield, Settings as SettingsIcon, Globe, Building2 } from "lucide-react";
+import { Plus, Trash2, Edit2, Check, X, Shield, Globe, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Tenant, KpiConfig } from "@/types/tenant";
+import { Tenant } from "@/types/tenant";
 import { KpiBuilder } from "./KpiBuilder";
 
 export default function SettingsPage() {
-    const router = useRouter();
-    const { tenantName: activeTenantName, setTenant: setActiveTenant } = useTenantStore();
+    const { setTenant: setActiveTenant } = useTenantStore();
     const [tenants, setTenants] = useState<Tenant[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [isEditing, setIsEditing] = useState<string | null>(null); // ID of tenant being edited
-    const [editForm, setEditForm] = useState<Partial<Tenant> & { password?: string }>({
+    const [isEditing, setIsEditing] = useState<string | null>(null);
+    const [editForm, setEditForm] = useState<Partial<Tenant> & { password?: string; api_type?: 'internal' | 'client' }>({
         name: "",
         username: "",
-        supabase_url: "",
-        supabase_anon_key: "",
         client_email: "",
         password: "",
+        supabase_url: "",
+        supabase_anon_key: "",
+        api_type: "internal" as "internal" | "client",
         is_admin: false,
         config: {}
     });
@@ -50,7 +48,6 @@ export default function SettingsPage() {
 
     async function handleSaveNew(e: React.FormEvent) {
         e.preventDefault();
-        console.log("SUBMITTING NEW TENANT:", editForm);
         setSaving(true);
         try {
             const configObj = typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : editForm.config;
@@ -62,11 +59,11 @@ export default function SettingsPage() {
             }
 
             setShowNewForm(false);
-            setEditForm({ name: "", username: "", supabase_url: "", supabase_anon_key: "", client_email: "", password: "", is_admin: false, config: {} });
+            setEditForm({ name: "", username: "", client_email: "", password: "", is_admin: false, config: {}, api_type: "internal", supabase_url: "", supabase_anon_key: "" });
             await loadTenants();
-        } catch (err: any) {
-            console.error("SAVE TENANT ERROR:", err);
-            alert("Error crítico: " + err.message);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : "Error desconocido";
+            alert("Error crítico: " + msg);
         } finally {
             setSaving(false);
         }
@@ -91,17 +88,19 @@ export default function SettingsPage() {
             setIsEditing(null);
             loadTenants();
 
-            // Si el cliente editado es el activo, actualizar el store
-            if (activeTenantName === editForm.name) {
+            // Update the active store if this is the currently active client
+            if (result.data) {
+                const updated = result.data;
                 setActiveTenant({
-                    supabaseUrl: editForm.supabase_url || "",
-                    supabaseAnonKey: editForm.supabase_anon_key || "",
-                    tenantName: editForm.name || "",
-                    config: configObj
+                    tenantId: updated.id,
+                    tenantName: updated.name || "",
+                    config: (updated.config as Record<string, unknown>) || {},
+                    isAdmin: !!updated.is_admin,
                 });
             }
-        } catch (err: any) {
-            alert("Error crítico: " + err.message);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : "Error desconocido";
+            alert("Error crítico: " + msg);
         }
     }
 
@@ -110,8 +109,9 @@ export default function SettingsPage() {
         try {
             await deleteTenant(id);
             loadTenants();
-        } catch (err: any) {
-            alert("Error al eliminar cliente: " + err.message);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : "Error desconocido";
+            alert("Error al eliminar cliente: " + msg);
         }
     }
 
@@ -120,11 +120,12 @@ export default function SettingsPage() {
         setEditForm({
             name: t.name,
             username: t.username || "",
-            supabase_url: t.supabase_url,
-            supabase_anon_key: t.supabase_anon_key,
             client_email: t.client_email || "",
             password: "",
             is_admin: !!t.is_admin,
+            supabase_url: t.supabase_url || "",
+            supabase_anon_key: t.supabase_anon_key || "",
+            api_type: t.supabase_url ? "client" : "internal",
             config: JSON.stringify(t.config, null, 2) as unknown as Record<string, unknown>
         });
     }
@@ -132,9 +133,9 @@ export default function SettingsPage() {
     return (
         <div className="mx-auto max-w-5xl space-y-10 pb-20">
             <div>
-                <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Configuración de App Automatiza</h1>
+                <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Configuración de Clientes</h1>
                 <p className="mt-2 text-base font-medium text-slate-500">
-                    Gestiona los entornos de Supabase y configuraciones personalizadas para cada cliente.
+                    Gestiona los clientes del sistema centralizado. Cada cliente tiene su propio espacio de datos aislado por Row Level Security.
                 </p>
             </div>
 
@@ -146,8 +147,20 @@ export default function SettingsPage() {
                         <Button
                             onClick={() => {
                                 setShowNewForm(true);
-                                setEditForm({ name: "", username: "", supabase_url: "", supabase_anon_key: "", client_email: "", password: "", is_admin: false, config: {} });
+                                setEditForm({ 
+                                    name: "", 
+                                    username: "", 
+                                    client_email: "", 
+                                    password: "", 
+                                    is_admin: false, 
+                                    config: {}, 
+                                    api_type: "internal",
+                                    supabase_url: "",
+                                    supabase_anon_key: ""
+                                });
                             }}
+                            title="Añadir nuevo cliente"
+                            aria-label="Añadir nuevo cliente"
                             className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-200"
                         >
                             <Plus className="mr-2 h-4 w-4" /> Nuevo Cliente
@@ -160,16 +173,16 @@ export default function SettingsPage() {
                         <thead>
                             <tr className="border-b border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
                                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-900 dark:text-slate-200">Cliente</th>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-900 dark:text-slate-200">Infraestructura (Link)</th>
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-900 dark:text-slate-200">Infraestructura</th>
                                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-900 dark:text-slate-200">Email de Acceso</th>
                                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-900 dark:text-slate-200">Nivel</th>
-                                <th className="px-6 py-4 text-right px-8 text-[10px] font-black uppercase tracking-widest text-slate-900 dark:text-slate-200">Acciones</th>
+                                <th className="px-6 py-4 text-right pr-8 text-[10px] font-black uppercase tracking-widest text-slate-900 dark:text-slate-200">Acciones</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                             {loading && (
                                 <tr>
-                                    <td colSpan={4} className="px-6 py-12 text-center text-slate-400 font-bold animate-pulse">
+                                    <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-bold animate-pulse">
                                         Sincronizando infraestructura...
                                     </td>
                                 </tr>
@@ -177,7 +190,7 @@ export default function SettingsPage() {
 
                             {!loading && tenants.length === 0 && !showNewForm && (
                                 <tr>
-                                    <td colSpan={4} className="px-6 py-20 text-center text-slate-400 font-bold">
+                                    <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-bold">
                                         <Globe className="mx-auto h-12 w-12 text-slate-100 mb-4" />
                                         No se han detectado clientes configurados.
                                     </td>
@@ -187,7 +200,7 @@ export default function SettingsPage() {
                             {/* New Tenant Form */}
                             {showNewForm && (
                                 <tr>
-                                    <td colSpan={4} className="p-0">
+                                    <td colSpan={5} className="p-0">
                                         <div className="bg-blue-50/30 p-8 border-b border-blue-100 animate-in slide-in-from-top duration-300">
                                             <form onSubmit={handleSaveNew} className="space-y-6">
                                                 <div className="flex items-center justify-between mb-4">
@@ -195,37 +208,22 @@ export default function SettingsPage() {
                                                     <div className="flex items-center gap-3">
                                                         <button
                                                             type="button"
-                                                            onClick={() => setEditForm({ ...editForm, is_admin: !editForm.is_admin })}
-                                                            className={cn(
-                                                                "flex items-center gap-2 px-4 h-9 rounded-xl border-2 transition-all font-black text-[10px] uppercase tracking-widest shadow-sm",
-                                                                editForm.is_admin
-                                                                    ? "bg-blue-600 border-blue-600 text-white"
-                                                                    : "bg-white border-slate-200 text-slate-400 hover:border-slate-300"
-                                                            )}
-                                                        >
-                                                            <Shield className={cn("h-3.5 w-3.5", editForm.is_admin ? "text-blue-100" : "text-slate-300")} />
-                                                            {editForm.is_admin ? "Nuevo Admin" : "Nuevo Cliente"}
-                                                        </button>
-                                                        <button
-                                                            type="button"
                                                             onClick={() => setShowNewForm(false)}
                                                             className="h-9 w-9 flex items-center justify-center rounded-xl bg-white text-slate-400 hover:text-red-500 border border-slate-100 shadow-sm transition-all"
-                                                            aria-label="Cerrar"
                                                         >
                                                             <X className="h-5 w-5" />
                                                         </button>
                                                     </div>
                                                 </div>
+
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                     <div className="space-y-2">
-                                                        <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">
-                                                            {editForm.is_admin ? "Asignar a Proyecto (Identificador)" : "Nombre del Proyecto"}
-                                                        </Label>
+                                                        <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Nombre del Proyecto</Label>
                                                         <Input
                                                             value={editForm.name}
                                                             onChange={e => setEditForm({ ...editForm, name: e.target.value })}
-                                                            className="h-12 bg-white border-slate-200 text-slate-900 rounded-xl focus:ring-blue-100"
-                                                            placeholder={editForm.is_admin ? "Ej: Proyecto México (Solo para identificar)" : "Ej: Proyecto México"}
+                                                            className="h-12 bg-white rounded-xl focus:ring-blue-100"
+                                                            placeholder="Ej: Proyecto México"
                                                             required
                                                         />
                                                     </div>
@@ -234,137 +232,147 @@ export default function SettingsPage() {
                                                         <Input
                                                             value={editForm.username}
                                                             onChange={e => setEditForm({ ...editForm, username: e.target.value })}
-                                                            className="h-12 bg-white border-slate-200 text-slate-900 rounded-xl focus:ring-blue-100"
+                                                            className="h-12 bg-white rounded-xl focus:ring-blue-100"
                                                             placeholder="Ej: juan.perez"
                                                             required
                                                         />
                                                     </div>
-                                                    {!editForm.is_admin && (
-                                                        <div className="space-y-2">
-                                                            <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Supabase API URL</Label>
-                                                            <Input
-                                                                value={editForm.supabase_url}
-                                                                onChange={e => setEditForm({ ...editForm, supabase_url: e.target.value })}
-                                                                className="h-12 bg-white border-slate-200 text-slate-900 font-mono text-xs rounded-xl focus:ring-blue-100"
-                                                                placeholder="https://xxx.supabase.co"
-                                                                required
-                                                            />
-                                                        </div>
-                                                    )}
-                                                    {!editForm.is_admin && (
-                                                        <div className="md:col-span-2 space-y-2">
-                                                            <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Supabase Service Role / Anon Key</Label>
-                                                            <Input
-                                                                value={editForm.supabase_anon_key}
-                                                                onChange={e => setEditForm({ ...editForm, supabase_anon_key: e.target.value })}
-                                                                className="h-12 bg-white border-slate-200 text-slate-900 font-mono text-xs rounded-xl focus:ring-blue-100"
-                                                                placeholder="Acceso de solo lectura o administrador"
-                                                                type="password"
-                                                                required
-                                                            />
-                                                        </div>
-                                                    )}
                                                     <div className="space-y-2">
-                                                        <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Email de Acceso (Dashboard)</Label>
+                                                        <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Email de Acceso</Label>
                                                         <Input
                                                             value={editForm.client_email}
                                                             onChange={e => setEditForm({ ...editForm, client_email: e.target.value })}
-                                                            className="h-12 bg-white border-slate-200 text-slate-900 rounded-xl focus:ring-blue-100"
+                                                            className="h-12 bg-white rounded-xl focus:ring-blue-100"
                                                             placeholder="cliente@ejemplo.com"
                                                             type="email"
                                                             required
                                                         />
                                                     </div>
                                                     <div className="space-y-2">
-                                                        <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Contraseña de Acceso</Label>
+                                                        <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Contraseña</Label>
                                                         <Input
                                                             value={editForm.password}
                                                             onChange={e => setEditForm({ ...editForm, password: e.target.value })}
-                                                            className="h-12 bg-white border-slate-200 text-slate-900 rounded-xl focus:ring-blue-100"
+                                                            className="h-12 bg-white rounded-xl focus:ring-blue-100"
                                                             placeholder="••••••••"
                                                             type="password"
                                                             required={!isEditing}
                                                         />
                                                     </div>
+
+                                                    {/* API Type Selector */}
                                                     {!editForm.is_admin && (
-                                                        <div className="md:col-span-2 space-y-4">
+                                                        <div className="md:col-span-2 space-y-4 pt-4 border-t border-blue-100/30">
+                                                            <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Infraestructura de Datos</Label>
+                                                            <div className="flex gap-4">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setEditForm({...editForm, api_type: 'internal', supabase_url: '', supabase_anon_key: ''})}
+                                                                    className={cn(
+                                                                        "flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all",
+                                                                        editForm.api_type === 'internal' 
+                                                                            ? "bg-blue-600/5 border-blue-600 text-blue-600 shadow-lg shadow-blue-500/10" 
+                                                                            : "bg-white border-slate-100 text-slate-400 hover:border-slate-200"
+                                                                    )}
+                                                                >
+                                                                    <div className={cn("h-8 w-8 rounded-xl flex items-center justify-center", editForm.api_type === 'internal' ? "bg-blue-600 text-white" : "bg-slate-50 text-slate-300")}>
+                                                                        <Globe className="h-4 w-4" />
+                                                                    </div>
+                                                                    <span className="text-[10px] font-black uppercase tracking-widest mt-1 text-center">API Interna<br/>(Centralizada)</span>
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setEditForm({...editForm, api_type: 'client'})}
+                                                                    className={cn(
+                                                                        "flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all",
+                                                                        editForm.api_type === 'client' 
+                                                                            ? "bg-blue-600/5 border-blue-600 text-blue-600 shadow-lg shadow-blue-500/10" 
+                                                                            : "bg-white border-slate-100 text-slate-400 hover:border-slate-200"
+                                                                    )}
+                                                                >
+                                                                    <div className={cn("h-8 w-8 rounded-xl flex items-center justify-center", editForm.api_type === 'client' ? "bg-blue-600 text-white" : "bg-slate-50 text-slate-300")}>
+                                                                        <Shield className="h-4 w-4" />
+                                                                    </div>
+                                                                    <span className="text-[10px] font-black uppercase tracking-widest mt-1 text-center">API del Cliente<br/>(Supabase Externo)</span>
+                                                                </button>
+                                                            </div>
+
+                                                            {editForm.api_type === 'client' && (
+                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 animate-in fade-in duration-300">
+                                                                    <div className="space-y-2">
+                                                                        <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-blue-600">Supabase URL</Label>
+                                                                        <Input value={editForm.supabase_url} onChange={e => setEditForm({ ...editForm, supabase_url: e.target.value })} className="h-11 bg-white border-blue-100 font-bold" placeholder="https://xyz.supabase.co" required />
+                                                                    </div>
+                                                                    <div className="space-y-2">
+                                                                        <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-blue-600">Anon Key</Label>
+                                                                        <Input value={editForm.supabase_anon_key} onChange={e => setEditForm({ ...editForm, supabase_anon_key: e.target.value })} className="h-11 bg-white border-blue-100 font-bold" placeholder="eyJhb..." required />
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Additional Config */}
+                                                    {!editForm.is_admin && (
+                                                        <div className="md:col-span-2 space-y-6 pt-4">
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                                 <div className="space-y-2">
-                                                                    <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Título del Dashboard</Label>
-                                                                    <Input
-                                                                        value={(() => {
-                                                                            try {
-                                                                                const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {});
-                                                                                return conf.dashboard_title || "";
-                                                                            } catch (e) { return ""; }
-                                                                        })()}
-                                                                        onChange={e => {
-                                                                            try {
-                                                                                const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {});
-                                                                                conf.dashboard_title = e.target.value;
-                                                                                setEditForm({ ...editForm, config: JSON.stringify(conf, null, 2) as any });
-                                                                            } catch (e) { }
-                                                                        }}
-                                                                        className="h-11 bg-white border-slate-200 text-slate-900 rounded-xl"
-                                                                        placeholder="Ej: App Automatiza"
+                                                                    <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Título Dashboard</Label>
+                                                                    <Input 
+                                                                        value={(() => { 
+                                                                            try { 
+                                                                                const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {}); 
+                                                                                return (conf as Record<string, any>).dashboard_title || ""; 
+                                                                            } catch { return ""; } 
+                                                                        })()} 
+                                                                        onChange={e => { 
+                                                                            try { 
+                                                                                const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {}); 
+                                                                                (conf as Record<string, any>).dashboard_title = e.target.value; 
+                                                                                setEditForm({ ...editForm, config: JSON.stringify(conf, null, 2) as any }); 
+                                                                            } catch { } 
+                                                                        }} 
+                                                                        className="h-11 bg-white rounded-xl" 
                                                                     />
                                                                 </div>
                                                                 <div className="space-y-2">
-                                                                    <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Encabezados Extra (Separados por coma)</Label>
-                                                                    <Input
-                                                                        value={(() => {
-                                                                            try {
-                                                                                const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {});
-                                                                                return (conf.headers || []).join(", ");
-                                                                            } catch (e) { return ""; }
-                                                                        })()}
-                                                                        onChange={e => {
-                                                                            try {
-                                                                                const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {});
-                                                                                conf.headers = e.target.value.split(",").map(s => s.trim()).filter(s => s !== "");
-                                                                                setEditForm({ ...editForm, config: JSON.stringify(conf, null, 2) as any });
-                                                                            } catch (e) { }
-                                                                        }}
-                                                                        className="h-11 bg-white border-slate-200 text-slate-900 rounded-xl"
-                                                                        placeholder="Ej: Ventas, Marketing"
+                                                                    <Label className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-500">Headers</Label>
+                                                                    <Input 
+                                                                        value={(() => { 
+                                                                            try { 
+                                                                                const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {}); 
+                                                                                return ((conf as Record<string, any>).headers || []).join(", "); 
+                                                                            } catch { return ""; } 
+                                                                        })()} 
+                                                                        onChange={e => { 
+                                                                            try { 
+                                                                                const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {}); 
+                                                                                (conf as Record<string, any>).headers = e.target.value.split(",").map((s: string) => s.trim()).filter((s: string) => s !== ""); 
+                                                                                setEditForm({ ...editForm, config: JSON.stringify(conf, null, 2) as any }); 
+                                                                            } catch { } 
+                                                                        }} 
+                                                                        className="h-11 bg-white rounded-xl" 
                                                                     />
                                                                 </div>
                                                             </div>
-
                                                             <div className="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm">
-                                                                <KpiBuilder
-                                                                    kpis={(typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}").kpis : (editForm.config as any)?.kpis) || []}
-                                                                    onChange={(kpis) => {
-                                                                        try {
-                                                                            const current = typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : (editForm.config || {});
-                                                                            current.kpis = kpis;
-                                                                            setEditForm({ ...editForm, config: JSON.stringify(current, null, 2) as any });
-                                                                        } catch (e) { }
-                                                                    }}
+                                                                <KpiBuilder 
+                                                                    kpis={(typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}").kpis : (editForm.config as Record<string, any>)?.kpis) || []} 
+                                                                    onChange={(kpis) => { 
+                                                                        try { 
+                                                                            const current = typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : (editForm.config || {}); 
+                                                                            (current as Record<string, any>).kpis = kpis; 
+                                                                            setEditForm({ ...editForm, config: JSON.stringify(current, null, 2) as any }); 
+                                                                        } catch { } 
+                                                                    }} 
                                                                 />
-
-                                                                <details className="mt-8 border-t border-slate-100 pt-6">
-                                                                    <summary className="text-[10px] font-black uppercase tracking-widest text-slate-400 cursor-pointer hover:text-blue-600 transition-colors">Configuración Avanzada (JSON Raw)</summary>
-                                                                    <div className="mt-4">
-                                                                        <textarea
-                                                                            title="Configuracion JSON"
-                                                                            value={typeof editForm.config === 'string' ? editForm.config : JSON.stringify(editForm.config, null, 2)}
-                                                                            onChange={e => setEditForm({ ...editForm, config: e.target.value as unknown as Record<string, unknown> })}
-                                                                            className="w-full min-h-[120px] rounded-xl bg-slate-50 border border-slate-100 p-3 text-[10px] text-slate-900 font-mono focus:border-blue-500 outline-none"
-                                                                            placeholder='{ "headers": [], "dashboard_title": "" }'
-                                                                        />
-                                                                    </div>
-                                                                </details>
                                                             </div>
                                                         </div>
                                                     )}
                                                 </div>
-                                                <div className="flex gap-3 pt-4">
-                                                    <Button
-                                                        type="submit"
-                                                        disabled={saving}
-                                                        className="h-12 px-8 bg-blue-600 font-black text-white rounded-xl hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50"
-                                                    >
+
+                                                <div className="flex gap-3 pt-6">
+                                                    <Button type="submit" disabled={saving} className="h-12 px-8 bg-blue-600 font-black text-white rounded-xl hover:bg-blue-700 disabled:opacity-50">
                                                         {saving ? "Desplegando..." : "Desplegar Cliente"}
                                                     </Button>
                                                     <Button type="button" variant="ghost" onClick={() => setShowNewForm(false)} className="h-12 text-slate-400 font-bold rounded-xl hover:bg-slate-100">Descartar</Button>
@@ -376,68 +384,45 @@ export default function SettingsPage() {
                             )}
 
                             {tenants.map(t => (
-                                <tr key={t.id} className={cn(
-                                    "transition-all duration-300",
-                                    isEditing === t.id ? "bg-blue-50/50" : "hover:bg-slate-50/50"
-                                )}>
+                                <tr key={t.id} className={cn("transition-all duration-300", isEditing === t.id ? "bg-blue-50/50" : "hover:bg-slate-50/50")}>
                                     {isEditing === t.id ? (
-                                        <td colSpan={4} className="p-8">
-                                            <div className="flex items-center justify-between gap-6 mb-6">
+                                        <td colSpan={5} className="p-8">
+                                            <div className="flex items-center justify-between gap-6 mb-8">
                                                 <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white flex items-center gap-2">
                                                     <Edit2 className="h-4 w-4 text-blue-600" /> Editando: <span className="text-blue-600">{t.name}</span>
                                                 </h3>
                                                 <div className="flex items-center gap-2">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setEditForm({ ...editForm, is_admin: !editForm.is_admin })}
-                                                        className={cn(
-                                                            "flex items-center gap-2 px-3 h-8 rounded-lg border transition-all text-[10px] font-black uppercase tracking-widest shadow-sm",
-                                                            editForm.is_admin
-                                                                ? "bg-blue-600 border-blue-600 text-white"
-                                                                : "bg-white border-slate-200 text-slate-400"
-                                                        )}
-                                                    >
+                                                    <button type="button" onClick={() => setEditForm({ ...editForm, is_admin: !editForm.is_admin })} className={cn("flex items-center gap-2 px-3 h-8 rounded-lg border transition-all text-[10px] font-black uppercase tracking-widest shadow-sm", editForm.is_admin ? "bg-blue-600 border-blue-600 text-white" : "bg-white border-slate-200 text-slate-400")}>
                                                         {editForm.is_admin ? "Admin" : "Cliente"}
                                                     </button>
-                                                    <button onClick={() => handleUpdate(t.id)} className="h-8 px-4 bg-emerald-600 text-white font-bold text-[10px] uppercase tracking-widest rounded-lg shadow-lg shadow-emerald-100 flex items-center gap-2 hover:bg-emerald-700 transition-all"><Check className="h-3 w-3" /> Guardar</button>
+                                                    <button onClick={() => handleUpdate(t.id)} className="h-8 px-4 bg-emerald-600 text-white font-bold text-[10px] uppercase tracking-widest rounded-lg shadow-lg flex items-center gap-2 hover:bg-emerald-700 transition-all"><Check className="h-3 w-3" /> Guardar</button>
                                                     <button onClick={() => setIsEditing(null)} className="h-8 px-4 bg-white text-slate-400 font-bold text-[10px] uppercase tracking-widest rounded-lg border border-slate-100 hover:bg-slate-50 transition-all flex items-center gap-2"><X className="h-3 w-3" /> Cancelar</button>
                                                 </div>
                                             </div>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                <div className="space-y-2">
-                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                                                        {editForm.is_admin ? "Asignar a Proyecto" : "Nombre del Proyecto"}
-                                                    </Label>
-                                                    <Input
-                                                        value={editForm.name}
-                                                        onChange={e => setEditForm({ ...editForm, name: e.target.value })}
-                                                        className="h-11 bg-white rounded-xl text-slate-900 font-bold"
-                                                        placeholder={editForm.is_admin ? "Identificador del proyecto" : ""}
-                                                    />
-                                                </div>
-                                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nombre de Usuario</Label><Input value={editForm.username} onChange={e => setEditForm({ ...editForm, username: e.target.value })} className="h-11 bg-white rounded-xl text-slate-900 font-bold" /></div>
+                                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nombre del Proyecto</Label><Input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} className="h-11 bg-white font-bold" /></div>
+                                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Usuario</Label><Input value={editForm.username} onChange={e => setEditForm({ ...editForm, username: e.target.value })} className="h-11 bg-white font-bold" /></div>
+                                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Email</Label><Input value={editForm.client_email} onChange={e => setEditForm({ ...editForm, client_email: e.target.value })} className="h-11 bg-white font-bold" /></div>
+                                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Pass</Label><Input value={editForm.password} onChange={e => setEditForm({ ...editForm, password: e.target.value })} className="h-11 bg-white" type="password" placeholder="Opcional" /></div>
 
                                                 {!editForm.is_admin && (
-                                                    <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">URL Supabase</Label><Input value={editForm.supabase_url} onChange={e => setEditForm({ ...editForm, supabase_url: e.target.value })} className="h-11 bg-white font-mono text-xs rounded-xl text-slate-900" /></div>
-                                                )}
-
-                                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Email Acceso</Label><Input value={editForm.client_email} onChange={e => setEditForm({ ...editForm, client_email: e.target.value })} className="h-11 bg-white rounded-xl text-slate-900 font-bold" /></div>
-                                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Cambiar Contraseña</Label><Input value={editForm.password} onChange={e => setEditForm({ ...editForm, password: e.target.value })} className="h-11 bg-white rounded-xl text-slate-900" type="password" placeholder="Solo para cambiarla" /></div>
-
-                                                {!editForm.is_admin && (
-                                                    <>
-                                                        <div className="md:col-span-2 space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Service Role / Key</Label><Input value={editForm.supabase_anon_key} onChange={e => setEditForm({ ...editForm, supabase_anon_key: e.target.value })} className="h-11 bg-white font-mono text-xs rounded-xl text-slate-900" type="password" /></div>
-
-                                                        <div className="md:col-span-2 space-y-4 pt-4">
-                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Título</Label><Input value={(() => { try { const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {}); return conf.dashboard_title || ""; } catch (e) { return ""; } })()} onChange={e => { try { const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {}); conf.dashboard_title = e.target.value; setEditForm({ ...editForm, config: JSON.stringify(conf, null, 2) as any }); } catch (e) { } }} className="h-10 bg-white rounded-xl text-slate-900" /></div>
-                                                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Headers</Label><Input value={(() => { try { const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {}); return (conf.headers || []).join(", "); } catch (e) { return ""; } })()} onChange={e => { try { const conf = typeof editForm.config === 'string' ? JSON.parse(editForm.config || '{}') : (editForm.config || {}); conf.headers = e.target.value.split(",").map(s => s.trim()).filter(s => s !== ""); setEditForm({ ...editForm, config: JSON.stringify(conf, null, 2) as any }); } catch (e) { } }} className="h-10 bg-white rounded-xl text-slate-900" /></div>
-                                                            </div>
-                                                            <div className="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm">
-                                                                <KpiBuilder kpis={(typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}").kpis : (editForm.config as any)?.kpis) || []} onChange={(kpis) => { try { const current = typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : (editForm.config || {}); current.kpis = kpis; setEditForm({ ...editForm, config: JSON.stringify(current, null, 2) as any }); } catch (e) { } }} />
-                                                            </div>
+                                                    <div className="md:col-span-2 space-y-4 pt-4 border-t border-slate-100">
+                                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Infraestructura</Label>
+                                                        <div className="flex gap-4">
+                                                            <button type="button" onClick={() => setEditForm({...editForm, api_type: 'internal', supabase_url: '', supabase_anon_key: ''})} className={cn("flex-1 flex items-center justify-center gap-2 h-10 rounded-xl border-2 transition-all font-black text-[9px] uppercase tracking-widest", editForm.api_type === 'internal' ? "bg-blue-600/5 border-blue-600 text-blue-600" : "bg-white border-slate-100 text-slate-400")}>
+                                                                <Globe className="h-3 w-3" /> Interna
+                                                            </button>
+                                                            <button type="button" onClick={() => setEditForm({...editForm, api_type: 'client'})} className={cn("flex-1 flex items-center justify-center gap-2 h-10 rounded-xl border-2 transition-all font-black text-[9px] uppercase tracking-widest", editForm.api_type === 'client' ? "bg-blue-600/5 border-blue-600 text-blue-600" : "bg-white border-slate-100 text-slate-400")}>
+                                                                <Shield className="h-3 w-3" /> Externa
+                                                            </button>
                                                         </div>
-                                                    </>
+                                                        {editForm.api_type === 'client' && (
+                                                            <div className="grid grid-cols-2 gap-4 animate-in fade-in duration-300">
+                                                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-blue-600">URL</Label><Input value={editForm.supabase_url} onChange={e => setEditForm({ ...editForm, supabase_url: e.target.value })} className="h-10 bg-white border-blue-100" /></div>
+                                                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-blue-600">Key</Label><Input value={editForm.supabase_anon_key} onChange={e => setEditForm({ ...editForm, supabase_anon_key: e.target.value })} className="h-10 bg-white border-blue-100" /></div>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
                                         </td>
@@ -445,42 +430,41 @@ export default function SettingsPage() {
                                         <>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center text-blue-600 shadow-inner group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
+                                                    <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center text-blue-600">
                                                         <Building2 className="h-5 w-5" />
                                                     </div>
                                                     <div className="flex flex-col">
-                                                        <span className="text-sm font-black text-slate-900 dark:text-white tracking-tight">{t.name}</span>
-                                                        {t.username && <span className="text-[10px] text-slate-500 font-medium italic">@{t.username}</span>}
+                                                        <span className="text-sm font-black text-slate-900 tracking-tight">{t.name}</span>
+                                                        {t.username && <span className="text-[10px] text-slate-500">@{t.username}</span>}
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-xs font-mono text-slate-700">
+                                            <td className="px-6 py-4 text-[10px] font-bold">
                                                 {t.is_admin ? (
-                                                    <span className="text-blue-600 font-bold not-italic flex items-center gap-1.5 font-sans">
-                                                        <Building2 className="h-3 w-3" /> {t.name}
-                                                    </span>
+                                                    <span className="text-blue-600 flex items-center gap-1.5 uppercase tracking-widest"><Shield className="h-3 w-3" /> Sistema Central</span>
                                                 ) : (
-                                                    t.supabase_url
+                                                    t.supabase_url ? (
+                                                        <div className="flex flex-col">
+                                                            <span className="text-emerald-600 flex items-center gap-1.5 uppercase tracking-widest"><Globe className="h-3 w-3" /> API del Cliente</span>
+                                                            <span className="text-[9px] font-mono text-slate-400 truncate max-w-[120px]">{t.supabase_url}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-slate-400 flex items-center gap-1.5 uppercase tracking-widest"><Globe className="h-3 w-3" /> API Interna</span>
+                                                    )
                                                 )}
                                             </td>
-                                            <td className="px-6 py-4 text-sm font-bold text-slate-900 dark:text-slate-200">
-                                                {t.client_email || "No asignado"}
-                                            </td>
+                                            <td className="px-6 py-4 text-sm font-bold text-slate-900">{t.client_email || "-"}</td>
                                             <td className="px-6 py-4">
                                                 {t.is_admin ? (
-                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-[10px] font-black uppercase tracking-widest text-blue-600 border border-blue-100">
-                                                        <Shield className="h-3 w-3" /> Admin
-                                                    </span>
+                                                    <span className="px-2 py-1 rounded-full bg-blue-50 text-[9px] font-black uppercase text-blue-600 border border-blue-100">Admin</span>
                                                 ) : (
-                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-500 border border-slate-100">
-                                                        Cliente
-                                                    </span>
+                                                    <span className="px-2 py-1 rounded-full bg-slate-50 text-[9px] font-black uppercase text-slate-400 border border-slate-100">Cliente</span>
                                                 )}
                                             </td>
-                                            <td className="px-6 py-4 text-right">
+                                            <td className="px-6 py-4 text-right pr-8">
                                                 <div className="flex items-center justify-end gap-2">
-                                                    <button onClick={() => startEdit(t)} className="h-9 w-9 flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Editar"><Edit2 className="h-4 w-4" /></button>
-                                                    <button onClick={() => handleDelete(t.id)} className="h-9 w-9 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all" title="Eliminar"><Trash2 className="h-4 w-4" /></button>
+                                                    <button onClick={() => startEdit(t)} className="h-9 w-9 flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"><Edit2 className="h-4 w-4" /></button>
+                                                    <button onClick={() => handleDelete(t.id)} className="h-9 w-9 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 className="h-4 w-4" /></button>
                                                 </div>
                                             </td>
                                         </>
@@ -492,20 +476,16 @@ export default function SettingsPage() {
                 </div>
             </section>
 
-            {/* Security/Info Alert */}
-            <div className="rounded-3xl bg-blue-600 p-8 flex items-center gap-6 shadow-2xl shadow-blue-200 overflow-hidden relative">
-                <div className="absolute right-0 top-0 h-full w-48 bg-white/5 skew-x-[-20deg] translate-x-12" />
-                <Shield className="h-10 w-10 text-blue-100 relative z-10" />
-                <div className="space-y-1 relative z-10">
-                    <h4 className="text-xs font-black text-white uppercase tracking-[0.2em]">Protocolo de Seguridad</h4>
-                    <p className="text-sm font-medium text-blue-50 leading-relaxed max-w-2xl">
-                        Cada entorno cargado aquí utiliza un túnel seguro hacia Supabase.
-                        Los administradores registrados en el sistema central son los únicos con privilegios para modificar estos nodos.
+            {/* Security Alert */}
+            <div className="rounded-3xl bg-blue-600 p-8 flex items-center gap-6 shadow-xl shadow-blue-100 overflow-hidden relative text-white">
+                <Shield className="h-10 w-10 text-blue-100 opacity-50" />
+                <div className="space-y-1">
+                    <h4 className="text-xs font-black uppercase tracking-[0.2em]">Protocolo de Seguridad Centralizada</h4>
+                    <p className="text-sm font-medium text-blue-100 leading-relaxed max-w-2xl">
+                        Cada entorno cargado aquí utiliza un túnel seguro. Los administradores centralizados pueden gestionar KPIs y flujos sin comprometer la integridad de los datos de cada cliente.
                     </p>
                 </div>
             </div>
         </div>
     );
 }
-
-

@@ -1,0 +1,140 @@
+import { NextResponse } from "next/server";
+
+/**
+ * Handle Retell Webhook Callback
+ * When a call finishes or is analyzed, Retell sends a payload here.
+ */
+export async function POST(req: Request) {
+    try {
+        const body = await req.json();
+
+        // Very basic simple logging to verify the webhook arrival payload structure in console.
+        console.log(`[RETELL WEBHOOK] Received event: ${body.event}`);
+
+        // We specifically listen for call_analyzed or call_ended
+        if (body.event !== "call_analyzed" && body.event !== "call_ended") {
+            return NextResponse.json({ received: true });
+        }
+
+        const callData = body.call;
+        if (!callData) {
+            return NextResponse.json({ error: "No call object in payload" }, { status: 400 });
+        }
+
+        // We passed tenant_id and lead_id in the createCall metadata
+        const metadata = callData.metadata || {};
+        const tenantId = metadata.tenant_id;
+        const leadId = metadata.lead_id;
+
+        if (!tenantId || !leadId) {
+            // Cannot associate to any specific inbox.
+            console.warn(`[RETELL WEBHOOK] Missing tenant_id or lead_id in metadata for call ${callData.call_id}`);
+            return NextResponse.json({ received: true, warning: "Missing metadata" });
+        }
+
+        // Format a message for the Inbox chat
+        const duration = callData.call_duration || "0";
+        const callStatus = callData.call_status;
+        const recordingUrl = callData.recording_url;
+        const transcript = callData.transcript || "(Sin transcripción)";
+        const callAnalysis = callData.call_analysis?.custom_analysis_data || {};
+
+        let summaryText = `📞 **Llamada de Voz (${callStatus})** - Duración: ${duration}s\n\n`;
+        if (callData.call_analysis?.call_summary) {
+            summaryText += `*Resumen AI:* ${callData.call_analysis.call_summary}\n\n`;
+        }
+        summaryText += `*Transcripción:*\n${transcript}`;
+
+        const supabaseAdmin = getAdminSupabase();
+
+        // 1. Insert formal call record in `llamadas` table for Analytics and History
+        const { error: llamadaError, data: llamadaInsertRaw } = await supabaseAdmin
+            .from("llamadas")
+            .insert({
+                tenant_id: tenantId,
+                id_lead: leadId,
+                id_llamada_retell: callData.call_id,
+                tipo_agente: "RETELL_AI",
+                nombre_agente: callData.agent_id,
+                estado_llamada: callStatus,
+                razon_termino: callData.disconnection_reason || null,
+                duracion_segundos: duration ? parseInt(duration, 10) : 0,
+                url_grabacion: recordingUrl || null,
+                transcripcion: transcript,
+                resumen: callData.call_analysis?.call_summary || null
+            } as any)
+            .select("id")
+            .single();
+
+        const llamadaInsert = llamadaInsertRaw as any;
+
+        if (llamadaError) {
+             console.error("[RETELL WEBHOOK] Error saving llamada:", llamadaError);
+        }
+
+        // 2. Update the Lead Qualification based on AI custom extraction
+        const qualification = callAnalysis.calificacion || callAnalysis.qualification;
+        if (qualification) {
+             await supabaseAdmin.from("lead_cualificacion").insert({
+                  tenant_id: tenantId,
+                  id_lead: leadId,
+                  id_llamada: llamadaInsert?.id,
+                  cualificacion: String(qualification).substring(0, 250),
+             } as never);
+        }
+
+        // Silent Lead pipeline/status update
+        const extractedTipo = callAnalysis.tipo_lead || callAnalysis.lead_status;
+        if (extractedTipo) {
+            await supabaseAdmin.from("lead").update({ 
+                tipo_lead: String(extractedTipo).toUpperCase().substring(0, 50) 
+            } as never).eq("id", leadId);
+        }
+
+        // 3. Insert as a system log type message in the Inbox
+        const { error: insertError } = await supabaseAdmin
+            .from("chat_messages")
+            .insert({
+                tenant_id: tenantId,
+                lead_id: leadId,
+                direction: "OUTBOUND", 
+                message_type: "SYSTEM_LOG",
+                content: summaryText,
+                sent_by: "Retell AI",
+                status: "DELIVERED",
+                metadata: {
+                    call_id: callData.call_id,
+                    recording_url: recordingUrl,
+                    analysis: callAnalysis,
+                    llamada_db_id: llamadaInsert?.id
+                }
+            } as never);
+
+        if (insertError) {
+            console.error("[RETELL WEBHOOK] Failed to insert chat_message:", insertError);
+            return NextResponse.json({ error: "Database error" }, { status: 500 });
+        }
+
+        return NextResponse.json({ success: true, message: "Logged to Inbox" });
+
+    } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        console.error("[RETELL WEBHOOK POST] Error:", msg);
+        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    }
+}
+
+// Ensure we have an admin client instance for the webhook
+import { createClient } from "@supabase/supabase-js";
+import { Database } from "@/types/database";
+
+function getAdminSupabase() {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY!; // Admin key
+    return createClient<Database>(url, key, {
+        auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+        }
+    });
+}
