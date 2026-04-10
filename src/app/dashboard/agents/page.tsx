@@ -1,12 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { 
     Bot, Zap, 
     Save, Settings2, 
     BarChart3, Layers, 
-    ArrowRight, Sparkles, AlertCircle, PlusCircle,
+    Sparkles, AlertCircle, PlusCircle,
     GitBranch, RotateCcw
 } from "lucide-react";
 
@@ -24,7 +23,6 @@ export default function AgentsPage() {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [newAgentName, setNewAgentName] = useState("");
     const [newAgentDescription, setNewAgentDescription] = useState("");
-    const router = useRouter();
     
     // Form State
     const [variantA, setVariantA] = useState<Partial<AIAgentVariant>>({});
@@ -90,6 +88,8 @@ export default function AgentsPage() {
             setIsCreateModalOpen(false);
             setNewAgentName("");
             setNewAgentDescription("");
+        } else {
+            alert("Error al crear el agente: " + (res.error || "Desconocido"));
         }
         setSaving(false);
     };
@@ -369,7 +369,7 @@ export default function AgentsPage() {
     );
 }
 
-function TabButton({ active, icon: Icon, label, onClick }: { active: boolean, icon: any, label: string, onClick: () => void }) {
+function TabButton({ active, icon: Icon, label, onClick }: { active: boolean, icon: React.ElementType, label: string, onClick: () => void }) {
     return (
         <button 
             onClick={onClick}

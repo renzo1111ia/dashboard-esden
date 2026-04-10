@@ -1,28 +1,21 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
-import { AUTH_SUPABASE_URL, AUTH_SUPABASE_SERVICE_ROLE_KEY } from "@/lib/auth-config";
-import { Database, AIAgent, AIAgentVariant } from "@/types/database";
-import { cookies } from "next/headers";
-
-/**
- * Gets a Supabase client with tenant context from cookies.
- */
-async function getTenantClient() {
-    const cookieStore = await cookies();
-    const url = cookieStore.get("esden-tenant-url")?.value || AUTH_SUPABASE_URL!;
-    const key = cookieStore.get("esden-tenant-key")?.value || AUTH_SUPABASE_SERVICE_ROLE_KEY!;
-    return createClient<Database>(url, key);
-}
+import { getSupabaseServerClient, getActiveTenantId } from "@/lib/supabase/server";
+import { AIAgent, AIAgentVariant } from "@/types/database";
 
 /**
  * Fetches all AI Agents for the active tenant.
  */
 export async function getAIAgents() {
-    const supabase = await getTenantClient();
-    const { data, error } = await (supabase
-        .from("ai_agents" as any) as any)
+    const supabase = await getSupabaseServerClient();
+    const tenantId = await getActiveTenantId();
+    
+    if (!tenantId) return { success: false, error: "No active tenant" };
+
+    const { data, error } = await supabase
+        .from("ai_agents")
         .select("*")
+        .eq("tenant_id", tenantId)
         .order("created_at", { ascending: false });
 
     if (error) return { success: false, error: error.message };
@@ -31,11 +24,12 @@ export async function getAIAgents() {
 
 /**
  * Fetches all variants for a specific agent.
+ * Note: Variants are linked via agent_id; RLS should handle tenant isolation.
  */
 export async function getAgentVariants(agentId: string) {
-    const supabase = await getTenantClient();
-    const { data, error } = await (supabase
-        .from("ai_agent_variants" as any) as any)
+    const supabase = await getSupabaseServerClient();
+    const { data, error } = await supabase
+        .from("ai_agent_variants")
         .select("*")
         .eq("agent_id", agentId)
         .order("version_label", { ascending: true });
@@ -46,12 +40,23 @@ export async function getAgentVariants(agentId: string) {
 
 /**
  * Saves a new or existing agent.
+ * Ensures the mandatory tenant_id is injected for proper data isolation.
  */
 export async function saveAIAgent(agent: Partial<AIAgent>) {
-    const supabase = await getTenantClient();
-    const { data, error } = await (supabase
-        .from("ai_agents" as any) as any)
-        .upsert(agent as any) // Supabase UPSERT type helper can be picky
+    const supabase = await getSupabaseServerClient();
+    const tenantId = await getActiveTenantId();
+
+    if (!tenantId) return { success: false, error: "No active tenant session" };
+
+    const agentData = {
+        ...agent,
+        tenant_id: tenantId
+    };
+
+    const { data, error } = await supabase
+        .from("ai_agents")
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .upsert(agentData as any)
         .select()
         .single();
 
@@ -63,9 +68,10 @@ export async function saveAIAgent(agent: Partial<AIAgent>) {
  * Saves a prompt variant.
  */
 export async function saveAgentVariant(variant: Partial<AIAgentVariant>) {
-    const supabase = await getTenantClient();
-    const { data, error } = await (supabase
-        .from("ai_agent_variants" as any) as any)
+    const supabase = await getSupabaseServerClient();
+    const { data, error } = await supabase
+        .from("ai_agent_variants")
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .upsert(variant as any)
         .select()
         .single();
