@@ -11,10 +11,12 @@ import { useTenantStore } from "@/store/tenant";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Edit2, Check, X, Shield, Globe, Building2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { 
+    Plus, Trash2, Edit2, Check, X, Shield, Globe, Building2, Zap 
+} from "lucide-react";
 import { Tenant } from "@/types/tenant";
 import { KpiBuilder } from "./KpiBuilder";
+import { IntegrationsManager } from "./IntegrationsManager";
 
 export default function SettingsPage() {
     const { setTenant: setActiveTenant } = useTenantStore();
@@ -369,6 +371,18 @@ export default function SettingsPage() {
                                                                     }} 
                                                                 />
                                                             </div>
+
+                                                            <div className="rounded-2xl bg-white border border-slate-200 p-8 shadow-sm">
+                                                                <h3 className="text-sm font-black uppercase tracking-tight text-slate-900 mb-6 flex items-center gap-2">
+                                                                    <Zap className="h-4 w-4 text-blue-600" /> Servidodes Externos e Integraciones
+                                                                </h3>
+                                                                <IntegrationsManager 
+                                                                    config={(typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : (editForm.config || {}))}
+                                                                    onChange={(newConf) => {
+                                                                        setEditForm({ ...editForm, config: JSON.stringify(newConf, null, 2) as any });
+                                                                    }}
+                                                                />
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>
@@ -427,6 +441,21 @@ export default function SettingsPage() {
                                                     </div>
                                                 )}
                                             </div>
+                                            {!editForm.is_admin && (
+                                                <div className="md:col-span-2 space-y-6 pt-6 border-t border-slate-100 mt-6">
+                                                    <div className="rounded-2xl bg-white border border-slate-200 p-8 shadow-inner">
+                                                        <h3 className="text-sm font-black uppercase tracking-tight text-slate-900 mb-6 flex items-center gap-2">
+                                                            <Zap className="h-4 w-4 text-blue-600" /> Integraciones de Voz y Mensajería
+                                                        </h3>
+                                                        <IntegrationsManager 
+                                                            config={(typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : (editForm.config || {}))}
+                                                            onChange={(newConf) => {
+                                                                    setEditForm({ ...editForm, config: JSON.stringify(newConf, null, 2) as any });
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
                                         </td>
                                     ) : (
                                         <>
