@@ -4,15 +4,16 @@ import React, { useState, useEffect } from "react";
 import { 
     X, Save, Settings2, Info, 
     Phone, MessageSquare, BrainCircuit, 
-    Globe, GitBranchPlus, Clock, Bot, PlusCircle
+    Globe, GitBranchPlus, Clock, Bot
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Node } from "@xyflow/react";
 import { getWhatsAppTemplates } from "@/lib/actions/orchestration";
 import { getAIAgents } from "@/lib/actions/agents";
 import { WhatsAppTemplate } from "@/lib/integrations/whatsapp";
 import { AIAgent } from "@/types/database";
+import { VoiceAgentSelector } from "../orchestrator/VoiceAgentSelector";
 
 /**
  * NODE CONFIGURATION SIDEBAR
@@ -104,21 +105,17 @@ export function NodeConfigSidebar({ node, onSave, onClose }: NodeConfigSidebarPr
             <div className="flex-1 overflow-y-auto p-8 space-y-8">
                 {/* 1. RETELL CALL CONFIG */}
                 {(type === 'action' && action === 'CALL') && (
-                    <div className="space-y-4 text-left">
+                    <div className="space-y-6 text-left">
                         <div className="flex items-center gap-2 text-blue-400">
                             <Phone className="h-4 w-4" />
-                            <span className="text-xs font-black uppercase tracking-widest">Retell AI Agent</span>
+                            <span className="text-xs font-black uppercase tracking-widest">Configuración de Llamada</span>
                         </div>
-                        <div className="space-y-2">
-                             <label htmlFor="agentId" className="text-[10px] font-bold text-white/40 uppercase">Agent ID (UUID)</label>
-                             <input 
-                                id="agentId"
-                                value={(config.agentId as string) || ""}
-                                onChange={(e) => setConfig({...config, agentId: e.target.value})}
-                                className="w-full h-12 bg-white/5 border border-white/10 rounded-xl px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-mono"
-                                placeholder="retell-qualifier-v..."
-                             />
-                        </div>
+                        
+                        <VoiceAgentSelector 
+                            selectedAgentId={(config.agentId as string) || null}
+                            onChange={(id) => setConfig({...config, agentId: id})}
+                        />
+
                         <div className="space-y-2">
                              <label htmlFor="dynamicVariables" className="text-[10px] font-bold text-white/40 uppercase">Variables Dinámicas (JSON)</label>
                              <textarea 
@@ -128,7 +125,9 @@ export function NodeConfigSidebar({ node, onSave, onClose }: NodeConfigSidebarPr
                                 rows={3}
                                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-mono"
                                 placeholder='{"nombre_lead": "{{lead.nombre}}"}'
+                                title="Contexto dinámico para el agente"
                              />
+                             <p className="text-[9px] text-white/20 px-1 italic">Estas variables se pasan al LLM del proveedor para personalizar la conversación.</p>
                         </div>
                     </div>
                 )}

@@ -1,4 +1,5 @@
-import { getSupabaseServerClient, getAdminSupabaseClient } from "@/lib/supabase/server";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { isFeatureEnabled } from "./feature-flags";
 import { buildComplianceDecision } from "./compliance";
 import { whatsappBridge, WhatsAppConfig } from "../integrations/whatsapp";
@@ -7,7 +8,7 @@ import { getAgentVariants } from "../actions/agents";
 import { getOrchestratorConfigForTenant, TenantOrchestratorConfig, OrchestratorSequenceStep } from "../actions/orchestrator-config";
 import { enqueueLeadStep, LeadSequenceJob } from "./queue/lead-sequence-queue";
 import { logOrchestrationStep } from "./scheduler";
-import { Lead, PlannedAction, AIAgentVariant, Programa, LeadPrograma } from "@/types/database";
+import { Lead, PlannedAction, AIAgentVariant, Programa, VoiceAgent, VoiceAgentVariant } from "@/types/database";
 
 /**
  * ORCHESTRATOR CORE v3.0
@@ -153,40 +154,73 @@ export class Orchestrator {
         step: OrchestratorSequenceStep,
         config: TenantOrchestratorConfig
     ) {
+        const supabase = await getSupabaseServerClient();
         const retellConfig = config.retell;
         const fromNumber = retellConfig?.from_number;
         const apiKey = retellConfig?.api_key;
 
-        // A/B Agent Selection
-        const { agentId, variant } = this.selectAgent(step.agents || [], config.ab_testing);
+        // 1. Initial Selection (Internal ID from step.agents or step.agentId)
+        const { agentId: internalId, variant } = this.selectAgent(step.agents || [], config.ab_testing);
+        
+        // Final technical ID to send to Retell
+        let technicalAgentId = internalId;
+        let selectedPrompt = "";
 
-        if (!apiKey || !agentId || !fromNumber) {
-            console.error(`[ORCHESTRATOR] Retell config missing for tenant ${tenantId}`);
+        // 2. RESOLVE VOICE AGENT (Internal UUID -> Technical Provider ID)
+        if (internalId && internalId.includes('-')) { // Simple UUID check
+            const { data: vAgent } = await supabase
+                .from('voice_agents')
+                .select('*')
+                .eq('id', internalId)
+                .single();
+
+            if (vAgent) {
+                const voiceAgent = vAgent as VoiceAgent;
+                technicalAgentId = voiceAgent.provider_agent_id || internalId;
+
+                // Load Variants for A/B Prompting
+                const { data: variants } = await supabase
+                    .from('voice_agent_variants')
+                    .select('*')
+                    .eq('agent_id', voiceAgent.id)
+                    .order('created_at', { ascending: true });
+
+                if (variants && variants.length > 0) {
+                    const variantData = variants.find(v => (v as VoiceAgentVariant).is_variant_b === (variant === 'B')) || variants[0];
+                    selectedPrompt = (variantData as VoiceAgentVariant).prompt_text;
+                }
+            }
+        }
+
+        if (!apiKey || !technicalAgentId || !fromNumber) {
+            console.error(`[ORCHESTRATOR] Retell config or Technical Agent ID missing for tenant ${tenantId}`);
             return;
         }
 
-        // Construct dynamic variables to send to Retell LLM context
-        const courseContext = await this.getCourseContext(lead.id, tenantId);
+        // 3. CONSTRUCT CONTEXT
+        const courseContext = await this.getCourseContext(lead.id);
         
         const dynamicVariables: Record<string, string> = {
             lead_name: lead.nombre || "Cliente",
             lead_phone: lead.telefono || "",
             company_name: config.company_name || "Esden",
+            system_prompt_override: selectedPrompt, // If configured in Retell dashboard to use this var
             ...courseContext
         };
 
+        // 4. INITIATE CALL
         await retellBridge.createCall(
             lead.telefono || "",
-            agentId,
+            technicalAgentId,
             fromNumber,
-            { lead_id: lead.id, tenant_id: tenantId },
+            { lead_id: lead.id, tenant_id: tenantId, agent_uuid: internalId, ab_variant: variant },
             dynamicVariables,
             { apiKey }
         );
 
         await logOrchestrationStep({
             tenantId, leadId: lead.id, step: step.step,
-            actionType: "CALL", agentUsed: agentId,
+            actionType: "CALL", agentUsed: internalId || technicalAgentId,
             abVariant: variant, result: "SUCCESS"
         });
     }
@@ -234,7 +268,7 @@ export class Orchestrator {
         console.log(`[ORCHESTRATOR] AI Agent ${agentId} variant ${variant}: ${promptVariantData.version_label}`);
 
         // Fetch course context for AI Agent
-        const courseContext = await this.getCourseContext(lead.id, tenantId);
+        const courseContext = await this.getCourseContext(lead.id);
 
         // Stub LLM execution with injected context
         const analysis = `Contexto del Curso: ${courseContext.course_info}. Requisitos: ${courseContext.qualification_rules}. Interés del Lead: Alta.`;
@@ -251,7 +285,7 @@ export class Orchestrator {
      * Helper to fetch course-specific information and qualification rules.
      * Maps to course_info and qualification_rules variables in the prompt.
      */
-    private async getCourseContext(leadId: string, tenantId: string): Promise<Record<string, string>> {
+    private async getCourseContext(leadId: string): Promise<Record<string, string>> {
         const supabase = await getSupabaseServerClient();
         
         // 1. Get the programs this lead is interested in
