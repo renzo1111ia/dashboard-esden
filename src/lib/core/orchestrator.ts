@@ -197,14 +197,17 @@ export class Orchestrator {
         // Final technical ID to send to Retell
         let technicalAgentId = internalId;
         let selectedPrompt = "";
+        let vAgent: any = null;
 
         // 2. RESOLVE VOICE AGENT (Internal UUID -> Technical Provider ID)
-        if (internalId && internalId.includes('-')) { // Simple UUID check
-            const { data: vAgent } = await supabase
+        if (internalId && internalId.includes('-')) {
+            const { data } = await supabase
                 .from('voice_agents')
                 .select('*')
                 .eq('id', internalId)
                 .single();
+            
+            vAgent = data;
 
             if (vAgent) {
                 const voiceAgent = vAgent as VoiceAgent;
@@ -257,7 +260,7 @@ export class Orchestrator {
 
                 // 1. GET JOIN URL FROM ULTRAVOX
                 const ultravoxRes = await ultravoxBridge.createAgentCall(
-                    technicalAgentId,
+                    technicalAgentId as string,
                     {
                         templateContext: dynamicVariables,
                         medium: { twilio: {} }, // Current default for stream
@@ -287,7 +290,7 @@ export class Orchestrator {
                     throw new Error(`Telephony Error: ${telRes.errorMessage}`);
                 }
 
-                console.log(`[ORCHESTRATOR] Ultravox call triggered via ${config.telephony?.provider}. ID: ${telRes.providerCallId}`);
+                console.log(`[ORCHESTRATOR] Ultravox call triggered via ${(config as any).telephony?.provider}. ID: ${telRes.providerCallId}`);
 
             } else {
                 // DEFAULT: RETELL
@@ -309,7 +312,7 @@ export class Orchestrator {
 
         await logOrchestrationStep({
             tenantId, leadId: lead.id, step: step.step,
-            actionType: "CALL", agentUsed: internalId || technicalAgentId,
+            actionType: "CALL", agentUsed: (internalId || technicalAgentId) as string | undefined,
             abVariant: variant, result: "SUCCESS"
         });
     }
