@@ -42,7 +42,7 @@ export default function VoiceAgentsPage() {
     const [agents, setAgents] = useState<VoiceAgent[]>([]);
 
     const [selectedAgent, setSelectedAgent] = useState<VoiceAgent | null>(null);
-    const [activeTab, setActiveTab] = useState<'A' | 'B' | 'CONFIG' | 'METRICS' | 'FLOW'>('A');
+    const [activeTab, setActiveTab] = useState<'A' | 'B' | 'CONFIG' | 'METRICS' | 'VOCES'>('A');
     const [saving, setSaving] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [activeStateId, setActiveStateId] = useState<string | null>(null); // null = General Prompt
@@ -67,6 +67,14 @@ export default function VoiceAgentsPage() {
         language: string;
         is_published: boolean;
         version: number;
+    }[]>([]);
+    const [availableVoices, setAvailableVoices] = useState<{
+        id: string;
+        name: string;
+        provider: string;
+        gender: string;
+        accent: string;
+        preview_url?: string;
     }[]>([]);
     const [availableNumbers, setAvailableNumbers] = useState<{id: string, name: string}[]>([]);
     const [availableUltravoxVoices, setAvailableUltravoxVoices] = useState<{id: string, name: string}[]>([]);
@@ -135,6 +143,7 @@ export default function VoiceAgentsPage() {
             if (res.success && res.data) {
                 setAvailableAgents(res.data.agents);
                 setAvailableNumbers(res.data.numbers);
+                setAvailableVoices(res.data.voices);
             }
         } catch (e) {
             console.error("[Retell Sync] Error:", e);
@@ -601,6 +610,7 @@ export default function VoiceAgentsPage() {
                         <TabButton active={activeTab === 'A'} onClick={() => setActiveTab('A')} icon={Zap} label="Prompt A" color="purple" />
                         <TabButton active={activeTab === 'B'} onClick={() => setActiveTab('B')} icon={Layers} label="Prompt B" color="purple" />
                         <TabButton active={activeTab === 'CONFIG'} onClick={() => setActiveTab('CONFIG')} icon={Settings2} label="Config A/B" color="purple" />
+                        <TabButton active={activeTab === 'VOCES'} onClick={() => setActiveTab('VOCES')} icon={Volume2} label="Voces" color="purple" />
                         <TabButton active={activeTab === 'METRICS'} onClick={() => {
                             setActiveTab('METRICS');
                             handleLoadCallLogs();
@@ -723,10 +733,93 @@ export default function VoiceAgentsPage() {
                                 </motion.div>
                             )}
 
+                            {activeTab === 'VOCES' && (
+                                <motion.div
+                                    key="voces"
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -20 }}
+                                    className="h-full flex flex-col space-y-6"
+                                >
+                                    <div className="flex items-center justify-between px-2">
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-8 w-8 rounded-lg bg-pink-500/10 flex items-center justify-center border border-pink-500/20">
+                                                <Volume2 className="h-4 w-4 text-pink-400" />
+                                            </div>
+                                            <span className="text-[11px] font-black uppercase tracking-widest text-pink-400">Catálogo de Voces Sincronizadas</span>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <span className="text-[10px] font-bold text-white/20 bg-white/5 px-3 py-1 rounded-full uppercase tracking-widest">
+                                                {availableVoices.length} voces detectadas
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-20">
+                                        {availableVoices.length === 0 && (
+                                            <div className="md:col-span-2 lg:col-span-3 py-20 text-center bg-white/[0.02] border border-white/5 rounded-3xl">
+                                                <Volume2 className="h-10 w-10 text-white/10 mx-auto mb-4" />
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-white/20">Sincroniza con Retell para ver el catálogo de voces</p>
+                                            </div>
+                                        )}
+                                        {availableVoices.map(voice => (
+                                            <div 
+                                                key={voice.id} 
+                                                className="p-5 rounded-2xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] hover:border-white/10 transition-all group relative overflow-hidden text-left"
+                                            >
+                                                <div className="absolute top-0 right-0 p-3">
+                                                    <span className="text-[7px] font-black bg-white/10 text-white/40 px-1.5 py-0.5 rounded-full uppercase tracking-widest">
+                                                        {voice.provider}
+                                                    </span>
+                                                </div>
+
+                                                <h4 className="font-bold text-sm text-white/90 mb-1">{voice.name}</h4>
+                                                <p className="text-[9px] font-mono text-white/20 truncate mb-4">{voice.id}</p>
+                                                
+                                                <div className="flex items-center gap-2 mb-6">
+                                                    <span className={cn(
+                                                        "text-[8px] font-black px-2 py-0.5 rounded-lg uppercase tracking-widest",
+                                                        voice.gender === 'male' ? "bg-blue-500/10 text-blue-400" : "bg-pink-500/10 text-pink-400"
+                                                    )}>
+                                                        {voice.gender === 'male' ? 'HOMBRE' : 'MUJER'}
+                                                    </span>
+                                                    <span className="text-[8px] font-black bg-white/5 text-white/40 px-2 py-0.5 rounded-lg uppercase tracking-widest border border-white/5">
+                                                        {voice.accent}
+                                                    </span>
+                                                </div>
+
+                                                {voice.preview_url ? (
+                                                    <div className="relative pt-2">
+                                                        <audio controls className="w-full h-8 opacity-20 hover:opacity-100 transition-opacity">
+                                                            <source src={voice.preview_url} type="audio/mpeg" />
+                                                        </audio>
+                                                    </div>
+                                                ) : (
+                                                    <div className="h-8 flex items-center justify-center border border-dashed border-white/5 rounded-lg">
+                                                        <span className="text-[8px] font-black text-white/10 uppercase tracking-widest">Sin vista previa</span>
+                                                    </div>
+                                                )}
+                                                
+                                                <button 
+                                                    onClick={() => {
+                                                        setEditingAgentData(prev => ({ ...prev, voice_id: voice.id }));
+                                                        setIsCreateModalOpen(true);
+                                                    }}
+                                                    title={`Seleccionar voz ${voice.name}`}
+                                                    className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </motion.div>
+                            )}
+
                             {activeTab === 'METRICS' && (
                                 <motion.div
+                                    key="metrics"
                                     initial={{ opacity: 0, scale: 0.95 }}
                                     animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.95 }}
                                     className="h-full flex flex-col space-y-6"
                                 >
                                     <div className="flex items-center justify-between px-2">
@@ -949,8 +1042,18 @@ export default function VoiceAgentsPage() {
                                         <option value="">Selecciona una Voz...</option>
                                         {editingAgentData.provider === 'RETELL' ? (
                                             <>
-                                                <option value="terrence" className="bg-slate-900">Terrence (Retell)</option>
-                                                <option value="sarah" className="bg-slate-900">Sarah (Retell)</option>
+                                                {availableVoices.length > 0 ? (
+                                                    availableVoices.map(v => (
+                                                        <option key={v.id} value={v.id} className="bg-slate-900">
+                                                            {v.name} ({v.accent} - {v.gender === 'male' ? 'M' : 'F'})
+                                                        </option>
+                                                    ))
+                                                ) : (
+                                                    <>
+                                                        <option value="terrence" className="bg-slate-900">Terrence (Retell)</option>
+                                                        <option value="sarah" className="bg-slate-900">Sarah (Retell)</option>
+                                                    </>
+                                                )}
                                             </>
                                         ) : (
                                             <>

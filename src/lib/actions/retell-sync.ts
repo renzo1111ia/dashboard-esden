@@ -24,6 +24,15 @@ interface RetellPhoneNumber {
     nickname?: string;
 }
 
+interface RetellVoiceResponse {
+    voice_id: string;
+    voice_name: string;
+    provider: string;
+    gender: "male" | "female";
+    accent: string;
+    preview_audio_url?: string;
+}
+
 /**
  * Fetches agents and phone numbers from Retell using the provided API Key.
  * Endpoint: GET /list-agents  (returns AgentResponse array, default limit=1000)
@@ -60,14 +69,19 @@ export async function syncRetellResources(apiKey: string) {
         const filteredAgents = Array.from(latestAgentsMap.values());
 
         // 2. Fetch Phone Numbers
-        // ...
-        // (rest of the code below unchanged but I'll update the agents mapping)
         const numbersRes = await fetch("https://api.retellai.com/list-phone-numbers", { headers });
         if (!numbersRes.ok) {
             const err = await numbersRes.text();
             throw new Error(`Error fetching phone numbers: ${err}`);
         }
         const numbers: RetellPhoneNumber[] = await numbersRes.json();
+
+        // 3. Fetch Voices
+        const voicesRes = await fetch("https://api.retellai.com/list-voices", { headers });
+        let voices: RetellVoiceResponse[] = [];
+        if (voicesRes.ok) {
+            voices = await voicesRes.json();
+        }
 
         return {
             success: true,
@@ -85,7 +99,15 @@ export async function syncRetellResources(apiKey: string) {
                     const display = n.nickname || n.phone_number_pretty || n.phone_number;
                     const label = display !== n.phone_number ? `${display} (${n.phone_number})` : n.phone_number;
                     return { id: n.phone_number, name: label };
-                })
+                }),
+                voices: voices.map((v: RetellVoiceResponse) => ({
+                    id: v.voice_id,
+                    name: v.voice_name,
+                    provider: v.provider,
+                    gender: v.gender,
+                    accent: v.accent,
+                    preview_url: v.preview_audio_url
+                }))
             }
         };
 
@@ -151,6 +173,34 @@ export async function getRetellAgent(apiKey: string, agentId: string, version?: 
                 // Pass through full agent for any other consumers
                 _raw: agent,
             }
+        };
+    } catch (error: unknown) {
+        return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+    }
+}
+
+/**
+ * Fetches all available voices from Retell.
+ */
+export async function listRetellVoices(apiKey: string) {
+    if (!apiKey) return { success: false, error: "API Key is required" };
+
+    try {
+        const res = await fetch("https://api.retellai.com/list-voices", {
+            headers: { "Authorization": `Bearer ${apiKey}` }
+        });
+        if (!res.ok) throw new Error(`Failed to fetch voices from Retell (${res.status})`);
+        const voices: RetellVoiceResponse[] = await res.json();
+        return { 
+            success: true, 
+            data: voices.map((v: RetellVoiceResponse) => ({
+                id: v.voice_id,
+                name: v.voice_name,
+                provider: v.provider,
+                gender: v.gender,
+                accent: v.accent,
+                preview_url: v.preview_audio_url
+            }))
         };
     } catch (error: unknown) {
         return { success: false, error: error instanceof Error ? error.message : "Unknown error" };

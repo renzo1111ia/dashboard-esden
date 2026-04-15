@@ -173,13 +173,16 @@ export async function importRetellAgents(
 
         console.log("[importRetellAgents] Upserting", records.length, "records with prompts for tenant", tenantId);
 
-        // 3. Upsert records in chunks to prevent large payload timeout / fetch failed
-        console.log("[importRetellAgents] Upserting", records.length, "records with prompts for tenant", tenantId);
+        // 3. Upsert records in smaller chunks to prevent large JSON payload timeout / connection reset
+        console.log(`[importRetellAgents] Upserting ${records.length} records for tenant ${tenantId}...`);
         const inserted: any[] = [];
-        const upsertChunkSize = 10;
+        const upsertChunkSize = 2; // Reduced from 10 to avoid "TypeError: fetch failed" with large LLM configs
 
         for (let i = 0; i < records.length; i += upsertChunkSize) {
             const chunk = records.slice(i, i + upsertChunkSize);
+            const chunkNum = Math.floor(i/upsertChunkSize) + 1;
+            console.log(`[importRetellAgents] Upserting chunk ${chunkNum}/${Math.ceil(records.length/upsertChunkSize)}...`);
+            
             const { data: chunkInserted, error: upsertError } = await (supabase
                 .from('voice_agents' as any) as any)
                 .upsert(chunk, { 
@@ -190,7 +193,8 @@ export async function importRetellAgents(
 
             if (upsertError) {
                 const msg = upsertError.message || upsertError.details || upsertError.hint || JSON.stringify(upsertError);
-                throw new Error(`Upsert failed at chunk ${Math.floor(i/upsertChunkSize) + 1}: ${msg}`);
+                console.error(`[importRetellAgents] Upsert FAILED at chunk ${chunkNum}:`, msg);
+                throw new Error(`Error en la base de datos (Chunk ${chunkNum}): ${msg}. Esto suele ocurrir cuando la configuración del agente es demasiado pesada.`);
             }
             if (chunkInserted) inserted.push(...chunkInserted);
         }

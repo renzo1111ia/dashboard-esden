@@ -16,8 +16,10 @@ import {
     toggleLeadAI, updateLeadSegment, type InboxLead, type ChatMessage 
 } from "@/lib/actions/inbox";
 import { getOrchestratorConfig, saveOrchestratorConfig } from '@/lib/actions/orchestrator-config';
+import { getWhatsAppTemplates } from "@/lib/actions/orchestration";
 import { AgentFlowBuilder } from "@/components/orchestrator/AgentFlowBuilder";
 import { useTenantStore } from "@/store/tenant";
+import { CreateLeadDialog } from "@/components/historial/CreateLeadDialog";
 import type { LucideIcon } from "lucide-react";
 
 
@@ -34,12 +36,14 @@ export default function AIAgentInbox() {
     const [loadingChat, setLoadingChat] = useState(false);
     const [messageText, setMessageText] = useState("");
     const [sending, setSending] = useState(false);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [currentFlow, setCurrentFlow] = useState<{ nodes: any[]; edges: any[] }>({ nodes: [], edges: [] });
     const [loadingFlow, setLoadingFlow] = useState(false);
     
     // View Management
     const [activeView, setActiveView] = useState<'INBOX' | 'LOGIC'>('INBOX');
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+    const [isCreateLeadModalOpen, setIsCreateLeadModalOpen] = useState(false);
     const [showDetails, setShowDetails] = useState(true);
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     
@@ -47,6 +51,9 @@ export default function AIAgentInbox() {
     const [segmentFilter, setSegmentFilter] = useState<string | null>(null);
     const [aiFilter, setAiFilter] = useState<boolean | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [templates, setTemplates] = useState<any[]>([]);
+    const [loadingTemplates, setLoadingTemplates] = useState(false);
     
     // Refs
     const chatEndRef = useRef<HTMLDivElement>(null);
@@ -81,6 +88,15 @@ export default function AIAgentInbox() {
         } finally {
             setLoadingFlow(false);
         }
+    }, []);
+
+    const loadTemplates = useCallback(async () => {
+        setLoadingTemplates(true);
+        const res = await getWhatsAppTemplates();
+        if (res.success && typeof res.data !== 'undefined') {
+            setTemplates(res.data);
+        }
+        setLoadingTemplates(false);
     }, []);
     
     // Initial Load
@@ -117,7 +133,7 @@ export default function AIAgentInbox() {
         setSending(true);
         const res = await sendManualMessage(selectedLead.id, messageText.trim(), "TEXT");
         if (res.success && res.data) {
-            setMessages(prev => [...prev, res.data as ChatMessage]);
+            setMessages((prev: ChatMessage[]) => [...prev, res.data as ChatMessage]);
             setMessageText("");
             setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
         }
@@ -129,7 +145,7 @@ export default function AIAgentInbox() {
         setSending(true);
         const res = await sendManualMessage(selectedLead.id, templateName, "TEMPLATE");
         if (res.success && res.data) {
-            setMessages(prev => [...prev, res.data as ChatMessage]);
+            setMessages((prev: ChatMessage[]) => [...prev, res.data as ChatMessage]);
             setIsTemplateModalOpen(false);
             setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
         }
@@ -143,7 +159,7 @@ export default function AIAgentInbox() {
         if (res.success) {
             const updated = { ...selectedLead, is_ai_enabled: newState };
             setSelectedLead(updated);
-            setLeads(prev => prev.map(l => l.id === selectedLead.id ? updated : l));
+            setLeads((prev: InboxLead[]) => prev.map(l => l.id === selectedLead.id ? updated : l));
         }
     };
 
@@ -290,7 +306,13 @@ export default function AIAgentInbox() {
                             )}
                         </AnimatePresence>
 
-                        <button title="Nuevo" className="h-8 w-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center transition-all hover:bg-primary/20"><PlusCircle className="h-3.5 w-3.5 text-primary" /></button>
+                        <button 
+                            title="Nuevo Prospecto" 
+                            onClick={() => setIsCreateLeadModalOpen(true)}
+                            className="h-8 w-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center transition-all hover:bg-primary/20"
+                        >
+                            <PlusCircle className="h-3.5 w-3.5 text-primary" />
+                        </button>
                     </div>
                 </div>
 
@@ -503,7 +525,10 @@ export default function AIAgentInbox() {
                         <div className="max-w-5xl mx-auto space-y-4">
                             <div className="flex items-center gap-3">
                                 <button 
-                                    onClick={() => setIsTemplateModalOpen(true)}
+                                    onClick={() => {
+                                        setIsTemplateModalOpen(true);
+                                        loadTemplates();
+                                    }}
                                     className="h-9 px-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2 hover:bg-emerald-500/20 transition-all text-[9px] font-black uppercase tracking-widest text-emerald-400"
                                 >
                                     <Star className="h-3.5 w-3.5" /> Enviar Plantilla Meta
@@ -598,19 +623,15 @@ export default function AIAgentInbox() {
                                                     const previousSegment = selectedLead.segmentacion;
                                                     
                                                     // Functional updates to avoid closure issues
-                                                    setSelectedLead(prev => prev ? { ...prev, segmentacion: seg } : null);
-                                                    setLeads(prev => prev.map(l => l.id === selectedLead.id ? { ...l, segmentacion: seg } : l));
+                                                    setSelectedLead((prev: InboxLead | null) => prev ? { ...prev, segmentacion: seg } : null);
+                                                    setLeads((prev: InboxLead[]) => prev.map(l => l.id === selectedLead.id ? { ...l, segmentacion: seg } : l));
 
                                                     const res = await updateLeadSegment(selectedLead.id, seg);
                                                     
                                                     if (!res.success) {
-                                                        console.error("Failed to update segment in DB:", res.error);
-                                                        // ROLLBACK on failure
-                                                        setSelectedLead(prev => prev ? { ...prev, segmentacion: previousSegment } : null);
-                                                        setLeads(prev => prev.map(l => l.id === selectedLead.id ? { ...l, segmentacion: previousSegment } : l));
+                                                        setSelectedLead((prev: InboxLead | null) => prev ? { ...prev, segmentacion: previousSegment } : null);
+                                                        setLeads((prev: InboxLead[]) => prev.map(l => l.id === selectedLead.id ? { ...l, segmentacion: previousSegment } : l));
                                                         alert("Error al guardar segmentación: " + res.error);
-                                                    } else {
-                                                        console.log("Segment updated successfully in DB");
                                                     }
                                                 }}
                                                 className={cn(
@@ -711,26 +732,40 @@ export default function AIAgentInbox() {
                             </div>
                             
                             <div className="grid grid-cols-1 gap-4 max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
-                                <TemplateCard 
-                                    name="hello_world_v1" 
-                                    description="Saludo inicial genérico para nuevos leads. Ideal para primer contacto." 
-                                    onClick={() => handleSendTemplate("hello_world_v1")}
-                                />
-                                <TemplateCard 
-                                    name="follow_up_esden" 
-                                    description="Recordatorio de interés en programas de máster. Incluye llamado a la acción." 
-                                    onClick={() => handleSendTemplate("follow_up_esden")}
-                                />
-                                <TemplateCard 
-                                    name="payment_link_v2" 
-                                    description="Envío de link de reserva de plaza y métodos de financiación." 
-                                    onClick={() => handleSendTemplate("payment_link_v2")}
-                                />
+                                {loadingTemplates ? (
+                                    <div className="flex flex-col items-center py-20 opacity-30">
+                                        <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+                                        <p className="text-[10px] uppercase font-black tracking-widest">Sincronizando con Meta...</p>
+                                    </div>
+                                ) : templates.length > 0 ? (
+                                    templates.map((tpl: { id: string; name: string; category: string; language: string; status?: string }) => (
+                                        <TemplateCard 
+                                            key={tpl.id}
+                                            name={tpl.name} 
+                                            description={`Categoría: ${tpl.category} | Idioma: ${tpl.language}`} 
+                                            onClick={() => handleSendTemplate(tpl.name)}
+                                            status={tpl.status}
+                                        />
+                                    ))
+                                ) : (
+                                    <div className="text-center py-10 opacity-30">
+                                        <p className="text-xs font-bold">No se encontraron plantillas sincronizadas.</p>
+                                    </div>
+                                )}
                             </div>
                         </motion.div>
                     </div>
                 )}
             </AnimatePresence>
+
+            {isCreateLeadModalOpen && (
+                <CreateLeadDialog 
+                    onClose={() => setIsCreateLeadModalOpen(false)}
+                    onSuccess={() => {
+                        loadLeads();
+                    }}
+                />
+            )}
 
             <style jsx global>{`
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -764,7 +799,7 @@ function TimelineItem({ label, time, status, icon: Icon, active, isLast }: { lab
     );
 }
 
-function TemplateCard({ name, description, onClick }: { name: string, description: string, onClick: () => void }) {
+function TemplateCard({ name, description, status, onClick }: { name: string, description: string, status?: string, onClick: () => void }) {
     return (
         <button 
             title={`Usar plantilla ${name}`}
@@ -773,6 +808,12 @@ function TemplateCard({ name, description, onClick }: { name: string, descriptio
         >
             <div className="flex items-center justify-between">
                 <span className="text-[10px] font-black text-primary uppercase tracking-widest">{name}</span>
+                {status && (
+                    <span className={cn(
+                        "px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-tighter border",
+                        status === 'APPROVED' ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-500" : "bg-white/10 border-white/20 text-white/20"
+                    )}>{status}</span>
+                )}
                 <Send className="h-3.5 w-3.5 text-white/10 group-hover:text-primary transition-colors" />
             </div>
             <p className="text-[12px] text-white/40 leading-relaxed font-medium group-hover:text-white transition-colors">{description}</p>

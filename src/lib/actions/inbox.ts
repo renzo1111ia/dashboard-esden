@@ -2,6 +2,7 @@
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getActiveTenantConfig } from "./tenant";
+import { whatsappBridge, WhatsAppConfig } from "../integrations/whatsapp";
 
 export interface ChatMessage {
     id: string;
@@ -40,6 +41,7 @@ export async function updateLeadSegment(leadId: string, segment: InboxLead['segm
     const supabase = await getSupabaseServerClient();
     const { error } = await (supabase
         .from('lead')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .update({ segmentacion: segment } as never) as any)
         .eq('id', leadId);
     
@@ -71,6 +73,7 @@ export async function getInboxLeads(): Promise<{ success: boolean; data?: InboxL
 
     // 2. Group by lead_id to keep ONLY the most recent message
     const latestMsgByLead = new Map<string, { content: string; time: string }>();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (recentMessages as any[] || []).forEach(m => {
         if (m.lead_id && !latestMsgByLead.has(m.lead_id)) {
             latestMsgByLead.set(m.lead_id, { content: m.content, time: m.created_at });
@@ -89,6 +92,7 @@ export async function getInboxLeads(): Promise<{ success: boolean; data?: InboxL
     if (leadError) return { success: false, error: leadError.message };
 
     // 4. Combine and Map
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const results: InboxLead[] = (leads as any[] || []).map(l => {
         const msg = latestMsgByLead.get(l.id);
         return {
@@ -146,7 +150,8 @@ export async function getChatHistory(leadId: string): Promise<{ success: boolean
     const chronological: ChatMessage[] = (messages as ChatMessage[] || []).map(m => ({ ...m }));
 
     if (calls && (calls as any[]).length > 0) {
-        (calls as any[]).forEach(call => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (calls as any[]).forEach((call: any) => {
             chronological.push({
                 id: `call-${call.id}`,
                 tenant_id: tenant.id,
@@ -170,7 +175,7 @@ export async function getChatHistory(leadId: string): Promise<{ success: boolean
 
 /**
  * Sends a manual text message or a predefined template to a lead.
- * In production this would also call `whatsappBridge.send...` to push to Meta.
+ * This function handles real WhatsApp delivery and AI handover.
  */
 export async function sendManualMessage(
     leadId: string, 
@@ -182,10 +187,56 @@ export async function sendManualMessage(
 
     const supabase = await getSupabaseServerClient();
 
-    // WARNING: In a real environment, you must call the WhatsApp Bridge HERE.
-    // Example: await whatsappBridge.sendMessage(lead.telefono, content, config);
-    // For the UI demonstration, we just persist it in the DB.
+    // 1. Fetch Lead data (for phone and name)
+    const { data: leadRaw, error: leadError } = await supabase
+        .from("lead")
+        .select("telefono, nombre, is_ai_enabled")
+        .eq("id", leadId)
+        .single();
 
+    if (leadError || !leadRaw) return { success: false, error: "Lead no encontrado" };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const lead = leadRaw as any;
+
+    // 2. Resolve WhatsApp Config
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const conf = tenant.config as any;
+    const waConfig: WhatsAppConfig = {
+        accessToken: conf?.whatsapp?.accessToken,
+        phoneNumberId: conf?.whatsapp?.phoneNumberId,
+        wabaId: conf?.whatsapp?.wabaId
+    };
+
+    // 3. Real WhatsApp Send (only if credentials exist)
+    if (waConfig.accessToken && waConfig.phoneNumberId) {
+        try {
+            if (type === "TEXT") {
+                await whatsappBridge.sendTextMessage(lead.telefono || "", content, waConfig);
+            } else {
+                // For manual template sends, we resolve {{1}} to name automatically
+                const components = lead.nombre ? [
+                    {
+                        type: "body",
+                        parameters: [{ type: "text", text: lead.nombre }]
+                    }
+                ] : [];
+                await whatsappBridge.sendTemplateMessage(lead.telefono || "", content, "es", components, waConfig);
+            }
+        } catch (waError) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            console.error("[INBOX] WhatsApp Send Error:", (waError as any).message);
+            // We continue to persist in DB anyway as requested for visibility
+        }
+    } else {
+        console.warn("[INBOX] No WhatsApp credentials - Persisting as MOCK message locally.");
+    }
+
+    // 4. HANDOVER: Disable AI for this lead since a human intervened
+    if (lead.is_ai_enabled) {
+        await supabase.from("lead").update({ is_ai_enabled: false } as never).eq("id", leadId);
+    }
+
+    // 5. Persist message in DB
     const { data, error } = await supabase
         .from("chat_messages")
         .insert({
@@ -194,7 +245,7 @@ export async function sendManualMessage(
             direction: "OUTBOUND",
             message_type: type,
             content: content,
-            sent_by: "Asesor (Beatriz)", // Could be dynamic from auth session
+            sent_by: "Asesor Humano", 
             status: "SENT"
         } as never)
         .select()
@@ -237,6 +288,7 @@ export async function toggleLeadAI(leadId: string, enabled: boolean): Promise<{ 
     const supabase = await getSupabaseServerClient();
     const { error } = await (supabase
         .from("lead")
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .update({ is_ai_enabled: enabled } as never) as any)
         .eq("id", leadId);
 

@@ -389,11 +389,17 @@ export async function fetchWhatsappByPhone(phone: string) {
 
 
 export async function createLead(data: Partial<HistorialRow> & { id_programa?: string }) {
+    console.log("[ACTIONS] createLead started with data:", JSON.stringify(data));
     try {
         const client = await getSupabaseServerClient();
         const tenantId = await getActiveTenantId();
         
-        if (!tenantId) throw new Error("No active tenant selected");
+        if (!tenantId) {
+            console.error("[ACTIONS] createLead FAILED: No active tenant ID found in cookies.");
+            throw new Error("No hay un cliente seleccionado en el selector.");
+        }
+
+        console.log(`[ACTIONS] Scoping new lead to tenant: ${tenantId}`);
 
         // 1. Insert into lead table
         const leadData = {
@@ -416,21 +422,34 @@ export async function createLead(data: Partial<HistorialRow> & { id_programa?: s
             .select()
             .single();
 
-        if (leadError) throw new Error(leadError.message);
+        if (leadError) {
+            console.error("[ACTIONS] Supabase Insert ERROR:", leadError.message, leadError.details);
+            throw new Error(leadError.message);
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        console.log("[ACTIONS] Lead created successfully with ID:", (newLead as any).id);
 
         // 2. If program is selected, associate it
         if (data.id_programa && newLead) {
-            await client
+            console.log(`[ACTIONS] Associating lead with program: ${data.id_programa}`);
+            const { error: progError } = await client
                 .from("lead_programas")
                 .insert({
-                    id_lead: (newLead as any).id, // eslint-disable-line @typescript-eslint/no-explicit-any
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    id_lead: (newLead as any).id,
                     id_programa: data.id_programa
-                } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                } as any);
+            
+            if (progError) {
+                console.warn("[ACTIONS] Error associating program, but lead was created:", progError.message);
+            }
         }
 
         return { success: true, data: newLead as unknown as Lead };
     } catch (e) {
-        console.error("createLead ERROR:", e instanceof Error ? e.message : e);
+        console.error("[ACTIONS] createLead EXCEPTION:", e instanceof Error ? e.message : e);
         return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
 }
