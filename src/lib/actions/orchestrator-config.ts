@@ -84,8 +84,8 @@ export async function getOrchestratorConfig(): Promise<{ success: boolean; data?
         if (!tenant) return { success: false, error: "No active tenant" };
 
         const supabase = await getSupabaseServerClient();
-        const { data, error } = await (supabase
-            .from("tenant_orchestrator_config" as any) as any)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (supabase.from("tenant_orchestrator_config" as any) as any)
             .select("config, flow_graph")
             .eq("tenant_id", tenant.id)
             .single();
@@ -96,7 +96,9 @@ export async function getOrchestratorConfig(): Promise<{ success: boolean; data?
         }
 
         // Merge with defaults for any missing keys
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const merged = deepMerge(DEFAULT_CONFIG, data.config as any);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         merged.flow_graph = (data.flow_graph as any) || DEFAULT_CONFIG.flow_graph;
         return { success: true, data: merged };
     } catch (e: unknown) {
@@ -117,12 +119,8 @@ export async function saveOrchestratorConfig(config: Partial<TenantOrchestratorC
         console.log(`[SAVE_FLOW] Saving for tenant ${tenant.id}. Graph nodes: ${config.flow_graph?.nodes?.length || 0}`);
 
         // We use a partial update approach: 
-        // 1. Fetch current config to avoid overwriting other keys if we were doing a full upsert
-        // 2. OR just use upsert but only if we have the full config.
-        // Since this is for the Flow Builder, we mostly care about flow_graph.
-
-        const { error } = await (supabase
-            .from("tenant_orchestrator_config" as any) as any)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase.from("tenant_orchestrator_config" as any) as any)
             .upsert({ 
                 tenant_id: tenant.id, 
                 flow_graph: config.flow_graph || { nodes: [], edges: [] }
@@ -156,13 +154,14 @@ export async function saveOrchestratorConfig(config: Partial<TenantOrchestratorC
 export async function getOrchestratorConfigForTenant(tenantId: string): Promise<TenantOrchestratorConfig> {
     try {
         const supabase = await getSupabaseServerClient();
-        const { data } = await (supabase
-            .from("tenant_orchestrator_config" as any) as any)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data } = await (supabase.from("tenant_orchestrator_config" as any) as any)
             .select("config")
             .eq("tenant_id", tenantId)
             .single();
 
         if (!data) return DEFAULT_CONFIG;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return deepMerge(DEFAULT_CONFIG, data.config as any);
     } catch {
         return DEFAULT_CONFIG;
@@ -171,11 +170,14 @@ export async function getOrchestratorConfigForTenant(tenantId: string): Promise<
 
 // ─── Utility ──────────────────────────────────────────────────────
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function deepMerge<T extends Record<string, any>>(base: T, override: Partial<T>): T {
     const result = { ...base };
     for (const key in override) {
         const val = override[key];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if (val && typeof val === "object" && !Array.isArray(val)) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             result[key] = deepMerge(base[key] as Record<string, any>, val as Record<string, any>) as T[typeof key];
         } else if (val !== undefined) {
             result[key] = val as T[typeof key];

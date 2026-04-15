@@ -273,7 +273,7 @@ export function NodeConfigSidebar({ node, workflowId, onSave, onClose }: NodeCon
                                                 <Zap className="h-3 w-3 text-amber-500" /> Mapeo de Variables ({uniqueVars.length})
                                             </label>
                                             <div className="space-y-2">
-                                                {uniqueVars.map((v, i) => {
+                                                {uniqueVars.map((v: string, i) => {
                                                     const idx = v.replace(/[\{\}]/g, '');
                                                     const currentMappings = (config.variableMappings as Record<string, string>) || {};
                                                     
