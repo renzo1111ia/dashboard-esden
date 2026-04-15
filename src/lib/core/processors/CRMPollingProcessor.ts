@@ -1,7 +1,8 @@
 import { getSupabaseServerClient } from "../../supabase/server";
 import { orchestrator } from "../../core/orchestrator";
-import { getOrchestratorConfigForTenant } from "../../actions/orchestrator-config";
+
 import { CRMFactory } from "../../integrations/crm/factory";
+import { Tenant } from "@/types/tenant";
 
 /**
  * CRM POLLING PROCESSOR
@@ -13,7 +14,7 @@ export class CRMPollingProcessor {
         const supabase = await getSupabaseServerClient();
 
         // 1. Get all active tenants
-        const { data: tenants } = await supabase.from("tenants").select("*");
+        const { data: tenants } = await supabase.from("tenants" as any).select("*") as { data: Tenant[] | null };
         if (!tenants) return;
 
         for (const tenant of tenants) {
@@ -40,8 +41,8 @@ export class CRMPollingProcessor {
                         const { fields } = crmLead;
 
                         // 3. Upsert into local DB using generic fields from the provider
-                        const { data: lead, error: upsertError } = await supabase
-                            .from("lead")
+                        const { data: lead, error: upsertError } = await (supabase
+                            .from("lead" as any) as any)
                             .upsert({
                                 tenant_id: tenant.id,
                                 id_lead_externo: crmLead.id,

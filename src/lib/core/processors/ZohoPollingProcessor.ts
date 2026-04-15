@@ -1,7 +1,7 @@
 import { zohoClient } from "../../integrations/zoho";
 import { getSupabaseServerClient } from "../../supabase/server";
 import { orchestrator } from "../../core/orchestrator";
-import { getOrchestratorConfigForTenant } from "../../actions/orchestrator-config";
+import { Tenant } from "@/types/tenant";
 
 /**
  * ZOHO POLLING PROCESSOR
@@ -15,7 +15,7 @@ export class ZohoPollingProcessor {
 
         // 1. Get all active tenants with Zoho configuration
         // For now, we fetch all tenants and check their config
-        const { data: tenants } = await supabase.from("tenants").select("*");
+        const { data: tenants } = await supabase.from("tenants" as any).select("*") as { data: Tenant[] | null };
         if (!tenants) return;
 
         for (const tenant of tenants) {
@@ -39,14 +39,13 @@ export class ZohoPollingProcessor {
 
                 console.log(`[ZOHO_POLLER] Found ${externalLeads.length} new leads. Processing...`);
 
-                // Load tenant orchestrator config
-                const orchConfig = await getOrchestratorConfigForTenant(tenant.id);
+
 
                 for (const extLead of externalLeads) {
                     try {
                         // 3. Upsert into our local "lead" table
-                        const { data: lead, error: upsertError } = await supabase
-                            .from("lead")
+                        const { data: lead, error: upsertError } = await (supabase
+                            .from("lead" as any) as any)
                             .upsert({
                                 tenant_id: tenant.id,
                                 id_lead_externo: extLead.id,
