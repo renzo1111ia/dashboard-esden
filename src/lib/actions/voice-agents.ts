@@ -130,50 +130,69 @@ export async function importRetellAgents(
         const { getRetellAgent } = await import("./retell-sync");
         const supabase = await getSupabaseServerClient();
 
-        // 2. Fetch full details (Prompts) for ALL selected agents in parallel
-        // We no longer skip existing ones because we want to update their retell_llm_config
-        console.log("[importRetellAgents] Fetching prompts for", retellAgents.length, "agents...");
-        const fullDetailsResults = await Promise.all(
-            retellAgents.map(a => getRetellAgent(retellApiKey, a.id))
-        );
-
-        // 3. Build insert/update records with actual prompts and full config
-        const records = retellAgents.map((a, index) => {
-            const detail = fullDetailsResults[index];
-            const prompt = (detail.success && detail.data) ? detail.data.prompt : "";
-            const llmConfig = (detail.success && detail.data) ? detail.data.llm_config : null;
+        // 2. Fetch full details (Prompts) for ALL selected agents
+        // Using smaller chunks to avoid "TypeError: fetch failed" / socket exhaustion or rate limits
+        console.log(`[importRetellAgents] Syncing ${retellAgents.length} agents...`);
+        
+        const records: any[] = [];
+        const chunkSize = 5;
+        for (let i = 0; i < retellAgents.length; i += chunkSize) {
+            const chunk = retellAgents.slice(i, i + chunkSize);
+            console.log(`[importRetellAgents] Processing chunk ${Math.floor(i/chunkSize) + 1}...`);
             
-            return {
-                tenant_id: tenantId,
-                name: a.name || a.id,
-                description: null as null,
-                provider: 'RETELL' as const,
-                provider_agent_id: a.id,
-                retell_llm_id: a.llm_id || null,
-                voice_id: a.voice_id || null,
-                from_number: null as null,
-                prompt_text_retell: prompt,
-                retell_llm_config: llmConfig,
-                status: 'ACTIVE' as const,
-            };
-        });
+            const details = await Promise.all(
+                chunk.map(a => getRetellAgent(retellApiKey, a.id))
+            );
+
+            for (let j = 0; j < chunk.length; j++) {
+                const a = chunk[j];
+                const detail = details[j];
+                
+                if (!detail.success) {
+                    console.warn(`[importRetellAgents] Could not fetch details for agent ${a.id}: ${detail.error}`);
+                }
+
+                const prompt = (detail.success && detail.data) ? detail.data.prompt : "";
+                const llmConfig = (detail.success && detail.data) ? detail.data.llm_config : null;
+                
+                records.push({
+                    tenant_id: tenantId,
+                    name: a.name || a.id,
+                    description: null as null,
+                    provider: 'RETELL' as const,
+                    provider_agent_id: a.id,
+                    retell_llm_id: a.llm_id || null,
+                    voice_id: a.voice_id || null,
+                    from_number: null as null,
+                    prompt_text_retell: prompt,
+                    retell_llm_config: llmConfig,
+                    status: 'ACTIVE' as const,
+                });
+            }
+        }
 
         console.log("[importRetellAgents] Upserting", records.length, "records with prompts for tenant", tenantId);
 
-        // Using upsert with onConflict on provider_agent_id
-        // NOTE: In a multitenant setup, usually it's unique per tenant. 
-        // If it fails, we might need to specify the exactly constraint name.
-        const { data: inserted, error: upsertError } = await (supabase
-            .from('voice_agents' as any) as any)
-            .upsert(records, { 
-                onConflict: 'tenant_id,provider_agent_id',
-                ignoreDuplicates: false 
-            })
-            .select('id, provider_agent_id');
+        // 3. Upsert records in chunks to prevent large payload timeout / fetch failed
+        console.log("[importRetellAgents] Upserting", records.length, "records with prompts for tenant", tenantId);
+        const inserted: any[] = [];
+        const upsertChunkSize = 10;
 
-        if (upsertError) {
-            const msg = upsertError.message || upsertError.details || upsertError.hint || JSON.stringify(upsertError);
-            throw new Error("Upsert failed: " + msg);
+        for (let i = 0; i < records.length; i += upsertChunkSize) {
+            const chunk = records.slice(i, i + upsertChunkSize);
+            const { data: chunkInserted, error: upsertError } = await (supabase
+                .from('voice_agents' as any) as any)
+                .upsert(chunk, { 
+                    onConflict: 'tenant_id,provider_agent_id',
+                    ignoreDuplicates: false 
+                })
+                .select('id, provider_agent_id');
+
+            if (upsertError) {
+                const msg = upsertError.message || upsertError.details || upsertError.hint || JSON.stringify(upsertError);
+                throw new Error(`Upsert failed at chunk ${Math.floor(i/upsertChunkSize) + 1}: ${msg}`);
+            }
+            if (chunkInserted) inserted.push(...chunkInserted);
         }
 
         // 4. Create default A/B variant stubs ONLY for the truly new ones? 
