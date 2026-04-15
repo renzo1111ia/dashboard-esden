@@ -111,6 +111,7 @@ export default function AgentsPage() {
             loadVariants(selectedAgent.id);
 
             // Load inactivity rules from flow_config
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const inactivity = (selectedAgent.flow_config as any)?.inactivity_rules;
             if (inactivity) {
                 setInactivityMinutes(inactivity.timeout_minutes ?? 4);
@@ -139,6 +140,7 @@ export default function AgentsPage() {
                 agent_message: inactivityMessage,
             }
         };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await saveAIAgent({ id: selectedAgent.id, flow_config: updatedFlow } as any);
         setSavingInactivity(false);
         alert('Regla de inactividad guardada.');
@@ -622,7 +624,7 @@ export default function AgentsPage() {
                                             <p className="text-[11px] text-amber-200/60 leading-relaxed font-medium">
                                                 Si el cliente no responde en <span className="text-amber-400 font-black">{inactivityMinutes} minutos</span>, 
                                                 el sistema {inactivityAction === 'template'
-                                                    ? <> enviará la plantilla <span className="text-emerald-400 font-black">"{inactivityTemplate || 'sin nombre'}"</span></>  
+                                                    ? <> enviará la plantilla <span className="text-emerald-400 font-black">&quot;{inactivityTemplate || 'sin nombre'}&quot;</span></>  
                                                     : <> activará al agente para enviar un mensaje de reactivación</>}.
                                             </p>
                                         </div>
@@ -698,7 +700,8 @@ export default function AgentsPage() {
                     >
                         <AgentFlowBuilder 
                             agentName={selectedAgent.name}
-                            initialFlow={selectedAgent.flow_config || { nodes: [], edges: [] }}
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            initialFlow={(selectedAgent.flow_config as any) || { nodes: [], edges: [] }}
                             isInline={false}
                             onClose={() => setActiveTab('A')}
                             onSave={async (flow) => {
