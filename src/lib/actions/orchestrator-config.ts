@@ -7,7 +7,7 @@ import { getActiveTenantConfig } from "./tenant";
 
 export interface OrchestratorSequenceStep {
     step: number;
-    action: "call" | "whatsapp" | "ai_agent" | "wait" | "zoho";
+    action: "call" | "whatsapp" | "ai_agent" | "wait" | "zoho" | "crm";
     agents?: string[];       // Array de agent IDs para A/B
     template?: string;       // WhatsApp template name
     delay_hours: number;     // Horas de espera antes de este paso
@@ -35,7 +35,7 @@ export interface TenantOrchestratorConfig {
     sequence: OrchestratorSequenceStep[];
     ab_testing: OrchestratorABConfig;
     retell: OrchestratorRetellConfig;
-    flow_graph?: { nodes: any[]; edges: any[] };
+    flow_graph?: { nodes: unknown[]; edges: unknown[] };
     company_name?: string;
 }
 
@@ -96,7 +96,7 @@ export async function getOrchestratorConfig(): Promise<{ success: boolean; data?
 
         // Merge with defaults for any missing keys
         const merged = deepMerge(DEFAULT_CONFIG, data.config as any);
-        merged.flow_graph = data.flow_graph || DEFAULT_CONFIG.flow_graph;
+        merged.flow_graph = (data.flow_graph as any) || DEFAULT_CONFIG.flow_graph;
         return { success: true, data: merged };
     } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Unknown error";
