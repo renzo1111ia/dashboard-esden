@@ -3,7 +3,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { getAdminStatus } from "./auth";
 
-export async function injectDemoData(tenantId: string) {
+export async function runLaboratoryInjection(tenantId: string) {
     console.log("[DEMO] Inicia inyección encapsulada para:", tenantId);
     
     try {

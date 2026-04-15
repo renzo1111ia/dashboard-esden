@@ -2,8 +2,14 @@
 
 import { useState } from "react";
 import { useTenantStore } from "@/store/tenant";
-import { injectDemoData } from "@/lib/actions/demo";
-import { FlaskConical, DatabaseZap, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
+import { runLaboratoryInjection } from "@/lib/actions/demo";
+import { 
+    FlaskConical, 
+    CheckCircle2, 
+    AlertTriangle,
+    Database,
+    Loader2
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function DemoSimulatorPage() {
@@ -28,7 +34,7 @@ export default function DemoSimulatorPage() {
         setMessage('');
 
         try {
-            const res = await injectDemoData(tenantId);
+            const res = await runLaboratoryInjection(tenantId);
             if (res.error) {
                 setStatus('error');
                 setMessage(res.error);
@@ -67,7 +73,7 @@ export default function DemoSimulatorPage() {
                     <div className="rounded-2xl border border-sidebar-border bg-card shadow-sm overflow-hidden">
                         <div className="p-6 border-b border-sidebar-border bg-slate-50/50 dark:bg-slate-900/50">
                             <div className="flex items-center gap-3 mb-2">
-                                <DatabaseZap className="h-5 w-5 text-blue-500" />
+                                <Database className="h-5 w-5 text-blue-500" />
                                 <h2 className="text-lg font-bold text-card-foreground">Paquete: Generador Omnicanal</h2>
                             </div>
                             <p className="text-sm text-muted-foreground">Inyecta un flujo completo de prueba en la base de datos de <strong>{tenantName}</strong>.</p>
