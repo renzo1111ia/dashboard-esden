@@ -11,6 +11,12 @@ const supabase = createClient(url, key);
 export async function injectDemoData(tenantId: string) {
     console.log("[DEMO] Starting lab injection for tenant:", tenantId);
     
+    // Check environment at runtime
+    if (!url || !key) {
+        console.error("[DEMO] Missing Supabase environment variables.");
+        return { error: "Configuración de servidor incompleta (URL/KEY faltante)." };
+    }
+
     try {
         const isAdmin = await getAdminStatus();
         if (!isAdmin) {
@@ -21,28 +27,31 @@ export async function injectDemoData(tenantId: string) {
             return { error: "El tenantId es obligatorio para inyectar datos." };
         }
 
-        // 1. Create a Demo Campaign
-        const campaignName = "Master Esden - Captación Lab 2026";
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // Use a unique suffix for this run to avoid collisions
+        const suffix = Math.random().toString(36).slice(2, 6);
+
+        const campaignName = `Master Esden - Lab ${suffix}`;
         const { error: errCamp } = await supabase
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .from('campanas' as any)
-            .upsert({
+            .insert({
                 tenant_id: tenantId,
                 nombre: campaignName,
                 descripcion: "Campaña de prueba generada por el Laboratorio Demo.",
                 estado: "ACTIVA",
                 fecha_inicio: new Date().toISOString()
-            }, { onConflict: 'tenant_id,nombre' });
+            });
 
-        if (errCamp) console.error("[DEMO] Campaign upsert error:", errCamp);
+        if (errCamp) {
+            console.error("[DEMO] Campaign insert error:", errCamp);
+            // Non-critical: continue with a fallback campaign name
+        }
 
         // 2. Prepare coherent sample Leads
         const samples = [
-            { nombre: 'Laura', apellido: 'Gómez', email: 'laura.g@esden.edu.es', phone: '+34600111222', country: 'España', type: 'MARKETING' },
-            { nombre: 'Carlos', apellido: 'Rodríguez', email: 'c.rodriguez@demo.com', phone: '+525512345678', country: 'México', type: 'VENTAS' },
-            { nombre: 'Elena', apellido: 'Martínez', email: 'elena.mtz@gmail.com', phone: '+34611222333', country: 'España', type: 'INFORMATICA' },
-            { nombre: 'Andrés', apellido: 'Pérez', email: 'andres.p@outlook.com', phone: '+573104567890', country: 'Colombia', type: 'MARKETING' },
-            { nombre: 'Sofía', apellido: 'López', email: 'sofia.lopez@demo.es', phone: '+34622333444', country: 'España', type: 'VENTAS' }
+            { nombre: 'Laura', apellido: 'Gómez', email: `laura.${suffix}@esden.edu.es`, phone: `+34600${Math.floor(Math.random()*900000+100000)}`, country: 'España', type: 'MARKETING' },
+            { nombre: 'Carlos', apellido: 'Rodríguez', email: `c.${suffix}@demo.com`, phone: `+5255${Math.floor(Math.random()*90000000+10000000)}`, country: 'México', type: 'VENTAS' },
+            { nombre: 'Elena', apellido: 'Martínez', email: `elena.${suffix}@esden.es`, phone: `+34611${Math.floor(Math.random()*900000+100000)}`, country: 'España', type: 'INFORMATICA' }
         ];
 
         const fakeLeads = samples.map((s, i) => ({
@@ -55,29 +64,32 @@ export async function injectDemoData(tenantId: string) {
             tipo_lead: s.type,
             origen: 'Laboratorio Demo',
             campana: campaignName,
-            foto_url: `https://i.pravatar.cc/150?u=${s.nombre}${i}`,
+            foto_url: `https://i.pravatar.cc/150?u=${s.nombre}${suffix}${i}`,
             is_ai_enabled: true
         }));
 
-        // 3. Insert Leads
+        // 3. Insert Leads (using simple insert to avoid unique index issues with upsert)
         console.log("[DEMO] Inserting leads...");
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: leads, error: errLeads } = await supabase
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .from('lead' as any)
-            .upsert(fakeLeads, { onConflict: 'tenant_id,telefono' })
+            .insert(fakeLeads)
             .select();
 
-        if (errLeads) throw new Error(`Error en leads: ${errLeads.message}`);
-        if (!leads) throw new Error("No se crearon leads.");
+        if (errLeads) {
+            console.error("[DEMO] Lead insert error:", errLeads.message);
+            throw new Error(`Error en leads: ${errLeads.message}`);
+        }
+        if (!leads || leads.length === 0) throw new Error("No se crearon leads en la base de datos.");
 
         // 4. Populate sub-modules for each lead
         console.log("[DEMO] Populating sub-modules (calls, whatsapp, kval)...");
         
         for (const lead of leads) {
             // A. Simular Llamada (Minutos/Llamadas)
-            const callId = `call_${Math.random().toString(36).slice(2, 9)}`;
+            const callId = `call_${suffix}_${Math.random().toString(36).slice(2, 6)}`;
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await supabase.from('llamadas' as any).insert({
+            await (supabase.from('llamadas' as any) as any).insert({
                 tenant_id: tenantId,
                 id_lead: lead.id,
                 id_llamada_retell: callId,
@@ -93,7 +105,7 @@ export async function injectDemoData(tenantId: string) {
 
             // B. Simular Cualificación (Historial)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await supabase.from('lead_cualificacion' as any).insert({
+            await (supabase.from('lead_cualificacion' as any) as any).insert({
                 tenant_id: tenantId,
                 id_lead: lead.id,
                 cualificacion: 'HOT',
@@ -125,11 +137,12 @@ export async function injectDemoData(tenantId: string) {
                     created_at: new Date(Date.now() - 3600000 * 1.8).toISOString()
                 }
             ];
-            await supabase.from('chat_messages').insert(chatMessages);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (supabase.from('chat_messages' as any) as any).insert(chatMessages);
         }
 
-        // 5. Cleanup & Path Refreshing
-        console.log("[DEMO] Injection finished successfully.");
+        // 5. Cleanup & Path Refreshing (Wrapped to avoid crashing the whole action)
+        console.log("[DEMO] Injection finished successfully. Starting revalidation...");
         
         try {
             revalidatePath("/dashboard");
@@ -137,16 +150,15 @@ export async function injectDemoData(tenantId: string) {
             revalidatePath("/dashboard/whatsapp");
             revalidatePath("/dashboard/campanas");
             revalidatePath("/dashboard/historial");
-            revalidatePath("/dashboard/onboarding");
         } catch (e) {
-            console.warn("[DEMO] Revalidation warning (expected in some dev envs):", e);
+            console.warn("[DEMO] Revalidation warning:", e);
         }
 
-        return { success: true, message: "Laboratorio completado. Dashboard sincronizado con 5 nuevos leads omnicanal." };
+        return { success: true, message: `Laboratorio completado (${suffix}). Se inyectaron ${leads.length} leads y su actividad.` };
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
-        console.error("[DEMO] Critical Error:", error);
-        return { error: error.message || "Error inesperado en el Laboratorio." };
+        console.error("[DEMO] Server Action Crash:", error);
+        return { error: error.message || "Error inesperado al ejecutar el Laboratorio." };
     }
 }
