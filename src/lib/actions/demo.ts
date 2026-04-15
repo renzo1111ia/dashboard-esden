@@ -19,103 +19,97 @@ export async function injectDemoData(tenantId: string) {
     }
 
     try {
-        // 1. Inyectar un Programa Fake
-        const { data: program, error: errProgram } = await supabase.from('programas').insert({
-            tenant_id: tenantId,
-            nombre: 'Programa Master Marketing Digital (Demo)',
-        }).select().single();
+        // 3. Inyectar 12 Leads para llenar el dashboard
+        const firstNames = ['Laura', 'Carlos', 'Elena', 'Andrés', 'Sofía', 'Ricardo', 'Marta', 'Javier', 'Lucía', 'Diego', 'Paula', 'Manuel'];
+        const lastNames = ['Gómez', 'Rodríguez', 'Martínez', 'Pérez', 'López', 'Sánchez', 'Díaz', 'Torres', 'Ruiz', 'Vázquez', 'Castro', 'Navarro'];
+        const phonePrefixes = ['+34600', '+5255', '+34600', '+5731', '+549', '+34611', '+34622', '+5199', '+34633', '+569', '+34644', '+5841'];
+        const countries = ['España', 'México', 'España', 'Colombia', 'Argentina', 'España', 'España', 'Perú', 'España', 'Chile', 'España', 'Venezuela'];
+        const types = ['MARKETING', 'VENTAS', 'INFORMATICA', 'MARKETING', 'VENTAS', 'MARKETING', 'VENTAS', 'MARKETING', 'MARKETING', 'VENTAS', 'INFORMATICA', 'VENTAS'];
 
-        if (errProgram) throw new Error("Error creando programa: " + errProgram.message);
-
-        // 2. Inyectar un Workflow Fake
-        const { data: workflow, error: errWf } = await supabase.from('workflows').insert({
-            tenant_id: tenantId,
-            name: 'Campaña Captación Automática (Demo)',
-            description: 'Secuencia generada por el Simulador',
-            status: 'active'
-        }).select().single();
-
-        if (errWf) throw new Error("Error creando workflow: " + errWf.message);
-
-        // 3. Inyectar 5 Leads
-        const fakeLeads = [
-            { nombre: 'Laura', apellido: 'Gómez', telefono: '+34600111222', email: 'laura.demo@ejemplo.com', pais: 'España', tipo_lead: 'MARKETING' },
-            { nombre: 'Carlos', apellido: 'Rodríguez', telefono: '+525551234567', email: 'carlos.demo@ejemplo.com', pais: 'México', tipo_lead: 'VENTAS' },
-            { nombre: 'Elena', apellido: 'Martínez', telefono: '+34600333444', email: 'elena.demo@ejemplo.com', pais: 'España', tipo_lead: 'INFORMATICA' },
-            { nombre: 'Andrés', apellido: 'Pérez', telefono: '+573109876543', email: 'andres.demo@ejemplo.com', pais: 'Colombia', tipo_lead: 'MARKETING' },
-            { nombre: 'Sofía', apellido: 'López', telefono: '+5491122334455', email: 'sofia.demo@ejemplo.com', pais: 'Argentina', tipo_lead: 'VENTAS' }
-        ].map(l => ({
-            ...l,
+        const fakeLeads = firstNames.map((name, i) => ({
+            nombre: name,
+            apellido: lastNames[i],
+            telefono: phonePrefixes[i] + Math.floor(Math.random() * 900000 + 100000),
+            email: `${name.toLowerCase()}.${lastNames[i].toLowerCase()}.demo@ejemplo.com`,
+            pais: countries[i],
+            tipo_lead: types[i],
             tenant_id: tenantId,
             origen: 'Web Simulator',
-            campana: 'Campaña Captación Automática (Demo)'
+            campana: 'Campaña Captación Automática (Demo)',
+            foto_url: `https://i.pravatar.cc/150?u=${name}${i}`,
+            is_ai_enabled: true
         }));
 
-        const { data: leads, error: errLeads } = await supabase.from('lead').insert(fakeLeads).select();
-        if (errLeads) throw new Error("Error creando leads: " + errLeads.message);
+        // Resilient insertion: check if columns exist by trying a subset if it fails
+        let { data: leads, error: errLeads } = await supabase.from('lead').insert(fakeLeads).select();
 
-        // 4. Inyectar llamadas a algunos leads
-        const leadLaura = leads.find(l => l.nombre === 'Laura');
-        const leadCarlos = leads.find(l => l.nombre === 'Carlos');
+        if (errLeads && errLeads.message.includes('column')) {
+            console.warn("[DEMO] New columns not detected in DB, re-attempting with base columns...");
+            const baseLeads = fakeLeads.map(({ foto_url, is_ai_enabled, ...rest }: any) => rest);
+            const retry = await supabase.from('lead').insert(baseLeads).select();
+            leads = retry.data;
+            errLeads = retry.error;
+        }
+
+        if (errLeads) throw new Error(`Error creando leads: ${errLeads.message}`);
+        if (!leads) throw new Error("No se crearon leads");
+
+        // 4. Trigger Orchestrator and Chat History for each lead
+        const { orchestrator } = await import("../core/orchestrator");
         
-        if (leadLaura) {
-            await supabase.from('llamadas').insert({
-                tenant_id: tenantId,
-                id_lead: leadLaura.id,
-                tipo_agente: 'IA',
-                estado_llamada: 'completed',
-                razon_termino: 'user_hungup',
-                duracion_segundos: 145,
-                transcripcion: 'Agent: Hola Laura. Laura: Sí, me interesa el Master. Agent: Genial, te enviaré un WhatsApp con el temario. Laura: Perfecto, gracias.',
-                resumen: 'Lead muy interesado en el programa. Pide temario por WhatsApp.',
+        for (const lead of leads || []) {
+            // A. Trigger Orchestrator (Live Sequence)
+            orchestrator.handleNewLead(lead.id, tenantId).catch(err => {
+                console.error(`[SIMULATOR] Failed to trigger orchestrator for lead ${lead.id}:`, err);
             });
-            await supabase.from('lead_cualificacion').insert({
-                tenant_id: tenantId,
-                id_lead: leadLaura.id,
-                cualificacion: 'Positivo',
-                nivel_estudios: 'Grado Universitario'
-            });
-            // Mensajes Chat
-            await supabase.from('chat_messages').insert([
+
+            // B. Inject Chat Mockup Conversation
+            const chatMessages = [
                 {
                     tenant_id: tenantId,
-                    contact_id: leadLaura.id,
-                    type: 'whatsapp',
-                    direction: 'outbound',
-                    content: '🤖 ¡Hola Laura! Soy tu asistente. Como acordamos en la llamada, aquí tienes el temario del Master.',
-                    status: 'delivered'
+                    lead_id: lead.id,
+                    direction: 'INBOUND',
+                    message_type: 'TEXT',
+                    content: `Hola, soy ${lead.nombre}, me gustaría recibir información sobre el Master de Esden.`,
+                    sent_by: null,
+                    status: 'READ',
+                    created_at: new Date(Date.now() - 3600000 * 2).toISOString() // 2 hours ago
                 },
                 {
                     tenant_id: tenantId,
-                    contact_id: leadLaura.id,
-                    type: 'whatsapp',
-                    direction: 'inbound',
-                    content: 'Muchas gracias, lo voy a revisar hoy mismo.',
-                    status: 'read'
+                    lead_id: lead.id,
+                    direction: 'OUTBOUND',
+                    message_type: 'TEXT',
+                    content: `¡Hola ${lead.nombre}! Un gusto saludarte. Tenemos varias opciones. ¿Te interesa el área de ${lead.tipo_lead}?`,
+                    sent_by: '🤖 Agente IA',
+                    status: 'READ',
+                    created_at: new Date(Date.now() - 3600000 * 1.5).toISOString() // 1.5 hours ago
+                },
+                {
+                    tenant_id: tenantId,
+                    lead_id: lead.id,
+                    direction: 'INBOUND',
+                    message_type: 'TEXT',
+                    content: `Sí, exactamente esa.`,
+                    sent_by: null,
+                    status: 'READ',
+                    created_at: new Date(Date.now() - 3600000 * 1).toISOString() // 1 hour ago
                 }
-            ]);
+            ];
+
+            await supabase.from('chat_messages').insert(chatMessages);
         }
 
-        if (leadCarlos) {
-            await supabase.from('llamadas').insert({
-                tenant_id: tenantId,
-                id_lead: leadCarlos.id,
-                tipo_agente: 'IA',
-                estado_llamada: 'voicemail',
-                razon_termino: 'voicemail_reached',
-                duracion_segundos: 20,
-                transcripcion: 'Grabadora: El número paraguayo que usted ha marcado, no se encuentra disponible. Por favor deje un mensaje...',
-                resumen: 'Llamada cayó en buzón de voz.',
-            });
-        }
-
+        revalidatePath("/dashboard");
         revalidatePath("/dashboard/clients");
         revalidatePath("/dashboard/orchestrator");
         revalidatePath("/dashboard/inbox");
+        revalidatePath("/dashboard/whatsapp");
+        revalidatePath("/dashboard/calls");
 
-        return { success: true, message: "Datos simulados inyectados con éxito." };
+        return { success: true, message: "Simulación iniciada. Verás a los leads aparecer y procesarse en el dashboard." };
 
-    } catch (error: any) {
-        return { error: error.message || "Error desconocido inyectando datos." };
+    } catch (error) {
+        return { error: error instanceof Error ? error.message : "Error desconocido inyectando datos." };
     }
 }

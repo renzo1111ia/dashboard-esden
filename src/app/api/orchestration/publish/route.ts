@@ -46,15 +46,16 @@ export async function POST(req: Request) {
             .eq("workflow_id", workflowId);
 
         if (executionSteps.length > 0) {
-            const { error: rulesError } = await (supabase
+        const { data: rules, error: rulesError } = await (supabase
                 .from("orchestration_rules" as any) as any)
                 .insert(executionSteps.map((step, index) => ({
                     tenant_id: tenantId,
                     workflow_id: workflowId,
                     step_name: step.label,
                     action_type: step.type,
-                    sequence_order: index,
+                    sequence_order: step.sequence_order || index,
                     config: step.config,
+                    trigger_node_id: step.triggerNodeId,
                     is_active: true
                 })));
             
@@ -71,40 +72,52 @@ export async function POST(req: Request) {
 }
 
 /**
- * HELPER: FLATTEN GRAPH (Unchanged - works on a per-graph basis)
+ * HELPER: FLATTEN GRAPH (v3.0 - Multi-Trigger aware)
  */
 function flattenGraph(nodes: { id: string; type?: string; data?: Record<string, unknown> }[], edges: { source: string; target: string }[]) {
-    const triggerNode = nodes.find(n => n.type === 'leadTrigger');
-    if (!triggerNode) return [];
+    const triggerNodes = nodes.filter(n => ['leadTrigger', 'webhookTrigger'].includes(n.type || ''));
+    if (triggerNodes.length === 0) return [];
 
-    const steps: { label: string; type: string; config: Record<string, unknown> }[] = [];
-    let currentNode = triggerNode;
+    const allSteps: { label: string; type: string; config: Record<string, unknown>; triggerNodeId: string; sequence_order: number }[] = [];
 
-    while (true) {
-        const edge = edges.find(e => e.source === currentNode.id);
-        if (!edge) break;
+    triggerNodes.forEach(trigger => {
+        let currentNode = trigger;
+        let order = 0;
+        
+        // Track visited nodes per trigger path to avoid infinite loops
+        const visited = new Set<string>();
+        visited.add(trigger.id);
 
-        const nextNode = nodes.find(n => n.id === edge.target);
-        if (!nextNode) break;
+        while (true) {
+            const edge = edges.find(e => e.source === currentNode.id);
+            if (!edge) break;
 
-        if (['action', 'delay', 'api', 'subWorkflow', 'llm'].includes(nextNode.type || '')) {
-            let actionType = nextNode.type?.toUpperCase() || 'UNKNOWN';
-            if (nextNode.type === 'action') {
-                actionType = (nextNode.data?.action as string)?.toUpperCase() || 'UNKNOWN';
-            } else if (nextNode.type === 'delay') {
-                actionType = 'WAIT';
+            const nextNode = nodes.find(n => n.id === edge.target);
+            if (!nextNode || visited.has(nextNode.id)) break;
+            
+            visited.add(nextNode.id);
+
+            if (['action', 'delay', 'api', 'subWorkflow', 'llm', 'webhook'].includes(nextNode.type || '')) {
+                let actionType = nextNode.type?.toUpperCase() || 'UNKNOWN';
+                if (nextNode.type === 'action') {
+                    actionType = (nextNode.data?.action as string)?.toUpperCase() || 'UNKNOWN';
+                } else if (nextNode.type === 'delay') {
+                    actionType = 'WAIT';
+                }
+
+                allSteps.push({
+                    label: (nextNode.data?.label as string) || nextNode.type || 'Unnamed',
+                    type: actionType,
+                    config: (nextNode.data?.config as Record<string, unknown>) || {},
+                    triggerNodeId: trigger.id,
+                    sequence_order: order++
+                });
             }
 
-            steps.push({
-                label: (nextNode.data?.label as string) || nextNode.type || 'Unnamed',
-                type: actionType,
-                config: (nextNode.data?.config as Record<string, unknown>) || {}
-            });
+            currentNode = nextNode;
+            if (order > 50) break; 
         }
+    });
 
-        currentNode = nextNode;
-        if (steps.length > 50) break; 
-    }
-
-    return steps;
+    return allSteps;
 }

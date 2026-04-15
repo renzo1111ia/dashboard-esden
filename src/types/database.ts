@@ -19,6 +19,8 @@ export interface Lead {
     tipo_lead?: string | null;
     origen?: string | null;
     campana?: string | null;
+    foto_url?: string | null;
+    is_ai_enabled?: boolean;
     fecha_ingreso_crm?: string | null;
     fecha_creacion?: string | null;
     fecha_actualizacion?: string | null;
@@ -262,6 +264,9 @@ export interface AIAgentVariant {
     agent_id: string;
     version_label: string;
     prompt_text: string;
+    model_provider?: 'OPENAI' | 'ANTHROPIC' | 'GEMINI';
+    model_name?: string;
+    api_key?: string;
     is_active: boolean;
     is_variant_b: boolean;
     weight: number;
@@ -279,6 +284,38 @@ export interface FeatureFlag {
     created_at?: string;
 }
 
+// ─── RETELL TYPES ─────────────────────────────────────────────────────────────
+
+export interface RetellTool {
+    type: string;
+    name: string;
+    description: string;
+    parameters?: Record<string, any>;
+    url?: string; // for webhooks
+}
+
+export interface RetellEdge {
+    destination_state_name: string;
+    description: string;
+    conditions?: any[];
+}
+
+export interface RetellState {
+    name: string;
+    state_prompt: string;
+    edges?: RetellEdge[];
+    tools?: RetellTool[];
+}
+
+export interface RetellLLMConfig {
+    model: string;
+    general_prompt: string;
+    states?: RetellState[];
+    tools?: RetellTool[];
+    begin_message?: string;
+    [key: string]: any; // fallback for other Retell props
+}
+
 export interface VoiceAgent {
     id: string;
     tenant_id: string;
@@ -288,6 +325,10 @@ export interface VoiceAgent {
     provider: 'RETELL' | 'ULTRAVOX' | 'INTERNAL';
     provider_agent_id: string | null;
     voice_id: string | null;
+    from_number: string | null;
+    retell_llm_id: string | null;
+    prompt_text_retell: string | null;
+    retell_llm_config: RetellLLMConfig | null;
     created_at: string;
     updated_at: string;
 }

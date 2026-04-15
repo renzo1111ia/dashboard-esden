@@ -23,12 +23,12 @@ import {
     GitBranch,
     Calendar,
     Settings,
-    ChevronRight,
     Zap,
     Check,
     Timer,
     Terminal,
     Database,
+    Link2,
     Trash2,
     X,
     Globe,
@@ -40,6 +40,7 @@ import {
     Layers,
     Activity,
     ArrowRight,
+    Save,
     LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -79,23 +80,31 @@ interface FlowNodeData {
 
 const NodeWrapper = ({ title, icon: Icon, children, color, selected, type, headerColor }: { title: string; icon: LucideIcon; children: React.ReactNode; color: string; selected?: boolean; type?: string; headerColor: string }) => (
     <div className={cn(
-        "rounded-2xl border-2 transition-all duration-300 min-w-[240px] shadow-2xl bg-slate-900 overflow-hidden",
+        "rounded-2xl border-2 transition-all duration-500 min-w-[240px] shadow-2xl bg-slate-900/90 backdrop-blur-xl overflow-hidden",
         selected 
-            ? "border-white/40 ring-4 ring-white/10 scale-[1.02] -translate-y-1" 
-            : "border-white/5 hover:border-white/10 shadow-black/40",
+            ? "border-primary/60 ring-8 ring-primary/5 scale-[1.02] -translate-y-1 shadow-[0_0_40px_rgba(var(--primary-rgb),0.2)]" 
+            : "border-white/5 hover:border-white/10 shadow-black/60",
     )}>
-        {/* n8n style header bar */}
-        <div className={cn("h-1.5 w-full", headerColor)} />
+        {/* Progress bar style header */}
+        <div className={cn("h-1 w-full relative overflow-hidden", headerColor)}>
+            <div className="absolute inset-0 bg-white/20 animate-pulse" />
+        </div>
         
-        <div className="px-5 py-4">
+        <div className="px-5 py-5">
             <div className="flex items-center gap-3 mb-4">
                 <div className={cn("p-2 rounded-xl shadow-lg shrink-0", color)}>
                     <Icon className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0">
-                    <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white/30 block truncate">{type || "MODULO"}</span>
-                    <span className="text-xs font-bold text-white tracking-tight truncate">{title}</span>
+                    <span className="text-[7px] font-black uppercase tracking-[0.3em] text-white/20 block truncate mb-0.5">{type || "MODULO"}</span>
+                    <span className="text-xs font-bold text-white tracking-tight truncate block">{title}</span>
                 </div>
+                {selected && (
+                    <motion.div 
+                        initial={{ scale: 0 }} animate={{ scale: 1 }}
+                        className="h-2 w-2 rounded-full bg-primary shadow-[0_0_10px_rgba(var(--primary-rgb),1)]" 
+                    />
+                )}
             </div>
             <div className="space-y-3">{children}</div>
         </div>
@@ -146,12 +155,17 @@ const DatabaseNode = ({ data, selected }: { data: { action?: string; target?: st
     </NodeWrapper>
 );
 
-const AITaskNode = ({ data, selected }: { data: { task?: string }; selected?: boolean }) => (
-    <NodeWrapper title="Tarea IA" icon={Brain} color="bg-purple-500/20 text-purple-400" headerColor="bg-purple-500" selected={selected} type="PROCESO">
+const AITaskNode = ({ data, selected }: { data: { task?: string; instructions?: string }; selected?: boolean }) => (
+    <NodeWrapper title="Cerebro Neural" icon={Brain} color="bg-purple-500/20 text-purple-400" headerColor="bg-purple-500" selected={selected} type="CEREBRO">
         <Handle type="target" position={Position.Top} className="w-3 h-3 bg-purple-500 border-2 border-slate-900" />
-        <div className="flex items-center gap-2 text-[10px] text-purple-200/60 font-medium italic">
-            <Sparkles className="w-3 h-3" />
-            {data.task || "Analizar sentimientos..."}
+        <div className="space-y-2">
+            <div className="flex items-center gap-2 text-[10px] text-purple-200/60 font-black uppercase tracking-widest">
+                <Sparkles className="w-3 h-3" />
+                {data.task || "PROCESAMIENTO IA"}
+            </div>
+            <div className="p-2 bg-purple-500/5 rounded-lg border border-purple-500/10 text-[9px] text-white/50 italic line-clamp-3">
+                {data.instructions || "Sin instrucciones personalizadas..."}
+            </div>
         </div>
         <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-purple-500 border-2 border-slate-900" />
     </NodeWrapper>
@@ -230,6 +244,55 @@ const BookNode = ({ selected }: { selected?: boolean }) => (
     </NodeWrapper>
 );
 
+const CRMNode = ({ data, selected }: { data: { type?: string; tagName?: string; ownerId?: string; mappings?: Record<string, string> }; selected?: boolean }) => (
+    <NodeWrapper title="CRM Integration" icon={Database} color="bg-indigo-600/20 text-indigo-400" headerColor="bg-indigo-600" selected={selected} type="CRM">
+        <Handle type="target" position={Position.Top} className="w-3 h-3 bg-indigo-600 border-2 border-slate-900" />
+        <div className="space-y-1.5">
+            <div className="p-2 bg-indigo-600/5 rounded-lg border border-indigo-600/10">
+                <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-tighter">
+                    {data.type || "ACCION REQUERIDA"}
+                </p>
+                {data.mappings && (
+                    <p className="text-[8px] text-white/30 italic mt-1">
+                        {Object.keys(data.mappings).length} campos mapeados
+                    </p>
+                )}
+            </div>
+        </div>
+        <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-indigo-600 border-2 border-slate-900" />
+    </NodeWrapper>
+);
+
+const CRM_PLATFORM_COLORS: Record<string, { color: string; bg: string; border: string }> = {
+    zoho:       { color: "text-red-400",    bg: "bg-red-500/10",    border: "border-red-500/20" },
+    hubspot:    { color: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/20" },
+    salesforce: { color: "text-blue-400",   bg: "bg-blue-500/10",   border: "border-blue-500/20" },
+    pipedrive:  { color: "text-green-400",  bg: "bg-green-500/10",  border: "border-green-500/20" },
+    custom:     { color: "text-slate-300",  bg: "bg-slate-500/10",  border: "border-slate-500/20" },
+};
+
+const CrmConnectNode = ({ data, selected }: { data: { platform?: string; operation?: string; api_url?: string }; selected?: boolean }) => {
+    const platform = data.platform || "zoho";
+    const palette = CRM_PLATFORM_COLORS[platform] || CRM_PLATFORM_COLORS.custom;
+    const platformLabel: Record<string, string> = {
+        zoho: "Zoho CRM", hubspot: "HubSpot", salesforce: "Salesforce",
+        pipedrive: "Pipedrive", custom: "API Custom"
+    };
+    return (
+        <NodeWrapper title="Conectar BD / CRM" icon={Link2} color={`${palette.bg} ${palette.color}`} headerColor={palette.bg.replace("/10", "")} selected={selected} type="CONECTOR">
+            <Handle type="target" position={Position.Top} className="w-3 h-3 bg-violet-500 border-2 border-slate-900" />
+            <div className="space-y-2">
+                <div className={cn("px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-wider", palette.bg, palette.color, palette.border)}>
+                    {platformLabel[platform] || "Plataforma"}
+                </div>
+                <p className="text-[9px] text-white/40 line-clamp-1 uppercase tracking-wide">{data.operation || "OPERACIÓN"}</p>
+                {data.api_url && <p className="text-[8px] text-white/20 font-mono truncate">{data.api_url}</p>}
+            </div>
+            <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-violet-500 border-2 border-slate-900" />
+        </NodeWrapper>
+    );
+};
+
 // ─── Component ─────────────────────────────────────────────────────
 
 interface AgentFlowBuilderProps {
@@ -237,9 +300,10 @@ interface AgentFlowBuilderProps {
     onSave: (flow: { nodes: Node<FlowNodeData>[]; edges: Edge[] }) => void;
     onClose: () => void;
     agentName: string;
+    isInline?: boolean;
 }
 
-export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: AgentFlowBuilderProps) {
+export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName, isInline }: AgentFlowBuilderProps) {
     const [saving, setSaving] = useState(false);
     const [isNodeLibraryOpen, setIsNodeLibraryOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
@@ -265,6 +329,8 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
         flow_http: HTTPRequestNode,
         flow_db: DatabaseNode,
         flow_ai: AITaskNode,
+        flow_crm: CRMNode,
+        flow_crm_connect: CrmConnectNode,
     }), []);
 
     const [nodes, setNodes, onNodesChange] = useNodesState<Node<FlowNodeData>>(
@@ -312,7 +378,17 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
                 url: "",
                 action: "SAVE_LEAD",
                 model: "gpt-4o",
-                task: "Clasificar intención"
+                task: "Clasificar intención",
+                // CRM Connect defaults
+                platform: "zoho",
+                operation: "CREATE_OR_UPDATE_CONTACT",
+                api_url: "",
+                api_key: "",
+                crm_mappings: JSON.stringify({
+                    nombre: "{{nombre}}",
+                    email: "{{email}}",
+                    telefono: "{{telefono}}"
+                }, null, 2),
             },
         };
         setNodes((nds) => nds.concat(newNode));
@@ -353,7 +429,9 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
             items: [
                 { type: "flow_http", label: "Petición HTTP", desc: "Conecta con cualquier API.", icon: Terminal },
                 { type: "flow_db", label: "Acción DB", desc: "Guarda o lee de la base de datos.", icon: Activity },
-                { type: "flow_ai", label: "Tarea IA Pro", desc: "Procesos cognitivos complejos.", icon: Brain },
+                { type: "flow_ai", label: "Cerebro Neural", desc: "Instrucciones de IA personalizadas.", icon: Brain },
+                { type: "flow_crm", label: "Integración CRM", desc: "Tag, Owner, Mapeo personalizado.", icon: Database },
+                { type: "flow_crm_connect", label: "Conectar BD / CRM", desc: "Sincroniza con Zoho, HubSpot, Salesforce, Pipedrive o API propia.", icon: Link2 },
             ]
         }
     ];
@@ -369,91 +447,69 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
     const selectedNode = nodes.find(n => n.id === selectedNodeId);
 
     return (
-        <div className="fixed inset-0 bg-slate-950 z-[100] flex flex-col animate-in fade-in slide-in-from-bottom-5 duration-300 overflow-hidden text-white">
+        <div className={cn(
+            isInline ? "absolute inset-0" : "fixed inset-0 z-[100] shadow-2xl",
+            "bg-slate-950 flex flex-col animate-in fade-in duration-300 overflow-hidden text-white"
+        )}>
             {/* Header */}
-            <div className="h-20 bg-white/[0.02] border-b border-white/5 flex items-center justify-between px-8 shrink-0">
-                <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
-                        <GitBranch className="h-5 w-5 text-primary" />
+            {!isInline && (
+                <div className="h-16 bg-slate-900/50 backdrop-blur-md border-b border-white/5 flex items-center justify-between px-8 shrink-0 relative z-20">
+                    <div className="flex items-center gap-4">
+                        <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                            <GitBranch className="h-4 w-4 text-primary" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h2 className={cn("font-black uppercase tracking-tight", isInline ? "text-base" : "text-lg")}>Flow Builder Pro</h2>
+                                <span className="px-1.5 py-0.5 rounded-md bg-white/5 text-[8px] font-black text-white/30 tracking-widest border border-white/5 uppercase">Beta 2.0</span>
+                            </div>
+                            <p className="text-[9px] text-white/30 font-bold uppercase tracking-widest leading-none mt-0.5">Editando: <span className="text-primary/60">{agentName}</span></p>
+                        </div>
                     </div>
-                    <div>
-                        <h2 className="text-xl font-black uppercase tracking-tight">Flow Builder Pro</h2>
-                        <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">Lógica para: <span className="text-white/80">{agentName}</span></p>
+                    <div className="flex items-center gap-3">
+                        <button 
+                            onClick={handlePublish}
+                            disabled={saving}
+                            className="h-10 px-6 rounded-xl bg-primary text-white font-black uppercase tracking-widest text-[10px] hover:scale-105 active:scale-95 transition-all shadow-xl shadow-primary/20 hover:shadow-primary/30 border-b-4 border-primary-foreground/20 disabled:opacity-50"
+                        >
+                            {saving ? "Guardando..." : "Publicar Cambios"}
+                        </button>
+                        <button 
+                            onClick={onClose}
+                            title="Cerrar panel"
+                            className="h-10 w-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-red-500/10 hover:border-red-500/20 group transition-all font-bold"
+                        >
+                            <X className="h-4 w-4 text-white/40 group-hover:text-red-400" />
+                        </button>
                     </div>
                 </div>
-                <div className="flex items-center gap-4">
-                    <button 
-                        onClick={handlePublish}
-                        disabled={saving}
-                        className="h-11 px-8 rounded-xl bg-primary text-white font-black uppercase tracking-widest text-[11px] hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20 border-b-4 border-primary-foreground/20 disabled:opacity-50"
-                    >
-                        {saving ? "Publicando..." : "Publicar Comportamiento"}
-                    </button>
-                    <button 
-                        onClick={onClose}
-                        title="Cerrar panel"
-                        className="h-11 w-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all font-bold"
-                    >
-                        <X className="h-5 w-5 text-white/40" />
-                    </button>
-                </div>
-            </div>
+            )}
 
             {/* Canvas Area */}
-            <div className="flex-1 flex overflow-hidden">
-                {/* ── Add Node Panel (Quick Add) ── */}
-                <div className="w-16 h-full bg-white/[0.01] border-r border-white/5 flex flex-col items-center py-6 gap-6 shrink-0">
-                    <button 
-                        onClick={() => addNode('flow_trigger')} title="Disparador"
-                        className="h-10 w-10 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center text-yellow-500 hover:bg-yellow-500 hover:text-white transition-all shadow-lg"
-                    >
-                        <Zap className="h-5 w-5" />
-                    </button>
-                    <div className="w-8 h-px bg-white/5" />
-                    <button 
-                        onClick={() => addNode('flow_message')} title="Mensaje AI"
-                        className="h-10 w-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 hover:bg-blue-500 hover:text-white transition-all shadow-lg"
-                    >
-                        <MessageSquare className="h-5 w-5" />
-                    </button>
-                    <button 
-                        onClick={() => addNode('flow_question')} title="Pregunta"
-                        className="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all shadow-lg"
-                    >
-                        <HelpCircle className="h-5 w-5" />
-                    </button>
-                    <button 
-                        onClick={() => addNode('flow_condition')} title="Filtro Lógico"
-                        className="h-10 w-10 rounded-xl bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-pink-400 hover:bg-pink-500 hover:text-white transition-all shadow-lg"
-                    >
-                        <GitBranch className="h-5 w-5" />
-                    </button>
-                    <div className="w-8 h-px bg-white/5" />
-                    <button 
-                        onClick={() => addNode('flow_http')} title="HTTP / Webhook"
-                        className="h-10 w-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400 hover:bg-orange-500 hover:text-white transition-all shadow-lg"
-                    >
-                        <Globe className="h-5 w-5" />
-                    </button>
-                    <button 
-                        onClick={() => addNode('flow_db')} title="Acción DB"
-                        className="h-10 w-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 hover:bg-cyan-500 hover:text-white transition-all shadow-lg"
-                    >
-                        <Database className="h-5 w-5" />
-                    </button>
-                    <button 
-                        onClick={() => addNode('flow_ai')} title="IA Proceso"
-                        className="h-10 w-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 hover:bg-purple-500 hover:text-white transition-all shadow-lg"
-                    >
-                        <Brain className="h-5 w-5" />
-                    </button>
-                    <div className="mt-auto">
+            <div className="flex-1 flex overflow-hidden relative">
+                {/* ── Floatin Toolbar (Left) ── */}
+                <div className="absolute left-6 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center p-2 gap-3 bg-slate-950/40 backdrop-blur-xl border border-white/10 rounded-[28px] shadow-2xl shadow-black/40">
+                    <div className="p-2 mb-2 border-b border-white/5">
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                             <Activity className="h-3 w-3 text-primary" />
+                        </div>
+                    </div>
+                    <QuickActionButton onClick={() => addNode('flow_trigger')} title="Inicio" color="text-yellow-400 bg-yellow-400/10" icon={Zap} />
+                    <QuickActionButton onClick={() => addNode('flow_message')} title="Mensaje" color="text-blue-400 bg-blue-400/10" icon={MessageSquare} />
+                    <QuickActionButton onClick={() => addNode('flow_question')} title="Pregunta" color="text-emerald-400 bg-emerald-400/10" icon={HelpCircle} />
+                    <QuickActionButton onClick={() => addNode('flow_condition')} title="Condición" color="text-pink-400 bg-pink-400/10" icon={GitBranch} />
+                    <QuickActionButton onClick={() => addNode('flow_http')} title="API / HTTP" color="text-orange-400 bg-orange-400/10" icon={Globe} />
+                    <QuickActionButton onClick={() => addNode('flow_db')} title="Base de Datos" color="text-cyan-400 bg-cyan-400/10" icon={Database} />
+                    <QuickActionButton onClick={() => addNode('flow_ai')} title="IA Cognitiva" color="text-purple-400 bg-purple-400/10" icon={Brain} />
+                    <QuickActionButton onClick={() => addNode('flow_crm_connect')} title="BD / CRM" color="text-violet-400 bg-violet-400/10" icon={Link2} />
+                    
+                    <div className="mt-2 pt-2 border-t border-white/5">
                         <button 
                             onClick={() => setIsNodeLibraryOpen(true)}
-                            className="h-10 w-10 rounded-xl border border-primary/20 bg-primary/10 flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all shadow-lg active:scale-90"
-                            title="Añadir nuevo bloque"
+                            className="h-10 w-10 rounded-2xl bg-primary text-white flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-primary/40 group"
+                            title="Librería de Nodos"
                         >
-                            <Plus className="h-5 w-5" />
+                            <Plus className="h-5 w-5 group-hover:rotate-90 transition-transform duration-500" />
                         </button>
                     </div>
                 </div>
@@ -549,37 +605,50 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
                         onNodeClick={onNodeClick}
                         nodeTypes={nodeTypes}
                         fitView
+                        fitViewOptions={{ padding: 0.2 }}
                         colorMode="dark"
+                        className="selection:bg-primary/20"
                     >
-                        <Background color="#1e293b" gap={20} />
-                        <Controls />
-                        
-                        {/* Tools Bar (Top) */}
-                        <Panel position={"top-center" as PanelPosition} className="w-full max-w-4xl">
-                            <div className="flex overflow-x-auto gap-2 p-3 bg-white/5 border-b border-white/10 no-scrollbar">
-                                <ToolButton onClick={() => addNode("flow_trigger")} icon={Zap} label="Gatillo" color="text-yellow-400 bg-yellow-500/10" />
-                                <div className="w-[1px] h-8 bg-white/10 mx-2" />
-                                <ToolButton onClick={() => addNode("flow_message")} icon={MessageSquare} label="Mensaje" color="text-blue-400 bg-blue-500/10" />
-                                <ToolButton onClick={() => addNode("flow_question")} icon={HelpCircle} label="Pregunta" color="text-emerald-400 bg-emerald-500/10" />
-                                <ToolButton onClick={() => addNode("flow_condition")} icon={GitBranch} label="Condición" color="text-purple-400 bg-purple-500/10" />
-                                <ToolButton onClick={() => addNode("flow_wait")} icon={Timer} label="Espera" color="text-amber-400 bg-amber-500/10" />
-                                <ToolButton onClick={() => addNode("flow_command")} icon={Terminal} label="Comando" color="text-red-400 bg-red-500/10" />
-                                <ToolButton onClick={() => addNode("flow_collector")} icon={Database} label="Colector" color="text-indigo-400 bg-indigo-500/10" />
+                        <Background color="#1e293b" gap={32} size={1} />
+                        <Panel position="bottom-right" className="!m-6">
+                            <div className="flex flex-col gap-1 p-1.5 rounded-2xl bg-slate-950/60 backdrop-blur-xl border border-white/10 shadow-2xl overflow-hidden">
+                                <Controls 
+                                    showInteractive={false}
+                                    className="!static !shadow-none !bg-transparent !border-none !m-0 [&_button]:!bg-transparent [&_button]:!border-none [&_button]:!outline-none [&_button:not(:last-child)]:!border-b [&_button:not(:last-child)]:!border-white/5 [&_path]:!fill-white/60 hover:[&_path]:!fill-primary transition-all [&_button]:!h-9 [&_button]:!w-9" 
+                                />
                             </div>
                         </Panel>
-
-                        <Panel position={"bottom-left" as PanelPosition} className="m-4">
+                        
+                        <Panel position={"top-right" as PanelPosition} className="m-6 flex items-center gap-3">
                             <button 
-                                 onClick={() => {
-                                     setNodes((nds) => nds.filter((n) => !n.selected));
-                                     setEdges((eds) => eds.filter((e) => !e.selected));
-                                     setSelectedNodeId(null);
-                                 }}
-                                 className="flex items-center gap-3 p-3 rounded-2xl bg-slate-900/80 border border-white/5 hover:bg-red-500/10 text-red-500/60 hover:text-red-400 group transition-all"
+                                onClick={handlePublish}
+                                disabled={saving}
+                                className="h-11 px-8 rounded-2xl bg-primary text-white font-black uppercase tracking-[0.2em] text-[10px] hover:scale-105 active:scale-95 transition-all shadow-2xl shadow-primary/40 border-b-4 border-primary-foreground/20 disabled:opacity-50 flex items-center gap-3"
                             >
-                                 <Trash2 className="h-4 w-4" />
-                                 <span className="text-[11px] font-black uppercase tracking-widest">Eliminar Selección</span>
+                                <Save className="h-4 w-4" />
+                                <span>{saving ? "Guardando..." : "Publicar Cambios"}</span>
                             </button>
+                        </Panel>
+
+                        <Panel position={"bottom-center" as PanelPosition} className="m-6">
+                            <AnimatePresence>
+                                {selectedNodeId && (
+                                    <motion.button 
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: 20 }}
+                                        onClick={() => {
+                                            setNodes((nds) => nds.filter((n) => !n.selected));
+                                            setEdges((eds) => eds.filter((e) => !e.selected));
+                                            setSelectedNodeId(null);
+                                        }}
+                                        className="flex items-center gap-3 px-6 py-3 rounded-full bg-red-500 text-white font-black uppercase tracking-[0.2em] text-[10px] hover:scale-105 active:scale-95 transition-all shadow-2xl shadow-red-500/40 border-b-4 border-red-700/50"
+                                   >
+                                        <Trash2 className="h-4 w-4" />
+                                        <span>Eliminar Selección</span>
+                                   </motion.button>
+                                )}
+                            </AnimatePresence>
                         </Panel>
                     </ReactFlow>
                 </div>
@@ -801,6 +870,82 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
                                 </div>
                             )}
 
+                            {selectedNode.type === 'flow_crm' && (
+                                <div className="space-y-6">
+                                    <div className="space-y-3">
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Acción CRM</label>
+                                        <select 
+                                            value={(selectedNode.data.type as string) || "UPDATE_LEAD"}
+                                            onChange={(e) => updateNodeData(selectedNode.id, { type: e.target.value })}
+                                            className="w-full h-12 bg-white/5 border border-white/10 rounded-2xl px-4 text-xs text-white/80 focus:border-indigo-500/40 outline-none"
+                                        >
+                                            <option value="UPDATE_LEAD">Actualizar Lead (Mapeado)</option>
+                                            <option value="UPDATE_OWNER">Asignar Propietario</option>
+                                            <option value="ADD_TAG">Añadir Etiqueta (Tag)</option>
+                                            <option value="EXTERNAL_ACTION">Acción Externa (Blueprint/Workflow)</option>
+                                        </select>
+                                    </div>
+
+                                    {(selectedNode.data.type === 'UPDATE_LEAD' || selectedNode.data.type === 'UPDATE_OWNER') && (
+                                        <div className="space-y-4">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Mapeo de Campos CRM</label>
+                                            <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                                                {['nombre', 'apellido', 'email', 'telefono', 'pais', 'origen'].map(field => (
+                                                    <div key={field} className="flex items-center gap-2 group">
+                                                        <span className="w-16 text-[9px] text-white/40 uppercase">{field}</span>
+                                                        <input 
+                                                            value={(selectedNode.data.mappings as any)?.[field] || ""}
+                                                            onChange={(e) => {
+                                                                const newMappings = { ...(selectedNode.data.mappings as any || {}), [field]: e.target.value };
+                                                                updateNodeData(selectedNode.id, { mappings: newMappings });
+                                                            }}
+                                                            placeholder={`ID de campo...`}
+                                                            className="flex-1 h-8 bg-white/5 border border-white/10 rounded-lg px-2 text-[10px] text-white/80 group-hover:border-white/20 transition-colors"
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            
+                                            {selectedNode.data.type === 'UPDATE_OWNER' && (
+                                                <div className="space-y-2 pt-2 border-t border-white/5">
+                                                    <label className="text-[9px] font-black uppercase tracking-widest text-indigo-400">ID del Propietario</label>
+                                                    <input 
+                                                        value={selectedNode.data.ownerId as string || ""}
+                                                        onChange={(e) => updateNodeData(selectedNode.id, { ownerId: e.target.value })}
+                                                        className="w-full h-10 bg-white/5 border border-white/10 rounded-xl px-4 text-xs text-white/80"
+                                                        placeholder="781577000..."
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {selectedNode.data.type === 'ADD_TAG' && (
+                                        <div className="space-y-3">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Nombre de la Etiqueta</label>
+                                            <input 
+                                                value={selectedNode.data.tagName as string || ""}
+                                                onChange={(e) => updateNodeData(selectedNode.id, { tagName: e.target.value })}
+                                                className="w-full h-10 bg-white/5 border border-white/10 rounded-xl px-4 text-xs text-white/80"
+                                                placeholder="Ej: VirginIA"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {selectedNode.data.type === 'EXTERNAL_ACTION' && (
+                                        <div className="space-y-3">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-indigo-400">ID de Transición / Acción</label>
+                                            <input 
+                                                value={selectedNode.data.transitionId as string || ""}
+                                                onChange={(e) => updateNodeData(selectedNode.id, { transitionId: e.target.value })}
+                                                className="w-full h-10 bg-white/5 border border-white/10 rounded-xl px-4 text-xs text-white/80"
+                                                placeholder="ID deBlueprint o Workflow"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                              {selectedNode.type === 'flow_collector' && (
                                 <div className="space-y-4">
                                     <div className="space-y-3">
@@ -916,45 +1061,133 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
                             )}
 
                             {selectedNode.type === 'flow_ai' && (
-                                <div className="space-y-5">
+                                <div className="space-y-6">
+                                    <div className="space-y-4">
+                                        <div className="p-4 bg-purple-500/10 rounded-2xl border border-purple-500/20 mb-2">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <Brain className="w-4 h-4 text-purple-400" />
+                                                <span className="text-[10px] font-black uppercase tracking-tighter text-purple-400">Cerebro Neural v2.0</span>
+                                            </div>
+                                            <p className="text-[9px] text-white/40 leading-relaxed font-bold italic">Configura aquí la lógica cognitiva de este bloque.</p>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <label htmlFor="ai-mission" className="text-[9px] font-black uppercase tracking-widest text-white/30">Misión del Cerebro</label>
+                                            <select 
+                                                id="ai-mission"
+                                                title="Misión del Cerebro"
+                                                value={selectedNode.data.task || "custom"}
+                                                onChange={(e) => updateNodeData(selectedNode.id, { task: e.target.value })}
+                                                className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-xs text-white px-8 font-bold appearance-none relative focus:border-purple-500/50 outline-none"
+                                            >
+                                                <option value="custom" className="bg-slate-900">🧠 Prompt Libre (Libertad Total)</option>
+                                                <option value="sentiment" className="bg-slate-900">🎭 Análisis de Sentimiento</option>
+                                                <option value="scoring" className="bg-slate-900">⭐ Puntuación de Lead (0-100)</option>
+                                                <option value="summary" className="bg-slate-900">📝 Resumir Conversación</option>
+                                                <option value="extraction" className="bg-slate-900">🔍 Extraer Datos (JSON)</option>
+                                                <option value="classification" className="bg-slate-900">🏷️ Clasificar por Categoría</option>
+                                            </select>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-[9px] font-black uppercase tracking-widest text-purple-400">Instrucciones / Brain Prompt</label>
+                                                <Sparkles className="w-3 h-3 text-purple-400 animate-pulse" />
+                                            </div>
+                                            <textarea 
+                                                value={selectedNode.data.instructions || ""}
+                                                onChange={(e) => updateNodeData(selectedNode.id, { instructions: e.target.value })}
+                                                className="w-full min-h-[200px] bg-purple-500/5 border border-purple-500/20 rounded-2xl p-4 text-[11px] text-purple-100 leading-relaxed outline-none focus:border-purple-500 transition-all font-mono"
+                                                placeholder="Define aquí exactamente qué debe hacer la IA... Ej: 'Si el cliente pregunta por precios, dile que tenemos un descuento del 20% solo por hoy y guarda esto en la variable PROMO'."
+                                            />
+                                            <p className="text-[8px] text-white/20 uppercase font-black tracking-tighter mt-1">Este prompt es el cerebro del flujo. Tienes libertad total para programarlo.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ── CRM Connect Node Properties ── */}
+                            {selectedNode.type === 'flow_crm_connect' && (
+                                <div className="space-y-6">
                                     <div className="space-y-3">
-                                        <label htmlFor="ai-model" className="text-[9px] font-black uppercase tracking-widest text-white/30">Modelo</label>
-                                        <select 
-                                            id="ai-model"
-                                            value={selectedNode.data.model || "gpt-4o"}
-                                            onChange={(e) => updateNodeData(selectedNode.id, { model: e.target.value })}
-                                            title="Seleccionar modelo de IA"
-                                            className="w-full h-11 bg-purple-500/10 border border-purple-500/20 rounded-xl px-4 text-xs font-black text-purple-400"
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Plataforma / CRM</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {([
+                                                { value: 'zoho',       label: 'Zoho CRM',  emoji: '🔴' },
+                                                { value: 'hubspot',    label: 'HubSpot',   emoji: '🟠' },
+                                                { value: 'salesforce', label: 'Salesforce',emoji: '🔵' },
+                                                { value: 'pipedrive',  label: 'Pipedrive', emoji: '🟢' },
+                                                { value: 'custom',     label: 'API Custom',emoji: '⚙️' },
+                                            ] as const).map(p => {
+                                                const pal = CRM_PLATFORM_COLORS[p.value];
+                                                const isActive = (selectedNode.data.platform as string || 'zoho') === p.value;
+                                                return (
+                                                    <button
+                                                        key={p.value}
+                                                        onClick={() => updateNodeData(selectedNode.id, { platform: p.value })}
+                                                        className={cn(
+                                                            "px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wide transition-all text-left",
+                                                            isActive
+                                                                ? cn(pal.bg, pal.color, pal.border)
+                                                                : "bg-white/5 text-white/30 border-white/5 hover:bg-white/10"
+                                                        )}
+                                                    >
+                                                        {p.emoji} {p.label}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                    <div className="space-y-3">
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Operación</label>
+                                        <select
+                                            value={selectedNode.data.operation as string || 'CREATE_OR_UPDATE_CONTACT'}
+                                            onChange={(e) => updateNodeData(selectedNode.id, { operation: e.target.value })}
+                                            title="Seleccionar operación CRM"
+                                            className="w-full h-11 bg-violet-500/10 border border-violet-500/20 rounded-xl px-4 text-[10px] font-black text-violet-400"
                                         >
-                                            <option value="gpt-4o">GPT-4o (Máxima Calidad)</option>
-                                            <option value="gpt-4o-mini">GPT-4o Mini (Velocidad)</option>
-                                            <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
+                                            <option value="CREATE_OR_UPDATE_CONTACT">📋 Crear / Actualizar Contacto</option>
+                                            <option value="CREATE_LEAD">➕ Crear Lead</option>
+                                            <option value="UPDATE_DEAL">💼 Actualizar Negocio / Deal</option>
+                                            <option value="SEARCH_CONTACT">🔍 Buscar Contacto</option>
+                                            <option value="ADD_TAG">🏷️ Añadir Etiqueta</option>
+                                            <option value="CUSTOM_WEBHOOK">🔗 Webhook Personalizado</option>
                                         </select>
                                     </div>
                                     <div className="space-y-3">
-                                        <label htmlFor="ai-task" className="text-[9px] font-black uppercase tracking-widest text-white/30">Tarea Predeterminada</label>
-                                        <select 
-                                            id="ai-task"
-                                            value={selectedNode.data.task || "Clasificar intención"}
-                                            onChange={(e) => updateNodeData(selectedNode.id, { task: e.target.value })}
-                                            title="Seleccionar tarea de IA"
-                                            className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-xs text-white/80"
-                                        >
-                                            <option value="sentiment">Análisis de Sentimiento</option>
-                                            <option value="scoring">Puntuación de Lead (0-100)</option>
-                                            <option value="summary">Resumir Conversación</option>
-                                            <option value="extraction">Extraer Entidades (JSON)</option>
-                                            <option value="classification">Clasificar Categoría</option>
-                                        </select>
-                                    </div>
-                                    <div className="space-y-3">
-                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Instrucciones Específicas</label>
-                                        <textarea 
-                                            value={selectedNode.data.instructions || ""}
-                                            onChange={(e) => updateNodeData(selectedNode.id, { instructions: e.target.value })}
-                                            className="w-full min-h-[120px] bg-purple-500/5 border border-purple-500/10 rounded-2xl p-4 text-[11px] text-purple-100 leading-relaxed outline-none focus:border-purple-500 transition-all"
-                                            placeholder="Define cómo debe procesar la IA esta tarea específica..."
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30">URL Base del CRM / API</label>
+                                        <input
+                                            value={selectedNode.data.api_url as string || ''}
+                                            onChange={(e) => updateNodeData(selectedNode.id, { api_url: e.target.value })}
+                                            placeholder="https://www.zohoapis.com/crm/v2/..."
+                                            className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-[10px] font-mono text-white/70 focus:border-violet-500/40 outline-none"
                                         />
+                                    </div>
+                                    <div className="space-y-3">
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30">API Key / Bearer Token</label>
+                                        <input
+                                            type="password"
+                                            value={selectedNode.data.api_key as string || ''}
+                                            onChange={(e) => updateNodeData(selectedNode.id, { api_key: e.target.value })}
+                                            placeholder="••••••••••••"
+                                            className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-[10px] font-mono text-white/70 focus:border-violet-500/40 outline-none"
+                                        />
+                                        <p className="text-[8px] text-white/20 italic">Authorization: Bearer &#123;token&#125;</p>
+                                    </div>
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-violet-400">Mapeo de Campos (JSON)</label>
+                                            <Link2 className="w-3 h-3 text-violet-400" />
+                                        </div>
+                                        <textarea
+                                            value={selectedNode.data.crm_mappings as string || '{}'}
+                                            onChange={(e) => updateNodeData(selectedNode.id, { crm_mappings: e.target.value })}
+                                            className="w-full min-h-[140px] bg-violet-500/5 border border-violet-500/20 rounded-2xl p-4 text-[10px] font-mono text-violet-200/70 outline-none focus:border-violet-500/50 transition-all"
+                                            placeholder={'{\n  "nombre": "{{nombre}}",\n  "email": "{{email}}",\n  "telefono": "{{telefono}}"\n}'}
+                                        />
+                                        <p className="text-[8px] text-white/20 leading-relaxed">
+                                            Usa <span className="text-violet-400 font-black">&#123;&#123;variable&#125;&#125;</span> para inyectar datos del lead.
+                                        </p>
                                     </div>
                                 </div>
                             )}
@@ -973,19 +1206,18 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName }: Ag
     );
 }
 
-function ToolButton({ onClick, icon: Icon, label, color }: { onClick: () => void; icon: LucideIcon; label: string; color: string }) {
+function QuickActionButton({ onClick, icon: Icon, title, color }: { onClick: () => void; icon: LucideIcon; title: string, color: string }) {
     return (
         <button 
-            onClick={onClick} 
-            className="flex items-center justify-between p-3 rounded-2xl hover:bg-white/5 group transition-all"
+            onClick={onClick}
+            title={title}
+            className={cn(
+                "h-10 w-10 rounded-2xl flex items-center justify-center transition-all hover:scale-110 active:scale-90 shadow-lg border border-white/5",
+                color
+            )}
         >
-             <div className="flex items-center gap-3">
-                 <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center border border-white/5 group-hover:border-white/20 transition-all shadow-lg", color)}>
-                     <Icon className="h-4 w-4 group-hover:scale-110 transition-transform" />
-                 </div>
-                 <span className="text-[11px] font-black uppercase tracking-widest text-white/50 group-hover:text-white transition-colors">{label}</span>
-             </div>
-             <ChevronRight className="h-3 w-3 text-white/10 group-hover:text-white/30 transition-all" />
+            <Icon className="h-5 w-5" />
         </button>
     );
 }
+

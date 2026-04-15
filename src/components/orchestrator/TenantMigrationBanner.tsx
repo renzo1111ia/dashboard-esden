@@ -1,8 +1,7 @@
-"use client";
-
-import React, { useState } from "react";
-import { Database, Check, AlertCircle, Loader2, Copy, ChevronDown, ChevronUp } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Database, Check, AlertCircle, Loader2, Copy, ChevronDown, ChevronUp, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { setTenantToInternalDatabase, getActiveTenantConfig } from "@/lib/actions/tenant";
 
 interface TenantMigrateResult {
     success: boolean;
@@ -15,10 +14,22 @@ interface TenantMigrateResult {
 }
 
 export function TenantMigrationBanner() {
-    const [status, setStatus] = useState<"idle" | "loading" | "success" | "error" | "manual">("idle");
+    const [status, setStatus] = useState<"idle" | "loading" | "success" | "error" | "manual" | "internal_success">("idle");
     const [result, setResult] = useState<TenantMigrateResult | null>(null);
     const [showSQL, setShowSQL] = useState(false);
     const [copied, setCopied] = useState(false);
+
+    useEffect(() => {
+        async function checkStatus() {
+            const tenant = await getActiveTenantConfig();
+            if (tenant) {
+                if (tenant.api_type === 'internal') {
+                    setStatus("internal_success");
+                }
+            }
+        }
+        checkStatus();
+    }, []);
 
     async function handleMigrate() {
         setStatus("loading");
@@ -37,12 +48,54 @@ export function TenantMigrationBanner() {
         }
     }
 
+    async function handleConnectInternal() {
+        if (!confirm("¿Estás seguro de que deseas vincular este cliente a la BASE INTERNA? No necesitará un Supabase externo.")) return;
+        
+        setStatus("loading");
+        const tenant = await getActiveTenantConfig();
+        if (!tenant) {
+            setStatus("error");
+            return;
+        }
+
+        const res = await setTenantToInternalDatabase(tenant.id);
+        if (res.success) {
+            setStatus("internal_success");
+        } else {
+            setStatus("error");
+            setResult({ success: false, error: res.error });
+        }
+    }
+
     async function copySQL() {
         if (result?.sql) {
             await navigator.clipboard.writeText(result.sql);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         }
+    }
+
+    // Hide banner if already successfully connected to internal
+    if (status === "internal_success") {
+        return (
+            <div className="rounded-3xl border border-primary/20 bg-primary/5 p-6 flex items-center justify-between gap-4 animate-in fade-in duration-500">
+                <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                        <Home className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-black text-white/90">Conectado a Base Interna</p>
+                        <p className="text-[10px] text-white/40 uppercase font-black tracking-widest leading-none mt-0.5">
+                            Este cliente usa la infraestructura central del sistema
+                        </p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-primary font-black uppercase tracking-widest bg-primary/10 px-3 py-1.5 rounded-lg border border-primary/20">
+                    <Check className="h-3.5 w-3.5" />
+                    Activo
+                </div>
+            </div>
+        );
     }
 
     return (
@@ -78,14 +131,24 @@ export function TenantMigrationBanner() {
                 </div>
 
                 {status === "idle" && (
-                    <button
-                        onClick={handleMigrate}
-                        title="Inicializar tablas en el Supabase del cliente activo"
-                        className="flex items-center gap-2 h-10 px-5 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all text-white/60 flex-shrink-0"
-                    >
-                        <Database className="h-3.5 w-3.5" />
-                        Inicializar
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={handleConnectInternal}
+                            className="flex items-center gap-2 h-10 px-5 bg-primary/10 border border-primary/20 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/20 transition-all text-primary flex-shrink-0"
+                        >
+                            <Home className="h-3.5 w-3.5" />
+                            Usar Base Interna
+                        </button>
+                        <div className="h-4 w-px bg-white/10" />
+                        <button
+                            onClick={handleMigrate}
+                            title="Inicializar tablas en el Supabase del cliente activo"
+                            className="flex items-center gap-2 h-10 px-5 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all text-white/60 flex-shrink-0"
+                        >
+                            <Database className="h-3.5 w-3.5" />
+                            Inicializar Externo
+                        </button>
+                    </div>
                 )}
 
                 {status === "loading" && (
@@ -164,10 +227,9 @@ export function TenantMigrationBanner() {
             {/* Info */}
             {status === "idle" && (
                 <p className="text-[9px] text-white/20 leading-relaxed">
-                    Cada cliente tiene su propia base de datos Supabase. Este botón crea automáticamente las tablas 
-                    del orquestador (<code className="text-white/40">advisors</code>, <code className="text-white/40">appointments</code>,{" "}
-                    <code className="text-white/40">ai_agents</code>, <code className="text-white/40">orchestration_logs</code>, etc.) 
-                    en el Supabase del cliente que tienes actualmente activo en el selector.
+                    Si el cliente no tiene su propia base de datos externa, usa la <strong className="text-primary/60">Base Interna</strong>. 
+                    Si usas un Supabase independiente, el botón <strong className="text-white/40">Inicializar Externo</strong> creará las tablas 
+                    necesarias (<code className="text-white/40">advisors</code>, <code className="text-white/40">appointments</code>, etc.) en su propio proyecto.
                 </p>
             )}
         </div>

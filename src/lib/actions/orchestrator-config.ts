@@ -7,7 +7,7 @@ import { getActiveTenantConfig } from "./tenant";
 
 export interface OrchestratorSequenceStep {
     step: number;
-    action: "call" | "whatsapp" | "ai_agent" | "wait";
+    action: "call" | "whatsapp" | "ai_agent" | "wait" | "zoho";
     agents?: string[];       // Array de agent IDs para A/B
     template?: string;       // WhatsApp template name
     delay_hours: number;     // Horas de espera antes de este paso
@@ -35,6 +35,7 @@ export interface TenantOrchestratorConfig {
     sequence: OrchestratorSequenceStep[];
     ab_testing: OrchestratorABConfig;
     retell: OrchestratorRetellConfig;
+    flow_graph?: { nodes: any[]; edges: any[] };
     company_name?: string;
 }
 
@@ -66,6 +67,7 @@ const DEFAULT_CONFIG: TenantOrchestratorConfig = {
         api_key: "",
         from_number: ""
     },
+    flow_graph: { nodes: [], edges: [] },
     company_name: "Esden Analytics"
 };
 
@@ -83,7 +85,7 @@ export async function getOrchestratorConfig(): Promise<{ success: boolean; data?
         const supabase = await getSupabaseServerClient();
         const { data, error } = await (supabase
             .from("tenant_orchestrator_config" as any) as any)
-            .select("config")
+            .select("config, flow_graph")
             .eq("tenant_id", tenant.id)
             .single();
 
@@ -94,6 +96,7 @@ export async function getOrchestratorConfig(): Promise<{ success: boolean; data?
 
         // Merge with defaults for any missing keys
         const merged = deepMerge(DEFAULT_CONFIG, data.config as any);
+        merged.flow_graph = data.flow_graph || DEFAULT_CONFIG.flow_graph;
         return { success: true, data: merged };
     } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Unknown error";
@@ -104,20 +107,43 @@ export async function getOrchestratorConfig(): Promise<{ success: boolean; data?
 /**
  * Saves the orchestrator config for the active tenant (upsert).
  */
-export async function saveOrchestratorConfig(config: TenantOrchestratorConfig): Promise<{ success: boolean; error?: string }> {
+export async function saveOrchestratorConfig(config: Partial<TenantOrchestratorConfig>): Promise<{ success: boolean; error?: string }> {
     try {
         const tenant = await getActiveTenantConfig();
         if (!tenant) return { success: false, error: "No active tenant" };
 
         const supabase = await getSupabaseServerClient();
+        console.log(`[SAVE_FLOW] Saving for tenant ${tenant.id}. Graph nodes: ${config.flow_graph?.nodes?.length || 0}`);
+
+        // We use a partial update approach: 
+        // 1. Fetch current config to avoid overwriting other keys if we were doing a full upsert
+        // 2. OR just use upsert but only if we have the full config.
+        // Since this is for the Flow Builder, we mostly care about flow_graph.
+
         const { error } = await (supabase
             .from("tenant_orchestrator_config" as any) as any)
-            .upsert({ tenant_id: tenant.id, config }, { onConflict: "tenant_id" });
+            .upsert({ 
+                tenant_id: tenant.id, 
+                flow_graph: config.flow_graph || { nodes: [], edges: [] }
+                // Note: we don't update 'config' JSON here to avoid overwriting other settings
+            }, { 
+                onConflict: "tenant_id",
+                ignoreDuplicates: false 
+            });
 
-        if (error) return { success: false, error: error.message };
+        if (error) {
+            console.error("[SAVE_FLOW] Upsert Error:", error);
+            if (error.message.includes("column") && error.message.includes("flow_graph")) {
+                return { success: false, error: "Columna 'flow_graph' no encontrada. ¿Ejecutaste el SQL?" };
+            }
+            return { success: false, error: error.message };
+        }
+
+        console.log("[SAVE_FLOW] Success!");
         return { success: true };
     } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Unknown error";
+        console.error("[SAVE_FLOW] Critical Catch:", msg);
         return { success: false, error: msg };
     }
 }

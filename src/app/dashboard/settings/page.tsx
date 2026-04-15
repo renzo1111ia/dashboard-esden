@@ -95,10 +95,11 @@ export default function SettingsPage() {
             // Update the active store if this is the currently active client
             if (result.data) {
                 const updated = result.data;
+                const configToStore = typeof updated.config === 'string' ? JSON.parse(updated.config) : updated.config;
                 setActiveTenant({
                     tenantId: updated.id,
                     tenantName: updated.name || "",
-                    config: (updated.config as Record<string, unknown>) || {},
+                    config: configToStore || {},
                     isAdmin: !!updated.is_admin,
                 });
             }
@@ -130,7 +131,7 @@ export default function SettingsPage() {
             supabase_url: t.supabase_url || "",
             supabase_anon_key: t.supabase_anon_key || "",
             api_type: t.supabase_url ? "client" : "internal",
-            config: JSON.stringify(t.config, null, 2) as unknown as Record<string, unknown>
+            config: t.config as Record<string, unknown>
         });
     }
 
@@ -363,13 +364,10 @@ export default function SettingsPage() {
                                                             </div>
                                                             <div className="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm">
                                                                 <KpiBuilder 
-                                                                    kpis={(typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}").kpis : (editForm.config as Record<string, any>)?.kpis) || []} 
+                                                                    kpis={(editForm.config as Record<string, any>)?.kpis || []} 
                                                                     onChange={(kpis) => { 
-                                                                        try { 
-                                                                            const current = typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : (editForm.config || {}); 
-                                                                            (current as Record<string, any>).kpis = kpis; 
-                                                                            setEditForm({ ...editForm, config: JSON.stringify(current, null, 2) as any }); 
-                                                                        } catch { } 
+                                                                        const current = (editForm.config as Record<string, any>) || {}; 
+                                                                        setEditForm({ ...editForm, config: { ...current, kpis } }); 
                                                                     }} 
                                                                 />
                                                             </div>
@@ -379,9 +377,9 @@ export default function SettingsPage() {
                                                                     <Zap className="h-4 w-4 text-blue-600" /> Servidodes Externos e Integraciones
                                                                 </h3>
                                                                 <IntegrationsManager 
-                                                                    config={(typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : (editForm.config as Record<string, unknown>))}
+                                                                    config={(editForm.config as Record<string, unknown>) || {}}
                                                                     onChange={(newConf) => {
-                                                                        setEditForm({ ...editForm, config: JSON.stringify(newConf, null, 2) as any });
+                                                                        setEditForm({ ...editForm, config: newConf as any });
                                                                     }}
                                                                 />
                                                             </div>
@@ -450,9 +448,9 @@ export default function SettingsPage() {
                                                             <Zap className="h-4 w-4 text-blue-600" /> Integraciones de Voz y Mensajería
                                                         </h3>
                                                         <IntegrationsManager 
-                                                            config={(typeof editForm.config === "string" ? JSON.parse(editForm.config || "{}") : (editForm.config || {}))}
+                                                            config={(editForm.config as Record<string, unknown>) || {}}
                                                             onChange={(newConf) => {
-                                                                    setEditForm({ ...editForm, config: JSON.stringify(newConf, null, 2) as any });
+                                                                    setEditForm({ ...editForm, config: newConf as any });
                                                             }}
                                                         />
                                                     </div>

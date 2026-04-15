@@ -2,7 +2,7 @@ import { addMinutes, addHours, addDays, getHours, getMinutes, setHours, setMinut
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
 
 /**
- * COMPLIANCE SERVICE v2.0
+ * COMPLIANCE SERVICE v2.1
  * Handles calling windows, timezone resolution, and working-day enforcement.
  */
 
@@ -26,6 +26,7 @@ export interface ComplianceDecision {
 
 const PHONE_PREFIX_TIMEZONE: Record<string, string> = {
     "+34": "Europe/Madrid",
+    "+351": "Europe/Lisbon",
     "+56": "America/Santiago",
     "+52": "America/Mexico_City",
     "+57": "America/Bogota",
@@ -35,16 +36,16 @@ const PHONE_PREFIX_TIMEZONE: Record<string, string> = {
     "+595": "America/Asuncion",
     "+591": "America/La_Paz",
     "+593": "America/Guayaquil",
-    "+1":   "America/New_York",
+    "+1":   "Etc/GMT+6", // Fixed Central Time matching n8n logic for USA
     "+44":  "Europe/London",
     "+33":  "Europe/Paris",
     "+49":  "Europe/Berlin",
     "+55":  "America/Sao_Paulo",
+    "+506": "America/Costa_Rica",
 };
 
 /**
  * Resolves timezone from phone prefix, country code, or defaults to Spain.
- * Phone prefix map can be overridden by tenant config.
  */
 export function resolveTimezone(
     phone?: string | null,
@@ -52,6 +53,20 @@ export function resolveTimezone(
     customPrefixMap?: Record<string, string>
 ): string {
     const prefixMap = { ...PHONE_PREFIX_TIMEZONE, ...customPrefixMap };
+
+    // Explicit country checks (prioritized)
+    if (country) {
+        const c = country.toLowerCase().trim();
+        const ESPAÑA_ALIASES = ["españa", "spain", "esp", "espana"];
+        if (ESPAÑA_ALIASES.includes(c)) return "Europe/Madrid";
+        if (c === "portugal") return "Europe/Lisbon";
+        if (c === "méxico" || c === "mexico" || c === "mex") return "America/Mexico_City";
+        if (c === "usa" || c === "united states" || c === "eeuu") return "Etc/GMT+6";
+        if (c === "chile" || c === "chl") return "America/Santiago";
+        if (c === "colombia" || c === "col") return "America/Bogota";
+        if (c === "perú" || c === "peru" || c === "per") return "America/Lima";
+        if (c === "argentina" || c === "arg") return "America/Argentina/Buenos_Aires";
+    }
 
     // Try phone prefixes (longest match first for e.g. +598 vs +5)
     if (phone) {
@@ -64,19 +79,6 @@ export function resolveTimezone(
         }
     }
 
-    // Country fallback
-    const countryMap: Record<string, string> = {
-        "ESP": "Europe/Madrid",
-        "MEX": "America/Mexico_City",
-        "COL": "America/Bogota",
-        "CHL": "America/Santiago",
-        "PER": "America/Lima",
-        "ARG": "America/Argentina/Buenos_Aires",
-    };
-    if (country && countryMap[country.toUpperCase()]) {
-        return countryMap[country.toUpperCase()];
-    }
-
     return "Europe/Madrid";
 }
 
@@ -85,12 +87,24 @@ export function resolveTimezone(
  */
 export function isWithinLegalWindow(config: ComplianceConfig): boolean {
     const nowZoned = toZonedTime(new Date(), config.timezone);
+    const dayOfWeek = nowZoned.getDay();
     const currentHour = getHours(nowZoned);
     const currentMinute = getMinutes(nowZoned);
     
     const currentMinutes = currentHour * 60 + currentMinute;
-    const startMinutes = config.startHour * 60;
-    const endMinutes = config.endHour * 60;
+    
+    // Default hours
+    let startH = config.startHour;
+    let endH = config.endHour;
+
+    // Specific logic for Saturday (matching n8n: 9:00 - 14:00)
+    // In JS Date: 0=Sun, 1=Mon... 6=Sat
+    if (dayOfWeek === 6) {
+        endH = Math.min(endH, 14);
+    }
+
+    const startMinutes = startH * 60;
+    const endMinutes = endH * 60;
     
     return currentMinutes >= startMinutes && currentMinutes < endMinutes;
 }
@@ -98,7 +112,7 @@ export function isWithinLegalWindow(config: ComplianceConfig): boolean {
 /**
  * Checks if today is a working day in the given timezone.
  */
-export function isWorkingDay(timezone: string, workingDays: number[] = [1, 2, 3, 4, 5]): boolean {
+export function isWorkingDay(timezone: string, workingDays: number[] = [1, 2, 3, 4, 5, 6]): boolean {
     const nowZoned = toZonedTime(new Date(), timezone);
     const dayOfWeek = nowZoned.getDay(); // 0=Sun, 1=Mon...6=Sat
     return workingDays.includes(dayOfWeek);
@@ -107,19 +121,44 @@ export function isWorkingDay(timezone: string, workingDays: number[] = [1, 2, 3,
 /**
  * Calculates the Date of the next window start (next working day at startHour).
  */
-export function getNextWindowStart(config: ComplianceConfig, workingDays: number[] = [1, 2, 3, 4, 5]): Date {
+export function getNextWindowStart(config: ComplianceConfig, workingDays: number[] = [1, 2, 3, 4, 5, 6]): Date {
     const timezone = config.timezone;
     let candidate = toZonedTime(new Date(), timezone);
 
     // Try up to 7 days ahead to find next working day
     for (let i = 0; i < 7; i++) {
+        const dayOfWeek = candidate.getDay();
+        
+        // Adjust endHour for Saturday check in the future
+        const effectiveEndHour = dayOfWeek === 6 ? Math.min(config.endHour, 14) : config.endHour;
+
         // Set to startHour:00 of the candidate day
         const dayStart = setMinutes(setHours(candidate, config.startHour), 0);
-        const isWorking = workingDays.includes(candidate.getDay());
-        const isInFuture = isBefore(new Date(), fromZonedTime(dayStart, timezone));
+        const isWorking = workingDays.includes(dayOfWeek);
+        
+        // We only care if it's a working day and the window hasn't passed today, 
+        // OR it's a working day in the future.
+        const dayEnd = setMinutes(setHours(candidate, effectiveEndHour), 0);
+        const isPastToday = isBefore(fromZonedTime(dayEnd, timezone), new Date());
 
-        if (isWorking && isInFuture) {
-            return fromZonedTime(dayStart, timezone);
+        if (isWorking && (i > 0 || !isPastToday)) {
+            // Return the start of the window
+            const result = fromZonedTime(dayStart, timezone);
+            // If the start is in the past (e.g. it's 10:00 and we start at 09:00), 
+            // but we are within the window, we might returning a past date.
+            // But getNextWindowStart is usually called when we are NOT in the window.
+            if (isBefore(result, new Date())) {
+                // If the start is past, but we are before the end, we can technically call now, 
+                // but this function is for the NEXT window. So if today is valid and it's e.g. 8am, 
+                // it returns 9am. If today is valid and it's 10pm, it skips to tomorrow.
+                if (i === 0 && isPastToday) {
+                   // move to next day
+                } else {
+                   return result;
+                }
+            } else {
+                return result;
+            }
         }
         candidate = addDays(candidate, 1);
     }
@@ -161,6 +200,10 @@ export function buildComplianceDecision(
     const nowZoned = toZonedTime(new Date(), timezone);
     const localTimeStr = `${String(getHours(nowZoned)).padStart(2, "0")}:${String(getMinutes(nowZoned)).padStart(2, "0")} (${timezone})`;
 
+    // Sat hack: if it's Saturday and past 14:00, it's NOT in window
+    const dayOfWeek = nowZoned.getDay();
+    const effectiveEnd = (dayOfWeek === 6) ? "14:00" : timezoneRules.end;
+
     if (inWindow && inWorkingDay) {
         return {
             canExecuteNow: true,
@@ -168,7 +211,7 @@ export function buildComplianceDecision(
             localTimeStr,
             delayMs: 0,
             scheduledFor: null,
-            reason: `✅ Dentro de ventana laboral [${timezoneRules.start}-${timezoneRules.end}]`,
+            reason: `✅ Dentro de ventana laboral [${timezoneRules.start}-${effectiveEnd}]`,
         };
     }
 
@@ -178,7 +221,7 @@ export function buildComplianceDecision(
 
     const reason = !inWorkingDay
         ? `⏸ Día no laboral. Programado para: ${nextWindow.toISOString()}`
-        : `⏸ Fuera de ventana horaria [${timezoneRules.start}-${timezoneRules.end}]. Hora local: ${localTimeStr}`;
+        : `⏸ Fuera de ventana horaria [${timezoneRules.start}-${effectiveEnd}]. Hora local: ${localTimeStr}`;
 
     return {
         canExecuteNow: false,

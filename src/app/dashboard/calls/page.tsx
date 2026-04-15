@@ -8,6 +8,8 @@ import {
     ShieldAlert
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTenantStore } from "@/store/tenant";
+
 
 /**
  * MANUAL CALL LAUNCHER (v2.0)
@@ -15,7 +17,9 @@ import { cn } from "@/lib/utils";
  */
 
 export default function CallsPage() {
+    const tenantName = useTenantStore((s) => s.tenantName) || "ESDEN";
     const [phoneNumber, setPhoneNumber] = useState("");
+
     const [isCalling, setIsCalling] = useState(false);
 
     const dialPad = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "0", "#"];
@@ -140,8 +144,9 @@ export default function CallsPage() {
                                             IA (Qualify Bot) <span className="opacity-40">12:35pm</span>
                                         </div>
                                         <div className="p-4 rounded-2xl bg-slate-900 border border-white/5 text-sm text-slate-300 leading-relaxed rounded-tl-none">
-                                            &quot;Hola, soy el asistente de ESDEN Business School. ¿Hablo con el responsable de admisiones?&quot;
+                                            &quot;Hola, soy el asistente de {tenantName}. ¿Hablo con el responsable de admisiones?&quot;
                                         </div>
+
                                     </div>
                                     <div className="flex flex-col gap-2 max-w-[80%] self-end">
                                         <div className="flex items-center gap-2 text-[10px] font-black uppercase text-blue-500 justify-end">

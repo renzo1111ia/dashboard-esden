@@ -21,9 +21,30 @@ export interface InboxLead {
     nombre: string | null;
     apellido: string | null;
     telefono: string | null;
+    email?: string | null;
+    foto_url: string | null;
+    is_ai_enabled: boolean;
     last_message?: string;
     last_message_time?: string;
     unread_count?: number;
+    // Fields for detailed view
+    tipo_lead?: string | null;
+    pais?: string | null;
+    origen?: string | null;
+    campana?: string | null;
+    segmentacion?: 'PUESTO 1' | 'REVISADO' | 'CUALIFICADO' | 'SIN INTERÉS' | null;
+    created_at?: string;
+}
+
+export async function updateLeadSegment(leadId: string, segment: InboxLead['segmentacion']): Promise<{ success: boolean; error?: string }> {
+    const supabase = await getSupabaseServerClient();
+    const { error } = await (supabase
+        .from('lead')
+        .update({ segmentacion: segment } as never) as any)
+        .eq('id', leadId);
+    
+    if (error) return { success: false, error: error.message };
+    return { success: true };
 }
 
 /**
@@ -35,36 +56,62 @@ export async function getInboxLeads(): Promise<{ success: boolean; data?: InboxL
 
     const supabase = await getSupabaseServerClient();
     
-    // In a real production scenario, you would use a SQL View or lateral join.
-    // For now, we'll fetch distinct leads that have messages using a subquery/join approach.
-    const { data: messages, error } = await supabase
+    // 1. Fetch distinct lead IDs that have messages
+    const { data: recentMessages, error } = await supabase
         .from("chat_messages")
-        .select("content, created_at, lead_id, lead(id, nombre, apellido, telefono)")
+        .select(`
+            lead_id,
+            content,
+            created_at
+        `)
         .eq("tenant_id", tenant.id)
         .order("created_at", { ascending: false });
 
     if (error) return { success: false, error: error.message };
 
-    // Group by lead to get the latest message
-    const leadMap = new Map<string, InboxLead>();
-
-    (messages as any[] || []).forEach(msg => {
-        if (!msg.lead_id) return;
-        if (!leadMap.has(msg.lead_id)) {
-            const l = msg.lead;
-            leadMap.set(msg.lead_id, {
-                id: msg.lead_id,
-                nombre: l?.nombre,
-                apellido: l?.apellido,
-                telefono: l?.telefono,
-                last_message: msg.content,
-                last_message_time: msg.created_at,
-                unread_count: 0 // Mocked for now
-            });
+    // 2. Group by lead_id to keep ONLY the most recent message
+    const latestMsgByLead = new Map<string, { content: string; time: string }>();
+    (recentMessages as any[] || []).forEach(m => {
+        if (m.lead_id && !latestMsgByLead.has(m.lead_id)) {
+            latestMsgByLead.set(m.lead_id, { content: m.content, time: m.created_at });
         }
     });
 
-    const results = Array.from(leadMap.values());
+    const leadIds = Array.from(latestMsgByLead.keys());
+    if (leadIds.length === 0) return { success: true, data: [] };
+
+    // 3. Fetch full lead details for those IDs
+    const { data: leads, error: leadError } = await supabase
+        .from("lead")
+        .select("*")
+        .in("id", leadIds);
+
+    if (leadError) return { success: false, error: leadError.message };
+
+    // 4. Combine and Map
+    const results: InboxLead[] = (leads as any[] || []).map(l => {
+        const msg = latestMsgByLead.get(l.id);
+        return {
+            id: l.id,
+            nombre: l.nombre,
+            apellido: l.apellido,
+            telefono: l.telefono,
+            foto_url: l.foto_url || null,
+            is_ai_enabled: l.is_ai_enabled ?? true,
+            last_message: msg?.content || "",
+            last_message_time: msg?.time || "",
+            created_at: l.fecha_primer_contacto || l.created_at,
+            tipo_lead: l.tipo_lead || 'SIN CALIFICAR',
+            pais: l.pais || 'España',
+            origen: l.origen || 'Web Simulator',
+            campana: l.campana || 'General',
+            unread_count: 0
+        };
+    });
+
+    // Sort by message time descending
+    results.sort((a, b) => new Date(b.last_message_time || 0).getTime() - new Date(a.last_message_time || 0).getTime());
+
     return { success: true, data: results };
 }
 
@@ -76,18 +123,48 @@ export async function getChatHistory(leadId: string): Promise<{ success: boolean
     if (!tenant) return { success: false, error: "No tenant" };
 
     const supabase = await getSupabaseServerClient();
-    const { data, error } = await supabase
+    
+    // Fetch Messages
+    const { data: messages, error: msgError } = await supabase
         .from("chat_messages")
         .select("*")
         .eq("tenant_id", tenant.id)
         .eq("lead_id", leadId)
-        .order("created_at", { ascending: false }) // Latest first for UI virtualization or CSS reverse
+        .order("created_at", { ascending: false })
         .limit(100);
 
-    if (error) return { success: false, error: error.message };
+    if (msgError) return { success: false, error: msgError.message };
 
-    // Reverse to chronological order for the chat UI
-    const chronological = (data as ChatMessage[]).reverse();
+    // Fetch Calls to show in timeline
+    const { data: calls } = await supabase
+        .from("llamadas")
+        .select("id, estado_llamada, fecha_inicio, duracion_segundos")
+        .eq("id_lead", leadId)
+        .order("fecha_inicio", { ascending: false });
+
+    // Combine and sort
+    const chronological: ChatMessage[] = (messages as ChatMessage[] || []).map(m => ({ ...m }));
+
+    if (calls && (calls as any[]).length > 0) {
+        (calls as any[]).forEach(call => {
+            chronological.push({
+                id: `call-${call.id}`,
+                tenant_id: tenant.id,
+                lead_id: leadId,
+                direction: 'OUTBOUND',
+                message_type: 'SYSTEM_LOG',
+                content: `Llamada ${call.estado_llamada === 'completed' ? 'Realizada' : 'Intento'}: ${call.duracion_segundos ? Math.floor(call.duracion_segundos / 60) + 'm ' + (call.duracion_segundos % 60) + 's' : 'Sin respuesta'}`,
+                sent_by: 'Voice AI Agent',
+                status: 'READ',
+                created_at: call.fecha_inicio,
+                metadata: { call_id: call.id }
+            });
+        });
+    }
+
+    // Sort all by date
+    chronological.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
     return { success: true, data: chronological };
 }
 
@@ -151,4 +228,24 @@ export async function injectMockupMessage(
         sent_by: sentBy,
         status: "DELIVERED"
     } as never);
+}
+
+/**
+ * Toggles the AI agent status for a specific lead.
+ */
+export async function toggleLeadAI(leadId: string, enabled: boolean): Promise<{ success: boolean; error?: string }> {
+    const supabase = await getSupabaseServerClient();
+    const { error } = await (supabase
+        .from("lead")
+        .update({ is_ai_enabled: enabled } as never) as any)
+        .eq("id", leadId);
+
+    if (error) {
+        if (error.message.includes('column')) {
+            console.error("[INBOX] Cannot toggle AI: column 'is_ai_enabled' missing in DB.");
+            return { success: false, error: "La base de datos aún no tiene habilitada la función de pausa. Por favor, ejecuta la migración SQL." };
+        }
+        return { success: false, error: error.message };
+    }
+    return { success: true };
 }

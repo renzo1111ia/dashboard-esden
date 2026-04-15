@@ -18,12 +18,13 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
-import { LeadTriggerNode, ActionNode, DelayNode, LLMNode, APINode, SubWorkflowNode } from './nodes/TriggerNodes';
+import { LeadTriggerNode, ActionNode, DelayNode, LLMNode, APINode, SubWorkflowNode, WebhookNode, WebhookResponseNode, WebhookWaitNode } from './nodes/TriggerNodes';
 import { NodeConfigSidebar } from './NodeConfigSidebar';
 import { 
     Save, Plus, Play, Trash2, 
     Phone, MessageSquare, BrainCircuit, 
-    Globe, Clock, GitBranchPlus 
+    Globe, Clock, GitBranchPlus, Webhook, 
+    Reply, Hourglass 
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
@@ -34,11 +35,14 @@ import { cn } from "@/lib/utils";
 
 const nodeTypes = {
   leadTrigger: LeadTriggerNode,
+  webhookTrigger: WebhookNode,
   action: ActionNode,
   delay: DelayNode,
   llm: LLMNode,
   api: APINode,
-  subWorkflow: SubWorkflowNode
+  subWorkflow: SubWorkflowNode,
+  webhookResponse: WebhookResponseNode,
+  webhookWait: WebhookWaitNode
 };
 
 const initialNodes: Node[] = [
@@ -98,7 +102,16 @@ export function SequenceCanvas({ tenantId, workflowId }: { tenantId: string, wor
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(initialEdges);
   const [isPublishing, setIsPublishing] = useState(false);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const { setViewport } = useReactFlow();
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    if (!isAddMenuOpen) return;
+    const handleClickOutside = () => setIsAddMenuOpen(false);
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, [isAddMenuOpen]);
 
   // 1. Fetch Existing Graph State for THIS Workflow
   useEffect(() => {
@@ -186,7 +199,11 @@ export function SequenceCanvas({ tenantId, workflowId }: { tenantId: string, wor
       type,
       position: { x: Math.random() * 400, y: Math.random() * 400 },
       data: { 
-        label: type === 'action' ? (action === 'CALL' ? 'Llamada' : 'WhatsApp') : type.toUpperCase(),
+        label: type === 'action' ? (action === 'CALL' ? 'Llamada' : 'WhatsApp') 
+             : (type === 'webhookTrigger' ? 'Webhook' 
+             : (type === 'webhookResponse' ? 'Respuesta Webhook'
+             : (type === 'webhookWait' ? 'Espera Callback'
+             : type.toUpperCase()))),
         action,
         config: {} 
       }
@@ -218,30 +235,56 @@ export function SequenceCanvas({ tenantId, workflowId }: { tenantId: string, wor
           {isPublishing ? "Publicando..." : "Publicar Secuencia"}
         </button>
         <div className="h-4 w-px bg-white/10 mx-2" />
-        <div className="relative group/menu">
-            <button className="p-2.5 rounded-xl hover:bg-white/5 text-white/60 hover:text-white transition-colors" title="Añadir Nódulo">
+        <div className="relative">
+            <button 
+                onClick={(e) => {
+                    e.stopPropagation();
+                    setIsAddMenuOpen(!isAddMenuOpen);
+                }}
+                className={cn(
+                    "p-2.5 rounded-xl transition-colors",
+                    isAddMenuOpen ? "bg-primary text-primary-foreground" : "hover:bg-white/5 text-white/60 hover:text-white"
+                )} 
+                title="Añadir Nódulo"
+            >
                 <Plus className="h-5 w-5" />
             </button>
-            <div className="absolute top-full left-0 mt-2 w-48 bg-black/90 backdrop-blur-2xl border border-white/10 rounded-2xl p-2 shadow-2xl opacity-0 scale-95 pointer-events-none group-hover/menu:opacity-100 group-hover/menu:scale-100 group-hover/menu:pointer-events-auto transition-all z-[100] origin-top-left text-left">
+            <div 
+                onClick={(e) => e.stopPropagation()}
+                className={cn(
+                    "absolute top-full left-0 mt-2 w-48 bg-black/90 backdrop-blur-2xl border border-white/10 rounded-2xl p-2 shadow-2xl transition-all z-[100] origin-top-left text-left",
+                    isAddMenuOpen ? "opacity-100 scale-100 pointer-events-auto" : "opacity-0 scale-95 pointer-events-none"
+                )}
+            >
                 <p className="px-3 py-2 text-[10px] font-black text-white/20 uppercase tracking-widest border-b border-white/5 mb-1">Acciones</p>
-                <button onClick={() => addNode('action', 'CALL')} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-blue-500/20 text-xs font-bold text-white/60 hover:text-blue-400 transition-colors">
+                <button onClick={() => { addNode('action', 'CALL'); setIsAddMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-blue-500/20 text-xs font-bold text-white/60 hover:text-blue-400 transition-colors">
                     <Phone className="h-4 w-4" /> Llamada Retell
                 </button>
-                <button onClick={() => addNode('action', 'WHATSAPP')} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-emerald-500/20 text-xs font-bold text-white/60 hover:text-emerald-400 transition-colors">
+                <button onClick={() => { addNode('action', 'WHATSAPP'); setIsAddMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-emerald-500/20 text-xs font-bold text-white/60 hover:text-emerald-400 transition-colors">
                     <MessageSquare className="h-4 w-4" /> WhatsApp
                 </button>
-                <p className="px-3 py-2 text-[10px] font-black text-white/20 uppercase tracking-widest border-b border-white/5 my-1">Inteligencia</p>
-                <button onClick={() => addNode('llm')} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-purple-500/20 text-xs font-bold text-white/60 hover:text-purple-400 transition-colors">
-                    <BrainCircuit className="h-4 w-4" /> Agente LLM
+                <p className="px-3 py-2 text-[10px] font-black text-white/20 uppercase tracking-widest border-b border-white/5 my-1">Disparadores / Integración</p>
+                <button onClick={() => { addNode('webhookTrigger'); setIsAddMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-orange-500/20 text-xs font-bold text-white/60 hover:text-orange-400 transition-colors">
+                    <Webhook className="h-4 w-4" /> Webhook (Entrada)
                 </button>
-                <button onClick={() => addNode('api')} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-cyan-500/20 text-xs font-bold text-white/60 hover:text-cyan-400 transition-colors">
-                    <Globe className="h-4 w-4" /> Petición API
+                <button onClick={() => { addNode('webhookResponse'); setIsAddMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-indigo-500/20 text-xs font-bold text-white/60 hover:text-indigo-400 transition-colors">
+                    <Reply className="h-4 w-4" /> Webhook (Respuesta)
+                </button>
+                <button onClick={() => { addNode('webhookWait'); setIsAddMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-pink-500/20 text-xs font-bold text-white/60 hover:text-pink-400 transition-colors">
+                    <Hourglass className="h-4 w-4" /> Webhook (Espera)
+                </button>
+                <button onClick={() => { addNode('api'); setIsAddMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-cyan-500/20 text-xs font-bold text-white/60 hover:text-cyan-400 transition-colors">
+                    <Globe className="h-4 w-4" /> Petición API / Salida
+                </button>
+                <p className="px-3 py-2 text-[10px] font-black text-white/20 uppercase tracking-widest border-b border-white/5 my-1">Inteligencia</p>
+                <button onClick={() => { addNode('llm'); setIsAddMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-purple-500/20 text-xs font-bold text-white/60 hover:text-purple-400 transition-colors">
+                    <BrainCircuit className="h-4 w-4" /> Agente de Texto
                 </button>
                 <p className="px-3 py-2 text-[10px] font-black text-white/20 uppercase tracking-widest border-b border-white/5 my-1">Control</p>
-                <button onClick={() => addNode('delay')} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-amber-500/20 text-xs font-bold text-white/60 hover:text-amber-400 transition-colors">
+                <button onClick={() => { addNode('delay'); setIsAddMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-amber-500/20 text-xs font-bold text-white/60 hover:text-amber-400 transition-colors">
                     <Clock className="h-4 w-4" /> Espera (Wait)
                 </button>
-                <button onClick={() => addNode('subWorkflow')} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-pink-500/20 text-xs font-bold text-white/60 hover:text-pink-400 transition-colors">
+                <button onClick={() => { addNode('subWorkflow'); setIsAddMenuOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-pink-500/20 text-xs font-bold text-white/60 hover:text-pink-400 transition-colors">
                     <GitBranchPlus className="h-4 w-4" /> Sub-Workflow
                 </button>
             </div>
@@ -288,6 +331,7 @@ export function SequenceCanvas({ tenantId, workflowId }: { tenantId: string, wor
           className="bg-black/40 border border-white/10 rounded-2xl overflow-hidden shadow-2xl" 
           nodeColor={(n: Node) => {
              if (n.type === 'leadTrigger') return '#f97316';
+             if (n.type === 'webhookTrigger') return '#ea580c';
              if (n.type === 'action') return '#3b82f6';
              if (n.type === 'delay') return '#f59e0b';
              if (n.type === 'llm') return '#a855f7';
@@ -304,6 +348,7 @@ export function SequenceCanvas({ tenantId, workflowId }: { tenantId: string, wor
           <NodeConfigSidebar 
             key={selectedNode.id}
             node={selectedNode}
+            workflowId={workflowId}
             onSave={onConfigSave}
             onClose={() => setSelectedNode(null)}
           />

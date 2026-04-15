@@ -165,7 +165,8 @@ export async function createTenant(tenant: Partial<Tenant> & { password?: string
         }
 
         // We move is_admin, username and api_type into config, then remove them from the top-level insert
-        const { password: _pw, is_admin, username, api_type, ...tenantData } = tenant;
+        // password is for auth only
+        const { is_admin, username, api_type, password, ...tenantData } = tenant;
         const config = {
             ...(tenantData.config || {}),
             is_admin: !!is_admin,
@@ -233,11 +234,11 @@ export async function updateTenant(id: string, updates: Partial<Tenant> & { pass
             }
         }
 
-        // We move is_admin and username into config to avoid needing a new column in the table
         // We move is_admin, username and api_type into config to avoid needing a new column in the table
-        const { password: _pw2, is_admin, username, api_type, ...cleanUpdates } = updates;
-
-        const newConfig = { ...(cleanUpdates.config || {}) };
+        // password is for auth only
+        const { is_admin, username, api_type, password, ...cleanUpdates } = updates;
+        
+        const newConfig = { ...(cleanUpdates.config as Record<string, unknown> || {}) };
         if (is_admin !== undefined) newConfig.is_admin = !!is_admin;
         if (username !== undefined) newConfig.username = username;
         if (api_type !== undefined) newConfig.api_type = api_type;
@@ -265,6 +266,72 @@ export async function updateTenant(id: string, updates: Partial<Tenant> & { pass
     }
 }
 
+/**
+ * Partial update for the config object only.
+ * Deep merges the new configuration into the existing one.
+ */
+export async function updateTenantConfig(id: string, partialConfig: Record<string, unknown>) {
+    try {
+        const supabase = await getAdminSupabase();
+        
+        // 1. Get current config
+        const { data: tenant, error: fetchError } = await supabase
+            .from("tenants")
+            .select("config")
+            .eq("id", id)
+            .single();
+
+        if (fetchError || !tenant) {
+            return { success: false, error: "No se encontró el cliente para actualizar la configuración." };
+        }
+
+        const currentConfig = (tenant.config as Record<string, unknown>) || {};
+        
+        // 2. Deep merge and normalization
+        const updatedConfig = { ...currentConfig };
+        for (const key in partialConfig) {
+            const val = partialConfig[key];
+            if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+                updatedConfig[key] = { 
+                    ...(updatedConfig[key] as Record<string, unknown> || {}), 
+                    ...(val as Record<string, unknown>) 
+                };
+
+                // Strict normalization for Retell
+                if (key === 'retell') {
+                    const retell = updatedConfig[key] as Record<string, unknown>;
+                    if (retell.apiKey) {
+                        retell.api_key = retell.apiKey;
+                        delete retell.apiKey;
+                    }
+                    if (retell.agentId) {
+                        retell.agent_id = retell.agentId;
+                        delete retell.agentId;
+                    }
+                }
+            } else {
+                updatedConfig[key] = val;
+            }
+        }
+
+        // 3. Save
+        const { data, error } = await supabase
+            .from("tenants")
+            .update({ config: updatedConfig })
+            .eq("id", id)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        return { success: true, data };
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Error desconocido";
+        console.error("UPDATE TENANT CONFIG ERROR:", err);
+        return { success: false, error: message };
+    }
+}
+
 export async function deleteTenant(id: string) {
     const supabase = await getAdminSupabase();
     const { error } = await supabase.from("tenants").delete().eq("id", id);
@@ -275,3 +342,44 @@ export async function deleteTenant(id: string) {
     return true;
 }
 
+export async function setTenantToInternalDatabase(tenantId: string) {
+    try {
+        const supabase = await getAdminSupabase();
+        
+        // 1. Get current config
+        const { data: tenant, error: fetchError } = await supabase
+            .from("tenants")
+            .select("config")
+            .eq("id", tenantId)
+            .single();
+
+        if (fetchError || !tenant) {
+            return { success: false, error: "No se encontró el cliente." };
+        }
+
+        const config = (tenant.config as Record<string, unknown>) || {};
+        
+        // 2. Set to internal and clear specific supabase credentials
+        const updatedConfig = { 
+            ...config, 
+            api_type: "internal" 
+        };
+
+        const { error: updateError } = await supabase
+            .from("tenants")
+            .update({ 
+                config: updatedConfig,
+                supabase_url: null,
+                supabase_key: null
+            })
+            .eq("id", tenantId);
+
+        if (updateError) throw updateError;
+
+        return { success: true };
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Error desconocido";
+        console.error("SET TENANT TO INTERNAL ERROR:", err);
+        return { success: false, error: message };
+    }
+}

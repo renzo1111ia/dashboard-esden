@@ -50,7 +50,7 @@ export interface LeadSequenceJob {
     tenantId: string;
     workflowId?: string;
     step?: number;       // Which step in the sequence to execute
-    action: "call" | "whatsapp" | "ai_agent" | "QUALIFY_ANALYSIS" | "WATCHDOG_SCAN"; 
+    action: "call" | "whatsapp" | "ai_agent" | "zoho" | "ZOHO_POLLING" | "QUALIFY_ANALYSIS" | "WATCHDOG_SCAN"; 
     agentId?: string;   // Pre-selected agent
     template?: string;  // WhatsApp template
     abVariant?: "A" | "B";
@@ -134,6 +134,23 @@ export async function setupWatchdogCron() {
             pattern: "*/15 * * * *" // Every 15 minutes
         },
         jobId: "watchdog_cron"
+    });
+}
+
+/**
+ * Special enqueuer for recurring Zoho CRM polling.
+ */
+export async function setupZohoCron() {
+    const queue = getLeadQueue();
+    await queue.add("zoho_polling", { 
+        action: "ZOHO_POLLING", 
+        leadId: "system", 
+        tenantId: "system" 
+    }, {
+        repeat: { 
+            pattern: "*/10 * * * *" // Every 10 minutes (matching n8n)
+        },
+        jobId: "zoho_cron"
     });
 }
 

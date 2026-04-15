@@ -1,38 +1,43 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Bot, Check, ChevronsUpDown, ExternalLink, Plus } from "lucide-react";
+import { Bot, Mic, Check, ChevronsUpDown, ExternalLink, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getAIAgents } from "@/lib/actions/agents";
-import { AIAgent } from "@/types/database";
+import { getVoiceAgents } from "@/lib/actions/voice-agents";
+import { AIAgent, VoiceAgent } from "@/types/database";
 import Link from "next/link";
 
 interface AgentSelectorProps {
     selectedAgentIds: string[];
     onToggleAgent: (agentId: string) => void;
     maxSelection?: number; // Default 2 for A/B testing
+    mode?: "AI" | "VOICE";
 }
 
 export function AgentSelector({ 
     selectedAgentIds, 
     onToggleAgent, 
-    maxSelection = 2 
+    maxSelection = 2,
+    mode = "AI"
 }: AgentSelectorProps) {
-    const [agents, setAgents] = useState<AIAgent[]>([]);
+    const [agents, setAgents] = useState<(AIAgent | VoiceAgent)[]>([]);
     const [loading, setLoading] = useState(true);
     const [isOpen, setIsOpen] = useState(false);
 
     useEffect(() => {
         async function load() {
             setLoading(true);
-            const res = await getAIAgents();
+            const res = mode === "AI" ? await getAIAgents() : await getVoiceAgents();
             if (res.success && res.data) {
-                setAgents(res.data);
+                setAgents(res.data as (AIAgent | VoiceAgent)[]);
+            } else {
+                setAgents([]);
             }
             setLoading(false);
         }
         load();
-    }, []);
+    }, [mode]);
 
     const selectedAgents = agents.filter(a => selectedAgentIds.includes(a.id));
 
@@ -40,13 +45,13 @@ export function AgentSelector({
         <div className="space-y-3">
             <div className="flex items-center justify-between">
                 <label className="text-[9px] font-black uppercase tracking-widest text-white/40">
-                    Agentes de IA (A/B Testing con {maxSelection})
+                    {mode === "AI" ? `Agentes de IA (A/B Testing con ${maxSelection})` : `Voces de Retell (A/B Testing con ${maxSelection})`}
                 </label>
                 <Link 
-                    href="/dashboard/agents" 
+                    href={mode === "AI" ? "/dashboard/agents" : "/dashboard/voice-agents"}
                     className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-primary hover:text-primary/80 transition-colors"
                 >
-                    Gestionar Agentes <ExternalLink className="h-2.5 w-2.5" />
+                    Gestionar {mode === "AI" ? "Agentes" : "Voces"} <ExternalLink className="h-2.5 w-2.5" />
                 </Link>
             </div>
 
@@ -57,7 +62,11 @@ export function AgentSelector({
                     className="w-full h-12 bg-white/5 border border-white/10 rounded-xl px-4 flex items-center justify-between hover:bg-white/[0.08] transition-all group"
                 >
                     <div className="flex items-center gap-2 overflow-hidden">
-                        <Bot className="h-4 w-4 text-white/30 group-hover:text-primary transition-colors" />
+                        {mode === "AI" ? (
+                            <Bot className="h-4 w-4 text-white/30 group-hover:text-primary transition-colors" />
+                        ) : (
+                            <Mic className="h-4 w-4 text-purple-400 group-hover:text-purple-300 transition-colors" />
+                        )}
                         {selectedAgents.length > 0 ? (
                             <div className="flex gap-1 overflow-hidden">
                                 {selectedAgents.map(agent => (
@@ -110,16 +119,18 @@ export function AgentSelector({
                                                     className={cn(
                                                         "w-full flex items-center justify-between p-3 rounded-xl transition-all text-left",
                                                         isSelected 
-                                                            ? "bg-primary/20 border border-primary/30" 
+                                                            ? (mode === "AI" ? "bg-primary/20 border border-primary/30" : "bg-purple-500/20 border border-purple-500/30")
                                                             : "hover:bg-white/5 border border-transparent",
                                                         !isSelected && !canSelectMore && "opacity-40 cursor-not-allowed"
                                                     )}
                                                 >
                                                     <div className="flex-1 min-w-0">
                                                         <p className="text-sm font-bold text-white/90 truncate">{agent.name}</p>
-                                                        <p className="text-[10px] text-white/30 uppercase font-black truncate">{agent.type}</p>
+                                                        <p className="text-[10px] text-white/30 uppercase font-black truncate">
+                                                            {'type' in agent ? agent.type : agent.provider}
+                                                        </p>
                                                     </div>
-                                                    {isSelected && <Check className="h-4 w-4 text-primary" />}
+                                                    {isSelected && <Check className={cn("h-4 w-4", mode === "AI" ? "text-primary" : "text-purple-400")} />}
                                                 </button>
                                             );
                                         })}

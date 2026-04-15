@@ -321,7 +321,7 @@ function OrchestratorConfigContent() {
 
                             return (
                                 <div key={i} className={cn(
-                                    "rounded-[32px] border overflow-hidden transition-all duration-300", 
+                                    "rounded-[32px] border transition-all duration-300 relative", 
                                     isExpanded ? "border-white/20 bg-white/[0.04] shadow-2xl" : "border-white/5 bg-white/[0.02]"
                                 )}>
                                     {/* Step Header */}
@@ -398,6 +398,7 @@ function OrchestratorConfigContent() {
                                             {(step.action === "call" || step.action === "ai_agent") && (
                                                 <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl space-y-6">
                                                     <AgentSelector 
+                                                        mode={step.action === "call" ? "VOICE" : "AI"}
                                                         selectedAgentIds={step.agents || []}
                                                         onToggleAgent={(agentId) => {
                                                             const current = step.agents || [];

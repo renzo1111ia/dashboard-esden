@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { 
-    Plus, FolderTree, Zap, ChevronRight
+    Plus, FolderTree, Zap, ChevronRight, Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -44,6 +44,35 @@ export function WorkflowSidebar({ tenantId, selectedWorkflowId, onSelect }: Work
         };
         loadWorkflows();
     }, [tenantId, selectedWorkflowId, onSelect]);
+
+    const handleDelete = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        if (!confirm("¿Estás seguro de que deseas eliminar este workflow? Esta acción no se puede deshacer.")) return;
+
+        try {
+            const res = await fetch(`/api/orchestration/workflows?id=${id}&tenantId=${tenantId}`, {
+                method: 'DELETE'
+            });
+            if (res.ok) {
+                const updatedWfs = workflows.filter(wf => wf.id !== id);
+                setWorkflows(updatedWfs);
+                // If deleted workflow was selected, select another one
+                if (selectedWorkflowId === id) {
+                    if (updatedWfs.length > 0) {
+                        onSelect(updatedWfs[0].id);
+                    } else {
+                        onSelect("");
+                    }
+                }
+            } else {
+                const errData = await res.json();
+                alert(`Error al eliminar workflow: ${errData.error || res.statusText}`);
+            }
+        } catch (error: any) {
+            console.error("Failed to delete workflow:", error);
+            alert(`Error de red: ${error.message}`);
+        }
+    };
 
     const handleCreate = async () => {
         const name = prompt("Nombre del nuevo workflow:");
@@ -121,10 +150,19 @@ export function WorkflowSidebar({ tenantId, selectedWorkflowId, onSelect }: Work
                                 <span className="text-[9px] font-black uppercase tracking-tighter opacity-40">Default Entry</span>
                             )}
                         </div>
-                        <ChevronRight className={cn(
-                            "h-4 w-4 transition-all",
-                            selectedWorkflowId === wf.id ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-2"
-                        )} />
+                        <div className="flex items-center gap-1">
+                            <button 
+                                onClick={(e) => handleDelete(e, wf.id)}
+                                className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-500/20 text-white/20 hover:text-red-500 transition-all"
+                                title="Eliminar workflow"
+                            >
+                                <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                            <ChevronRight className={cn(
+                                "h-4 w-4 transition-all",
+                                selectedWorkflowId === wf.id ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-2"
+                            )} />
+                        </div>
                     </div>
                 ))}
             </div>

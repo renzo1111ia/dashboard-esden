@@ -5,21 +5,16 @@ import { PromptTemplate } from "@langchain/core/prompts";
 import { StructuredOutputParser } from "@langchain/core/output_parsers";
 import { z } from "zod";
 
+import { AgentFactory, LLMType } from "@/lib/core/multi-agent";
+import { AIAgent, AIAgentVariant } from "@/types/database";
+
 /**
  * Deep Qualification Processor
  * Analyzes call transcripts using Course specific knowledge and extraction rules.
  */
 export class QualificationProcessor {
     
-    private llm: ChatOpenAI;
-
-    constructor() {
-        this.llm = new ChatOpenAI({
-            model: "gpt-4o",
-            temperature: 0,
-            apiKey: process.env.OPENAI_API_KEY
-        });
-    }
+    constructor() {}
 
     /**
      * Entry point to analyze a call and update lead qualification.
@@ -55,10 +50,54 @@ export class QualificationProcessor {
             }
         }
 
-        // 2. Perform AI Extraction
-        const analysis = await this.analyzeTranscript(params.transcript, courseDetails, qualRules);
+        // 2. Get the QUALIFY agent for this tenant
+        const { data: agent } = await (supabase
+            .from("ai_agents" as any) as any)
+            .select("id")
+            .eq("tenant_id", params.tenantId)
+            .eq("type", "QUALIFY")
+            .eq("status", "ACTIVE")
+            .single();
 
-        // 3. Persist results
+        let variant: AIAgentVariant | null = null;
+        if (agent) {
+            const { data: variants } = await (supabase
+                .from("ai_agent_variants" as any) as any)
+                .select("*")
+                .eq("agent_id", agent.id)
+                .eq("is_active", true);
+            
+            if (variants && variants.length > 0) {
+                // A/B Selection logic: Simple random for now based on weights
+                const rand = Math.random();
+                const totalWeight = variants.reduce((acc: number, v: any) => acc + (v.weight || 0.5), 0);
+                let cumulative = 0;
+                for (const v of variants) {
+                    cumulative += (v.weight || 0.5) / totalWeight;
+                    if (rand <= cumulative) {
+                        variant = v as AIAgentVariant;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 3. Create dynamic LLM
+        const provider = (variant?.model_provider as LLMType) || "OPENAI";
+        const modelName = variant?.model_name || "gpt-4o";
+        const apiKey = variant?.api_key || (provider === "OPENAI" ? process.env.OPENAI_API_KEY : provider === "ANTHROPIC" ? process.env.ANTHROPIC_API_KEY : process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+
+        const llm = AgentFactory.createModel({
+            type: provider,
+            modelName: modelName,
+            apiKey: apiKey || "",
+            temperature: 0
+        });
+
+        // 4. Perform AI Extraction
+        const analysis = await this.analyzeTranscript(llm, params.transcript, courseDetails, qualRules);
+
+        // 5. Persist results
         const { error } = await (supabase.from("lead_cualificacion" as any) as any).insert({
             tenant_id: params.tenantId,
             id_lead: params.leadId,
@@ -66,21 +105,22 @@ export class QualificationProcessor {
             cualificacion: analysis.summary,
             calificacion_score: analysis.interest_score,
             objeciones: analysis.objections.join(", "),
+            id_variante: variant?.id,
             analisis_profundo: analysis as any,
             fecha_creacion: new Date().toISOString()
         });
 
         if (error) console.error("[QUAL-PROCESSOR] Error saving results:", error);
 
-        // 4. Update Lead Status
+        // 6. Update Lead Status
         await (supabase.from("lead" as any) as any).update({
             tipo_lead: analysis.interest_score >= 7 ? "CALIFICADO" : "Poco Interés"
         }).eq("id", params.leadId);
 
-        console.log(`[QUAL-PROCESSOR] ✅ Deep analysis completed for lead ${params.leadId}. Score: ${analysis.interest_score}`);
+        console.log(`[QUAL-PROCESSOR] ✅ Deep analysis completed for lead ${params.leadId}. Score: ${analysis.interest_score} (Variant: ${variant?.version_label || 'Default'})`);
     }
 
-    private async analyzeTranscript(transcript: string, courseInfo: string, rules: string) {
+    private async analyzeTranscript(llm: any, transcript: string, courseInfo: string, rules: string) {
         const parser = StructuredOutputParser.fromZodSchema(
             z.object({
                 interest_score: z.number().describe("Puntuación de 1 a 10"),
@@ -111,7 +151,7 @@ export class QualificationProcessor {
         });
 
         const input = await prompt.format({ courseInfo, rules, transcript });
-        const response = await this.llm.invoke([
+        const response = await llm.invoke([
             { role: "user", content: input } as any
         ]);
 

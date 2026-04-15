@@ -4,10 +4,14 @@
  * This process stays alive and picks up queued lead sequence jobs from Redis.
  */
 
-// Use ESM-compatible imports at the top level
 import { createLeadWorker } from "./src/lib/core/queue/lead-sequence-queue.js";
 import { orchestrator } from "./src/lib/core/orchestrator.js";
 import { getSupabaseServerClient } from "./src/lib/supabase/server.js";
+import dotenv from "dotenv";
+import path from "path";
+
+// Load .env.local
+dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
 
 console.log("[WORKER] 🚀 ESDEN Lead Sequence Worker starting...");
 console.log(`[WORKER] Redis: ${process.env.REDIS_URL || "redis://localhost:6379"}`);
@@ -24,16 +28,19 @@ const worker = createLeadWorker(async (job) => {
         return;
     }
 
-    // 2. HANDLER: Deep Qualification Analysis (Post-Call)
-    if (action === "QUALIFY_ANALYSIS") {
-        const { qualificationProcessor } = await import("./src/lib/core/processors/QualificationProcessor.js");
-        if (!transcript) throw new Error("Missing transcript for analysis");
         await qualificationProcessor.process({ leadId, tenantId, transcript, callId });
         return;
     }
 
-    // 3. HANDLER: Standard Lead Sequence Step (Calls, WhatsApp, etc)
-    if (action === "call" || action === "whatsapp" || action === "ai_agent") {
+    // 3. HANDLER: Recurring Zoho CRM Polling
+    if (action === "ZOHO_POLLING") {
+        const { crmPollingProcessor } = await import("./src/lib/core/processors/CRMPollingProcessor.js");
+        await crmPollingProcessor.run();
+        return;
+    }
+
+    // 4. HANDLER: Standard Lead Sequence Step (Calls, WhatsApp, Zoho Update)
+    if (action === "call" || action === "whatsapp" || action === "ai_agent" || action === "zoho") {
         // Fetch the lead
         const supabase = await getSupabaseServerClient();
         const { data: lead, error } = await supabase
@@ -51,14 +58,15 @@ const worker = createLeadWorker(async (job) => {
 
         // Execute step
         if (step !== undefined) {
-            await orchestrator.executeSequenceStep(lead as any, tenantId, sequence, step, config);
+            await orchestrator.executeSequenceStep(lead, tenantId, sequence, step, config);
         }
     }
 });
 
-// Initialize Cron for Watchdog (If running as a background process)
-import { setupWatchdogCron } from "./src/lib/core/queue/lead-sequence-queue.js";
+// Initialize Cron for Watchdog & Zoho (If running as a background process)
+import { setupWatchdogCron, setupZohoCron } from "./src/lib/core/queue/lead-sequence-queue.js";
 setupWatchdogCron().catch(err => console.error("[WORKER] Failed to setup watchdog cron:", err));
+setupZohoCron().catch(err => console.error("[WORKER] Failed to setup zoho cron:", err));
 
 // Graceful shutdown
 process.on("SIGTERM", async () => {

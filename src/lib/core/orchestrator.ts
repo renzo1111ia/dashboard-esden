@@ -4,11 +4,14 @@ import { isFeatureEnabled } from "./feature-flags";
 import { buildComplianceDecision } from "./compliance";
 import { whatsappBridge, WhatsAppConfig } from "../integrations/whatsapp";
 import { retellBridge, RetellConfig } from "../integrations/retell";
+import { ultravoxBridge, UltravoxConfig } from "../integrations/ultravox";
 import { getAgentVariants } from "../actions/agents";
 import { getOrchestratorConfigForTenant, TenantOrchestratorConfig, OrchestratorSequenceStep } from "../actions/orchestrator-config";
 import { enqueueLeadStep, LeadSequenceJob } from "./queue/lead-sequence-queue";
 import { logOrchestrationStep } from "./scheduler";
 import { Lead, PlannedAction, AIAgentVariant, Programa, VoiceAgent, VoiceAgentVariant } from "@/types/database";
+import { CRMFactory } from "../integrations/crm/factory";
+import { TelephonyFactory } from "../integrations/telephony/factory";
 
 /**
  * ORCHESTRATOR CORE v3.0
@@ -75,21 +78,38 @@ export class Orchestrator {
         const step = sequence[stepIndex];
         console.log(`[ORCHESTRATOR] Lead ${lead.id} → Step ${step.step}: ${step.action}`);
 
+        // ── PERSISTENCE SYNC ──────────────────────────────────────
+        // Refresh lead status from DB in case it was paused/disabled manually
+        const supabase = await getSupabaseServerClient();
+        const { data: freshLead } = await (supabase.from("lead" as any) as any).select("*").eq("id", lead.id).single();
+        
+        if (freshLead && freshLead.is_ai_enabled === false) {
+            console.log(`[ORCHESTRATOR] AI disabled for lead ${lead.id}. Stopping sequence.`);
+            await logOrchestrationStep({
+                tenantId, leadId: lead.id, step: step.step,
+                actionType: "SYSTEM", result: "SKIPPED",
+                metadata: { reason: "Human Intervention / AI Disabled" }
+            });
+            return;
+        }
+
+        const activeLead = (freshLead as Lead) || lead;
+
         // ── COMPLIANCE GUARD ──────────────────────────────────────
         const decision = buildComplianceDecision(
-            lead.telefono,
-            lead.pais,
+            activeLead.telefono || "",
+            activeLead.pais || "",
             config.timezone_rules
         );
 
         if (!decision.canExecuteNow && step.action !== "wait") {
             console.log(`[ORCHESTRATOR] ${decision.reason}`);
             // Queue for next window
-            await this.queueStep(lead, tenantId, step, stepIndex, config, decision.delayMs);
+            await this.queueStep(activeLead, tenantId, step, stepIndex, config, decision.delayMs);
 
             await logOrchestrationStep({
                 tenantId,
-                leadId: lead.id,
+                leadId: activeLead.id,
                 step: step.step,
                 actionType: step.action.toUpperCase(),
                 result: "QUEUED",
@@ -102,13 +122,17 @@ export class Orchestrator {
         try {
             switch (step.action) {
                 case "call":
-                    await this.executeCallStep(lead, tenantId, step, config);
+                    await this.executeCallStep(activeLead, tenantId, step, config);
                     break;
                 case "whatsapp":
-                    await this.executeWhatsAppStep(lead, tenantId, step);
+                    await this.executeWhatsAppStep(activeLead, tenantId, step);
                     break;
                 case "ai_agent":
-                    await this.executeAIAgentStep(lead, tenantId, step, config);
+                    await this.executeAIAgentStep(activeLead, tenantId, step, config);
+                    break;
+                case "crm":
+                case "zoho": // Backward compat
+                    await this.executeCRMStep(activeLead, tenantId, step, config);
                     break;
                 case "wait":
                     console.log(`[ORCHESTRATOR] Wait step, delay already applied.`);
@@ -120,30 +144,38 @@ export class Orchestrator {
             if (nextIndex < sequence.length) {
                 const nextStep = sequence[nextIndex];
                 const delayMs = nextStep.delay_hours * 60 * 60 * 1000;
-                await this.queueStep(lead, tenantId, nextStep, nextIndex, config, delayMs);
+                await this.queueStep(activeLead, tenantId, nextStep, nextIndex, config, delayMs);
             }
 
         } catch (err) {
             const errMsg = err instanceof Error ? err.message : String(err);
             console.error(`[ORCHESTRATOR] Step error:`, errMsg);
             await logOrchestrationStep({
-                tenantId, leadId: lead.id, step: step.step,
+                tenantId, leadId: activeLead.id, step: step.step,
                 actionType: step.action.toUpperCase(), result: "FAILED", errorMessage: errMsg
             });
         }
     }
 
     /**
-     * Legacy workflow-based execution (for backwards compatibility with Constructor builder).
+     * Legacy/Graph workflow-based execution (for Constructor builder or Webhooks).
      */
-    public async executeWorkflow(workflowId: string, lead: Lead, tenantId: string, context: Record<string, unknown>) {
+    public async executeWorkflow(workflowId: string, lead: Lead, tenantId: string, context: Record<string, unknown>, triggerNodeId?: string) {
         const supabase = await getSupabaseServerClient();
-        const { data: rules } = await (supabase
+        let query = (supabase
             .from("orchestration_rules" as any) as any).select("*")
-            .eq("workflow_id", workflowId).eq("is_active", true)
-            .order("sequence_order", { ascending: true });
+            .eq("workflow_id", workflowId).eq("is_active", true);
 
-        if (!rules || rules.length === 0) return;
+        if (triggerNodeId) {
+            query = query.eq("trigger_node_id", triggerNodeId);
+        }
+
+        const { data: rules } = await query.order("sequence_order", { ascending: true });
+
+        if (!rules || rules.length === 0) {
+            console.warn(`[ORCHESTRATOR] No rules found for workflow ${workflowId}${triggerNodeId ? ` and trigger ${triggerNodeId}` : ""}`);
+            return;
+        }
         await this.executeRule(rules[0] as any, lead, tenantId, context);
     }
 
@@ -156,7 +188,7 @@ export class Orchestrator {
     ) {
         const supabase = await getSupabaseServerClient();
         const retellConfig = config.retell;
-        const fromNumber = retellConfig?.from_number;
+        let fromNumber = retellConfig?.from_number;
         const apiKey = retellConfig?.api_key;
 
         // 1. Initial Selection (Internal ID from step.agents or step.agentId)
@@ -177,6 +209,11 @@ export class Orchestrator {
             if (vAgent) {
                 const voiceAgent = vAgent as VoiceAgent;
                 technicalAgentId = voiceAgent.provider_agent_id || internalId;
+                
+                // PRIORITIZE AGENT-SPECIFIC NUMBER
+                if (voiceAgent.from_number) {
+                    fromNumber = voiceAgent.from_number;
+                }
 
                 // Load Variants for A/B Prompting
                 const { data: variants } = await supabase
@@ -192,11 +229,6 @@ export class Orchestrator {
             }
         }
 
-        if (!apiKey || !technicalAgentId || !fromNumber) {
-            console.error(`[ORCHESTRATOR] Retell config or Technical Agent ID missing for tenant ${tenantId}`);
-            return;
-        }
-
         // 3. CONSTRUCT CONTEXT
         const courseContext = await this.getCourseContext(lead.id);
         
@@ -209,14 +241,71 @@ export class Orchestrator {
         };
 
         // 4. INITIATE CALL
-        await retellBridge.createCall(
-            lead.telefono || "",
-            technicalAgentId,
-            fromNumber,
-            { lead_id: lead.id, tenant_id: tenantId, agent_uuid: internalId, ab_variant: variant },
-            dynamicVariables,
-            { apiKey }
-        );
+        if (lead.origen === 'Web Simulator' && !apiKey) {
+            console.log(`[ORCHESTRATOR] [MOCK] Simulating call for lead ${lead.id}`);
+            await new Promise(r => setTimeout(r, 1000));
+        } else {
+            // DETECT PROVIDER
+            const provider = (internalId && (vAgent as any)?.provider) || 'RETELL';
+
+            if (provider === 'ULTRAVOX') {
+                const uApiKey = (config as any).ultravox?.api_key;
+                if (!uApiKey) {
+                    console.error(`[ORCHESTRATOR] Ultravox API Key missing for tenant ${tenantId}`);
+                    return;
+                }
+
+                // 1. GET JOIN URL FROM ULTRAVOX
+                const ultravoxRes = await ultravoxBridge.createAgentCall(
+                    technicalAgentId,
+                    {
+                        templateContext: dynamicVariables,
+                        medium: { twilio: {} }, // Current default for stream
+                        recordingEnabled: true
+                    },
+                    { apiKey: uApiKey }
+                );
+
+                if (!ultravoxRes.join_url) {
+                    throw new Error("Failed to get join_url from Ultravox");
+                }
+
+                // 2. TRIGGER TELEPHONY
+                const telephonyProvider = TelephonyFactory.getProvider(config as any);
+                const fromNum = fromNumber || (config as any).telephony?.credentials?.fromNumber;
+                
+                if (!fromNum) throw new Error("Missing fromNumber for telephony");
+
+                const telRes = await telephonyProvider.triggerCall({
+                    to: lead.telefono || "",
+                    from: fromNum,
+                    joinUrl: ultravoxRes.join_url,
+                    recordingEnabled: true
+                });
+
+                if (!telRes.success) {
+                    throw new Error(`Telephony Error: ${telRes.errorMessage}`);
+                }
+
+                console.log(`[ORCHESTRATOR] Ultravox call triggered via ${config.telephony?.provider}. ID: ${telRes.providerCallId}`);
+
+            } else {
+                // DEFAULT: RETELL
+                if (!apiKey || !technicalAgentId || !fromNumber) {
+                    console.error(`[ORCHESTRATOR] Retell config or Technical Agent ID missing for tenant ${tenantId}`);
+                    return;
+                }
+
+                await retellBridge.createCall(
+                    lead.telefono || "",
+                    technicalAgentId,
+                    fromNumber,
+                    { lead_id: lead.id, tenant_id: tenantId, agent_uuid: internalId || undefined, ab_variant: variant },
+                    dynamicVariables,
+                    { apiKey: apiKey as string }
+                );
+            }
+        }
 
         await logOrchestrationStep({
             tenantId, leadId: lead.id, step: step.step,
@@ -235,16 +324,77 @@ export class Orchestrator {
             accessToken: conf?.whatsapp?.accessToken,
             phoneNumberId: conf?.whatsapp?.phoneNumberId
         };
-        if (!waConfig.accessToken || !waConfig.phoneNumberId) return;
-
+        
         const template = step.template || "";
-        await whatsappBridge.sendTemplateMessage(lead.telefono || "", template, "es", [], waConfig);
+
+        if (lead.origen === 'Web Simulator' && !waConfig.accessToken) {
+            console.log(`[ORCHESTRATOR] [MOCK] Simulating WhatsApp message for lead ${lead.id}`);
+            await new Promise(r => setTimeout(r, 800));
+        } else {
+            if (!waConfig.accessToken || !waConfig.phoneNumberId) return;
+            await whatsappBridge.sendTemplateMessage(lead.telefono || "", template, "es", [], waConfig);
+        }
 
         await logOrchestrationStep({
             tenantId, leadId: lead.id, step: step.step,
             actionType: "WHATSAPP", result: "SUCCESS",
             metadata: { template }
         });
+    }
+
+    private async executeCRMStep(
+        lead: Lead, 
+        tenantId: string, 
+        step: OrchestratorSequenceStep,
+        config: TenantOrchestratorConfig
+    ) {
+        // Step metadata includes the specific mapping and action
+        const { type, ownerId, tagName, transitionId, mappings } = (step as any).metadata || {};
+        
+        const provider = CRMFactory.getProvider(tenantId, config);
+
+        try {
+            switch (type) {
+                case "UPDATE_LEAD":
+                case "UPDATE_OWNER": {
+                    // 1. Build Payload using Mappings
+                    const payload: Record<string, any> = {};
+                    
+                    if (mappings) {
+                        if (mappings.nombre && lead.nombre) payload[mappings.nombre] = lead.nombre;
+                        if (mappings.apellido && lead.apellido) payload[mappings.apellido] = lead.apellido;
+                        if (mappings.email && lead.email) payload[mappings.email] = lead.email;
+                        if (mappings.telefono && lead.telefono) payload[mappings.telefono] = lead.telefono;
+                        if (mappings.pais && lead.pais) payload[mappings.pais] = lead.pais;
+                        if (mappings.origen && lead.origen) payload[mappings.origen] = lead.origen;
+                    }
+
+                    // 2. Add owner if specified
+                    if (ownerId) payload["Owner"] = { id: ownerId };
+
+                    await provider.updateLead(lead.id_lead_externo || "", payload);
+                    break;
+                }
+                case "ADD_TAG":
+                    await provider.addTags(lead.id_lead_externo || "", [tagName]);
+                    break;
+                case "BLUEPRINT":
+                case "EXTERNAL_ACTION":
+                    await provider.executeAction(lead.id_lead_externo || "", type === "BLUEPRINT" ? "BLUEPRINT" : transitionId, { transitionId });
+                    break;
+                default:
+                    console.warn(`[ORCHESTRATOR] Unknown CRM action type: ${type}`);
+            }
+
+            await logOrchestrationStep({
+                tenantId, leadId: lead.id, step: step.step,
+                actionType: "CRM", result: "SUCCESS",
+                metadata: { type, tagName, ownerId }
+            });
+        } catch (err) {
+            console.error(`[ORCHESTRATOR] CRM execution error:`, err);
+            throw err;
+        }
     }
 
     private async executeAIAgentStep(
@@ -418,6 +568,29 @@ export class Orchestrator {
                     const v = variants[0] as AIAgentVariant;
                     console.log(`[ORCHESTRATOR] AI Agent ${conf?.agentId}: ${v.version_label}`);
                 }
+                break;
+            }
+            case "CRM":
+            case "ZOHO": {
+                const { type, ownerId, tagName, transitionId, mappings } = conf || {};
+                const provider = CRMFactory.getProvider(tenantId, tenantConf);
+                const extId = lead.id_lead_externo || "";
+
+                if (type === "UPDATE_OWNER" || type === "UPDATE_LEAD") {
+                    const payload: Record<string, any> = {};
+                    if (mappings) {
+                        for (const [key, crmKey] of Object.entries(mappings)) {
+                            if ((lead as any)[key]) payload[crmKey as string] = (lead as any)[key];
+                        }
+                    }
+                    if (ownerId) payload["Owner"] = { id: ownerId };
+                    await provider.updateLead(extId, payload);
+                } 
+                else if (type === "ADD_TAG") await provider.addTags(extId, [tagName]);
+                else if (type === "BLUEPRINT" || type === "EXTERNAL_ACTION") {
+                    await provider.executeAction(extId, type === "BLUEPRINT" ? "BLUEPRINT" : transitionId, { transitionId });
+                }
+                
                 break;
             }
             default:

@@ -103,3 +103,34 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: err.message || "An unexpected error occurred" }, { status: 500 });
     }
 }
+
+export async function DELETE(req: Request) {
+    try {
+        const { searchParams } = new URL(req.url);
+        const id = searchParams.get("id");
+        const tenantId = searchParams.get("tenantId");
+
+        if (!id || !tenantId) {
+            return NextResponse.json({ error: "Missing id or tenantId" }, { status: 400 });
+        }
+
+        const supabase = await getAdminSupabaseClient();
+        
+        // Deleting the workflow. 
+        // Note: orchestration_graphs should have a CASCADE DELETE constraint 
+        // in the DB, but we'll delete it explicitly here just in case if needed 
+        // OR rely on the DB.
+        const { error } = await (supabase
+            .from("workflows" as any) as any)
+            .delete()
+            .eq("id", id)
+            .eq("tenant_id", tenantId);
+
+        if (error) throw error;
+
+        return NextResponse.json({ success: true });
+    } catch (error: unknown) {
+        const err = error as { message: string };
+        return NextResponse.json({ error: err.message }, { status: 500 });
+    }
+}

@@ -8,7 +8,7 @@ import { BaseChatModel } from "@langchain/core/language_models/chat_models";
  * Polymorphic AI layer supporting different LLMs and A/B testing.
  */
 
-export type LLMType = "OPENAI" | "CLAUDE" | "GEMINI";
+export type LLMType = "OPENAI" | "CLAUDE" | "GEMINI" | "ANTHROPIC";
 
 export interface AgentConfig {
     type: LLMType;
@@ -30,6 +30,7 @@ export class AgentFactory {
                     temperature: config.temperature || 0.7,
                 });
             case "CLAUDE":
+            case "ANTHROPIC":
                 return new ChatAnthropic({
                     anthropicApiKey: config.apiKey,
                     modelName: config.modelName || "claude-3-5-sonnet-20240620",
