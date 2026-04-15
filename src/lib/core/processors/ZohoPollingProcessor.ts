@@ -15,15 +15,16 @@ export class ZohoPollingProcessor {
 
         // 1. Get all active tenants with Zoho configuration
         // For now, we fetch all tenants and check their config
-        const { data: tenants } = await supabase.from("tenants" as any).select("*") as { data: Tenant[] | null };
+        const { data: tenants } = await supabase.from("tenants").select("*");
         if (!tenants) return;
 
-        for (const tenant of tenants) {
+        for (const tenant of (tenants as Tenant[])) {
             try {
                 // Check if tenant has Zoho enabled in their config
-                // In a real scenario, we'd filter this in the query
-                const config = (tenant as any).config;
-                if (!config?.zoho?.enabled) continue;
+                const config = tenant.config as Record<string, unknown>;
+                const zohoConfig = config.zoho as { enabled?: boolean; provider?: string } | undefined;
+                
+                if (!zohoConfig?.enabled) continue;
 
                 console.log(`[ZOHO_POLLER] Polling for tenant: ${tenant.name} (${tenant.id})`);
 
@@ -44,8 +45,8 @@ export class ZohoPollingProcessor {
                 for (const extLead of externalLeads) {
                     try {
                         // 3. Upsert into our local "lead" table
-                        const { data: lead, error: upsertError } = await (supabase
-                            .from("lead" as any) as any)
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const { data: lead, error: upsertError } = await (supabase.from("lead") as any)
                             .upsert({
                                 tenant_id: tenant.id,
                                 id_lead_externo: extLead.id,

@@ -1,9 +1,4 @@
-/**
- * TypeScript types mirroring the new normalized Supabase schema.
- * Matches the SQL schema: lead, llamadas, intentos_llamadas,
- * conversaciones_whatsapp, agendamientos, lead_cualificacion,
- * programas, lead_programas, notificaciones
- */
+import type { Tenant } from "./tenant";
 
 // ─── LEAD ────────────────────────────────────────────────────────────────────
 
@@ -123,7 +118,7 @@ export interface LeadCualificacion {
     cualificacion?: string | null;
     calificacion_score?: number | null;
     objeciones?: string | null;
-    analisis_profundo?: Record<string, any> | null;
+    analisis_profundo?: Record<string, unknown> | null;
     anios_experiencia?: number | null;
     nivel_estudios?: string | null;
     fecha_creacion?: string | null;
@@ -252,8 +247,8 @@ export interface AIAgent {
     type: 'QUALIFY' | 'REMINDER' | 'CLOSER' | 'SUPPORT';
     status: 'ACTIVE' | 'PAUSED';
     flow_config: {
-        nodes: any[];
-        edges: any[];
+        nodes: unknown[];
+        edges: unknown[];
     } | null;
     created_at: string;
     updated_at: string;
@@ -290,14 +285,14 @@ export interface RetellTool {
     type: string;
     name: string;
     description: string;
-    parameters?: Record<string, any>;
+    parameters?: Record<string, unknown>;
     url?: string; // for webhooks
 }
 
 export interface RetellEdge {
     destination_state_name: string;
     description: string;
-    conditions?: any[];
+    conditions?: unknown[];
 }
 
 export interface RetellState {
@@ -313,7 +308,7 @@ export interface RetellLLMConfig {
     states?: RetellState[];
     tools?: RetellTool[];
     begin_message?: string;
-    [key: string]: any; // fallback for other Retell props
+    [key: string]: unknown; // fallback for other Retell props
 }
 
 export interface VoiceAgent {
@@ -406,7 +401,7 @@ export interface HistorialRow {
 export type Database = {
     public: {
         Tables: {
-            lead: { Row: Lead; Insert: Omit<Lead, "id" | "fecha_creacion" | "fecha_actualizacion">; Update: Partial<Lead>; };
+            lead: { Row: Lead; Insert: Record<string, unknown>; Update: Record<string, unknown>; };
             llamadas: { Row: Llamada; Insert: Omit<Llamada, "id" | "fecha_creacion">; Update: Partial<Llamada>; };
             intentos_llamadas: { Row: IntentoLlamada; Insert: Omit<IntentoLlamada, "id" | "fecha_creacion">; Update: Partial<IntentoLlamada>; };
             conversaciones_whatsapp: { Row: ConversacionWhatsapp; Insert: Omit<ConversacionWhatsapp, "id" | "fecha_creacion">; Update: Partial<ConversacionWhatsapp>; };
@@ -432,6 +427,7 @@ export type Database = {
             appointments: { Row: { id: string; tenant_id: string; advisor_id: string; lead_id: string | null; scheduled_at: string; duration_minutes: number; status: string; notes: string | null; agent_used: string | null; ab_variant: string | null; created_at: string; updated_at: string; watchdog_processed: boolean }; Insert: { tenant_id: string; advisor_id: string; lead_id?: string | null; scheduled_at: string; duration_minutes?: number; status?: string; notes?: string | null; agent_used?: string | null; ab_variant?: string | null; watchdog_processed?: boolean }; Update: Partial<{ status: string; notes: string | null; updated_at: string; watchdog_processed: boolean }>; };
             orchestration_logs: { Row: { id: string; tenant_id: string; lead_id: string | null; workflow_id: string | null; step_number: number; action_type: string; agent_used: string | null; ab_variant: string | null; result: string; error_message: string | null; metadata: Record<string, unknown>; executed_at: string }; Insert: { tenant_id: string; lead_id?: string | null; workflow_id?: string | null; step_number: number; action_type: string; agent_used?: string | null; ab_variant?: string | null; result: string; error_message?: string | null; metadata?: Record<string, unknown> }; Update: Partial<{ result: string }>; };
             chat_messages: { Row: { id: string; tenant_id: string; lead_id: string; direction: string; message_type: string; content: string; sent_by: string | null; status: string; created_at: string; metadata: Record<string, unknown> }; Insert: Omit<{ id: string; tenant_id: string; lead_id: string; direction: string; message_type: string; content: string; sent_by: string | null; status: string; created_at: string; metadata: Record<string, unknown> }, 'id' | 'created_at' | 'status' | 'metadata'>; Update: Partial<{ status: string; metadata: Record<string, unknown> }>; };
+            tenants: { Row: Tenant; Insert: Omit<Tenant, "id" | "created_at" | "updated_at">; Update: Partial<Tenant>; };
         };
 
         Views: {

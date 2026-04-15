@@ -13,21 +13,22 @@ export class CRMPollingProcessor {
         console.log("[CRM_POLLER] Starting polling cycle...");
         const supabase = await getSupabaseServerClient();
 
-        // 1. Get all active tenants
-        const { data: tenants } = await supabase.from("tenants" as any).select("*") as { data: Tenant[] | null };
+        const { data: tenants } = await supabase.from("tenants").select("*");
         if (!tenants) return;
 
-        for (const tenant of tenants) {
+        for (const tenant of (tenants as Tenant[])) {
             try {
-                const config = (tenant as any).config;
-                if (!config?.crm?.enabled) continue;
+                const config = tenant.config as Record<string, unknown>;
+                const crmConfig = config.crm as { enabled?: boolean; provider?: string; search_criteria?: string } | undefined;
+                
+                if (!crmConfig?.enabled) continue;
 
                 const provider = CRMFactory.getProvider(tenant.id, config);
-                console.log(`[CRM_POLLER] Polling ${config.crm.provider} for tenant: ${tenant.name}`);
+                console.log(`[CRM_POLLER] Polling ${crmConfig?.provider} for tenant: ${tenant.name}`);
 
                 // 2. Search for new leads
                 // Default Zoho criteria for now (can be made configurable in tenant settings)
-                const criteria = config.crm.search_criteria || "(Lead_Status:equals:Nuevo) and (Lead_Source:equals:Meta) and (Tag:not_contains:VirginIA)";
+                const criteria = crmConfig?.search_criteria || "(Lead_Status:equals:Nuevo) and (Lead_Source:equals:Meta) and (Tag:not_contains:VirginIA)";
                 const externalLeads = await provider.searchLeads(criteria);
 
                 if (externalLeads.length === 0) {
@@ -41,8 +42,8 @@ export class CRMPollingProcessor {
                         const { fields } = crmLead;
 
                         // 3. Upsert into local DB using generic fields from the provider
-                        const { data: lead, error: upsertError } = await (supabase
-                            .from("lead" as any) as any)
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const { data: lead, error: upsertError } = await (supabase.from("lead") as any)
                             .upsert({
                                 tenant_id: tenant.id,
                                 id_lead_externo: crmLead.id,
