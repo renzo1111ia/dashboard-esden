@@ -1,12 +1,12 @@
 "use server";
 
+import { createClient } from "@supabase/supabase-js";
 import { getAdminStatus } from "./auth";
 
 export async function injectDemoData(tenantId: string) {
     console.log("[DEMO] Inicia inyección encapsulada para:", tenantId);
     
     try {
-        const { createClient } = await import("@supabase/supabase-js");
         // Init internally to avoid import-time crashes
         const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://interno-supabase-a201be-46-62-193-169.traefik.me";
         const key = process.env.SUPABASE_SERVICE_ROLE_KEY || 
