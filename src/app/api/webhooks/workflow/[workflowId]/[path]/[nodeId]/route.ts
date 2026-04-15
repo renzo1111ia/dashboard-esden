@@ -7,8 +7,8 @@ import { orchestrator } from "@/lib/core/orchestrator";
  * Pattern: /api/webhooks/workflow/[workflowId]/[path]/[nodeId]
  */
 
-async function handleWebhook(req: Request, { params }: { params: { workflowId: string, nodeId: string, path: string } }) {
-    const { workflowId, nodeId } = params;
+async function handleWebhook(req: Request, { params }: { params: Promise<{ workflowId: string, nodeId: string, path: string }> }) {
+    const { workflowId, nodeId } = await params;
     
     try {
         const supabase = await getAdminSupabaseClient();
