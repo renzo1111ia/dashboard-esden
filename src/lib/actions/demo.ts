@@ -73,6 +73,7 @@ export async function runLaboratoryInjection(tenantId: string) {
         // Phase 3: Secondary activity (Non-blocking)
         console.log("[DEMO] Paso 3: Creando actividad secundaria para lead:", lead.id);
         try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             await (internalSupabase.from('llamadas' as any) as any).insert({
                 tenant_id: tenantId,
                 id_lead: lead.id,
@@ -84,7 +85,7 @@ export async function runLaboratoryInjection(tenantId: string) {
             });
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await internalSupabase.from('chat_messages' as any).insert({
+            await (internalSupabase.from('chat_messages' as any) as any).insert({
                 tenant_id: tenantId,
                 lead_id: lead.id,
                 direction: 'OUTBOUND',
@@ -101,6 +102,7 @@ export async function runLaboratoryInjection(tenantId: string) {
             message: `¡Inyección Exitosa! Se ha creado el lead con ID ${lead.id.slice(0,8)}. Revisa el dashboard para ver los resultados.` 
         };
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
         console.error("[DEMO] Critical Crash:", err);
         return { error: `Error interno de ejecución: ${err.message || "Desconocido"}` };
