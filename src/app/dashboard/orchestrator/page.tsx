@@ -178,7 +178,6 @@ function OrchestratorConfigContent() {
         if (!editingFlowAgent) return;
         
         // Save to DB via AIAgent update
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const res = await saveAIAgent({
             id: editingFlowAgent.id,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -403,6 +402,7 @@ function OrchestratorConfigContent() {
                                                         <select
                                                             id={`action-${i}`}
                                                             value={step.action}
+                                                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                                             onChange={e => updateStep(i, { action: e.target.value as any })}
                                                             className="w-full h-12 bg-slate-900 border border-white/10 rounded-2xl px-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none"
                                                         >
