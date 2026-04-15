@@ -176,27 +176,63 @@ export async function importRetellAgents(
         // 3. Upsert records in smaller chunks to prevent large JSON payload timeout / connection reset
         console.log(`[importRetellAgents] Upserting ${records.length} records for tenant ${tenantId}...`);
         const inserted: any[] = [];
-        const upsertChunkSize = 2; // Reduced from 10 to avoid "TypeError: fetch failed" with large LLM configs
+        const upsertChunkSize = 1; // Minimum possible chunk size for maximum reliability
+        const delayBetweenChunks = 500; // ms
+
+        const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 
         for (let i = 0; i < records.length; i += upsertChunkSize) {
             const chunk = records.slice(i, i + upsertChunkSize);
             const chunkNum = Math.floor(i/upsertChunkSize) + 1;
-            console.log(`[importRetellAgents] Upserting chunk ${chunkNum}/${Math.ceil(records.length/upsertChunkSize)}...`);
+            const totalChunks = Math.ceil(records.length/upsertChunkSize);
             
-            const { data: chunkInserted, error: upsertError } = await (supabase
-                .from('voice_agents' as any) as any)
-                .upsert(chunk, { 
-                    onConflict: 'tenant_id,provider_agent_id',
-                    ignoreDuplicates: false 
-                })
-                .select('id, provider_agent_id');
+            // Log payload size for debugging
+            const payloadSize = encodeURI(JSON.stringify(chunk)).split(/%..|./).length - 1;
+            console.log(`[importRetellAgents] Chunk ${chunkNum}/${totalChunks} size: ${Math.round(payloadSize/1024)} KB`);
+            
+            let attempts = 0;
+            const maxAttempts = 3;
+            let lastError = null;
 
-            if (upsertError) {
-                const msg = upsertError.message || upsertError.details || upsertError.hint || JSON.stringify(upsertError);
-                console.error(`[importRetellAgents] Upsert FAILED at chunk ${chunkNum}:`, msg);
-                throw new Error(`Error en la base de datos (Chunk ${chunkNum}): ${msg}. Esto suele ocurrir cuando la configuración del agente es demasiado pesada.`);
+            while (attempts < maxAttempts) {
+                try {
+                    const { data: chunkInserted, error: upsertError } = await (supabase
+                        .from('voice_agents' as any) as any)
+                        .upsert(chunk, { 
+                            onConflict: 'tenant_id,provider_agent_id',
+                            ignoreDuplicates: false 
+                        })
+                        .select('id, provider_agent_id');
+
+                    if (upsertError) {
+                        const msg = upsertError.message || upsertError.details || upsertError.hint || JSON.stringify(upsertError);
+                        throw new Error(msg);
+                    }
+                    
+                    if (chunkInserted) inserted.push(...chunkInserted);
+                    
+                    // Success!
+                    break;
+                } catch (err: any) {
+                    attempts++;
+                    lastError = err;
+                    console.warn(`[importRetellAgents] Attempt ${attempts} failed for chunk ${chunkNum}:`, err.message || err);
+                    if (attempts < maxAttempts) {
+                        await sleep(1000 * attempts); // Exponential-ish backoff
+                    }
+                }
             }
-            if (chunkInserted) inserted.push(...chunkInserted);
+
+            if (attempts >= maxAttempts) {
+                const msg = lastError?.message || lastError || "Unknown error";
+                console.error(`[importRetellAgents] Upsert PERMANENTLY FAILED at chunk ${chunkNum}:`, msg);
+                throw new Error(`Error fatal en la base de datos (Agente ${chunkNum}/${records.length}): ${msg}. Inténtalo de nuevo en unos minutos.`);
+            }
+
+            // Small breather to avoid saturating the database / fetch client
+            if (i + upsertChunkSize < records.length) {
+                await sleep(delayBetweenChunks);
+            }
         }
 
         // 4. Create default A/B variant stubs ONLY for the truly new ones? 
