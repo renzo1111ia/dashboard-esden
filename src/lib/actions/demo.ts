@@ -9,107 +9,144 @@ const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(url, key);
 
 export async function injectDemoData(tenantId: string) {
-    const isAdmin = await getAdminStatus();
-    if (!isAdmin) {
-        return { error: "No tienes permisos para inyectar datos de prueba." };
-    }
-
-    if (!tenantId) {
-        return { error: "El tenantId es obligatorio para inyectar datos." };
-    }
-
+    console.log("[DEMO] Starting lab injection for tenant:", tenantId);
+    
     try {
-        // 3. Inyectar 12 Leads para llenar el dashboard
-        const firstNames = ['Laura', 'Carlos', 'Elena', 'Andrés', 'Sofía', 'Ricardo', 'Marta', 'Javier', 'Lucía', 'Diego', 'Paula', 'Manuel'];
-        const lastNames = ['Gómez', 'Rodríguez', 'Martínez', 'Pérez', 'López', 'Sánchez', 'Díaz', 'Torres', 'Ruiz', 'Vázquez', 'Castro', 'Navarro'];
-        const phonePrefixes = ['+34600', '+5255', '+34600', '+5731', '+549', '+34611', '+34622', '+5199', '+34633', '+569', '+34644', '+5841'];
-        const countries = ['España', 'México', 'España', 'Colombia', 'Argentina', 'España', 'España', 'Perú', 'España', 'Chile', 'España', 'Venezuela'];
-        const types = ['MARKETING', 'VENTAS', 'INFORMATICA', 'MARKETING', 'VENTAS', 'MARKETING', 'VENTAS', 'MARKETING', 'MARKETING', 'VENTAS', 'INFORMATICA', 'VENTAS'];
+        const isAdmin = await getAdminStatus();
+        if (!isAdmin) {
+            return { error: "No tienes permisos para inyectar datos de prueba." };
+        }
 
-        const fakeLeads = firstNames.map((name, i) => ({
-            nombre: name,
-            apellido: lastNames[i],
-            telefono: phonePrefixes[i] + Math.floor(Math.random() * 900000 + 100000),
-            email: `${name.toLowerCase()}.${lastNames[i].toLowerCase()}.demo@ejemplo.com`,
-            pais: countries[i],
-            tipo_lead: types[i],
+        if (!tenantId) {
+            return { error: "El tenantId es obligatorio para inyectar datos." };
+        }
+
+        // 1. Create a Demo Campaign
+        const campaignName = "Master Esden - Captación Lab 2026";
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error: errCamp } = await supabase
+            .from('campanas' as any)
+            .upsert({
+                tenant_id: tenantId,
+                nombre: campaignName,
+                descripcion: "Campaña de prueba generada por el Laboratorio Demo.",
+                estado: "ACTIVA",
+                fecha_inicio: new Date().toISOString()
+            }, { onConflict: 'tenant_id,nombre' });
+
+        if (errCamp) console.error("[DEMO] Campaign upsert error:", errCamp);
+
+        // 2. Prepare coherent sample Leads
+        const samples = [
+            { nombre: 'Laura', apellido: 'Gómez', email: 'laura.g@esden.edu.es', phone: '+34600111222', country: 'España', type: 'MARKETING' },
+            { nombre: 'Carlos', apellido: 'Rodríguez', email: 'c.rodriguez@demo.com', phone: '+525512345678', country: 'México', type: 'VENTAS' },
+            { nombre: 'Elena', apellido: 'Martínez', email: 'elena.mtz@gmail.com', phone: '+34611222333', country: 'España', type: 'INFORMATICA' },
+            { nombre: 'Andrés', apellido: 'Pérez', email: 'andres.p@outlook.com', phone: '+573104567890', country: 'Colombia', type: 'MARKETING' },
+            { nombre: 'Sofía', apellido: 'López', email: 'sofia.lopez@demo.es', phone: '+34622333444', country: 'España', type: 'VENTAS' }
+        ];
+
+        const fakeLeads = samples.map((s, i) => ({
             tenant_id: tenantId,
-            origen: 'Web Simulator',
-            campana: 'Campaña Captación Automática (Demo)',
-            foto_url: `https://i.pravatar.cc/150?u=${name}${i}`,
+            nombre: s.nombre,
+            apellido: s.apellido,
+            telefono: s.phone,
+            email: s.email,
+            pais: s.country,
+            tipo_lead: s.type,
+            origen: 'Laboratorio Demo',
+            campana: campaignName,
+            foto_url: `https://i.pravatar.cc/150?u=${s.nombre}${i}`,
             is_ai_enabled: true
         }));
 
-        // Resilient insertion: check if columns exist by trying a subset if it fails
-        let { data: leads, error: errLeads } = await supabase.from('lead').insert(fakeLeads).select();
+        // 3. Insert Leads
+        console.log("[DEMO] Inserting leads...");
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: leads, error: errLeads } = await supabase
+            .from('lead' as any)
+            .upsert(fakeLeads, { onConflict: 'tenant_id,telefono' })
+            .select();
 
-        if (errLeads && errLeads.message.includes('column')) {
-            console.warn("[DEMO] New columns not detected in DB, re-attempting with base columns...");
-            const baseLeads = fakeLeads.map(({ foto_url, is_ai_enabled, ...rest }: any) => rest);
-            const retry = await supabase.from('lead').insert(baseLeads).select();
-            leads = retry.data;
-            errLeads = retry.error;
-        }
+        if (errLeads) throw new Error(`Error en leads: ${errLeads.message}`);
+        if (!leads) throw new Error("No se crearon leads.");
 
-        if (errLeads) throw new Error(`Error creando leads: ${errLeads.message}`);
-        if (!leads) throw new Error("No se crearon leads");
-
-        // 4. Trigger Orchestrator and Chat History for each lead
-        const { orchestrator } = await import("../core/orchestrator");
+        // 4. Populate sub-modules for each lead
+        console.log("[DEMO] Populating sub-modules (calls, whatsapp, kval)...");
         
-        for (const lead of leads || []) {
-            // A. Trigger Orchestrator (Live Sequence)
-            orchestrator.handleNewLead(lead.id, tenantId).catch(err => {
-                console.error(`[SIMULATOR] Failed to trigger orchestrator for lead ${lead.id}:`, err);
+        for (const lead of leads) {
+            // A. Simular Llamada (Minutos/Llamadas)
+            const callId = `call_${Math.random().toString(36).slice(2, 9)}`;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await supabase.from('llamadas' as any).insert({
+                tenant_id: tenantId,
+                id_lead: lead.id,
+                id_llamada_retell: callId,
+                tipo_agente: 'IA Agent',
+                nombre_agente: 'Esden Virtual Advisor',
+                estado_llamada: 'completed',
+                razon_termino: 'user_ended',
+                fecha_inicio: new Date(Date.now() - 3600000 * 5).toISOString(),
+                duracion_segundos: 120 + Math.floor(Math.random() * 300),
+                transcripcion: `IA: Hola ${lead.nombre}, te llamo de Esden. ¿Cómo estás?\nUsuario: Hola, bien gracias. Me interesa el master.\nIA: Perfecto, el área de ${lead.tipo_lead} tiene mucha demanda...`,
+                resumen: `El prospecto ${lead.nombre} muestra alto interés en el área de ${lead.tipo_lead}.`
             });
 
-            // B. Inject Chat Mockup Conversation
+            // B. Simular Cualificación (Historial)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await supabase.from('lead_cualificacion' as any).insert({
+                tenant_id: tenantId,
+                id_lead: lead.id,
+                cualificacion: 'HOT',
+                calificacion_score: 85 + Math.floor(Math.random() * 15),
+                motivo_anulacion: null,
+                anios_experiencia: 3 + Math.floor(Math.random() * 10),
+                nivel_estudios: 'Grado Universitario'
+            });
+
+            // C. Simular WhatsApp (WhatsApp)
             const chatMessages = [
                 {
                     tenant_id: tenantId,
                     lead_id: lead.id,
                     direction: 'INBOUND',
                     message_type: 'TEXT',
-                    content: `Hola, soy ${lead.nombre}, me gustaría recibir información sobre el Master de Esden.`,
-                    sent_by: null,
+                    content: `Hola! Dejé mis datos por el Master de ${lead.tipo_lead}.`,
                     status: 'READ',
-                    created_at: new Date(Date.now() - 3600000 * 2).toISOString() // 2 hours ago
+                    created_at: new Date(Date.now() - 3600000 * 2).toISOString()
                 },
                 {
                     tenant_id: tenantId,
                     lead_id: lead.id,
                     direction: 'OUTBOUND',
                     message_type: 'TEXT',
-                    content: `¡Hola ${lead.nombre}! Un gusto saludarte. Tenemos varias opciones. ¿Te interesa el área de ${lead.tipo_lead}?`,
+                    content: `¡Hola ${lead.nombre}! Recibimos tu interés. ¿Cuándo te vendría bien una breve llamada?`,
                     sent_by: '🤖 Agente IA',
-                    status: 'READ',
-                    created_at: new Date(Date.now() - 3600000 * 1.5).toISOString() // 1.5 hours ago
-                },
-                {
-                    tenant_id: tenantId,
-                    lead_id: lead.id,
-                    direction: 'INBOUND',
-                    message_type: 'TEXT',
-                    content: `Sí, exactamente esa.`,
-                    sent_by: null,
-                    status: 'READ',
-                    created_at: new Date(Date.now() - 3600000 * 1).toISOString() // 1 hour ago
+                    status: 'SENT',
+                    created_at: new Date(Date.now() - 3600000 * 1.8).toISOString()
                 }
             ];
-
             await supabase.from('chat_messages').insert(chatMessages);
         }
 
-        revalidatePath("/dashboard");
-        revalidatePath("/dashboard/clients");
-        revalidatePath("/dashboard/orchestrator");
-        revalidatePath("/dashboard/inbox");
-        revalidatePath("/dashboard/whatsapp");
-        revalidatePath("/dashboard/calls");
+        // 5. Cleanup & Path Refreshing
+        console.log("[DEMO] Injection finished successfully.");
+        
+        try {
+            revalidatePath("/dashboard");
+            revalidatePath("/dashboard/minutos");
+            revalidatePath("/dashboard/whatsapp");
+            revalidatePath("/dashboard/campanas");
+            revalidatePath("/dashboard/historial");
+            revalidatePath("/dashboard/onboarding");
+        } catch (e) {
+            console.warn("[DEMO] Revalidation warning (expected in some dev envs):", e);
+        }
 
-        return { success: true, message: "Simulación iniciada. Verás a los leads aparecer y procesarse en el dashboard." };
+        return { success: true, message: "Laboratorio completado. Dashboard sincronizado con 5 nuevos leads omnicanal." };
 
-    } catch (error) {
-        return { error: error instanceof Error ? error.message : "Error desconocido inyectando datos." };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+        console.error("[DEMO] Critical Error:", error);
+        return { error: error.message || "Error inesperado en el Laboratorio." };
     }
 }
