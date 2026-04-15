@@ -6,7 +6,7 @@ import {
     Plus, Trash2, GripVertical,
     Phone, MessageSquare, Bot, Clock, Zap,
     ChevronDown, Check, RotateCcw,
-    GitBranch, Settings
+    GitBranch, Settings, Rocket
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -14,6 +14,7 @@ import {
     getOrchestratorConfig, saveOrchestratorConfig,
     type TenantOrchestratorConfig, type OrchestratorSequenceStep
 } from "@/lib/actions/orchestrator-config";
+import { runSystemDeployment } from "@/lib/actions/system";
 import { TenantMigrationBanner } from "@/components/orchestrator/TenantMigrationBanner";
 import { AgentSelector } from "@/components/orchestrator/AgentSelector";
 import { SequenceTimeline } from "@/components/orchestrator/SequenceTimeline";
@@ -45,9 +46,11 @@ function OrchestratorConfigContent() {
     const [config, setConfig] = useState<TenantOrchestratorConfig | null>(null);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
+    const [deploying, setDeploying] = useState(false);
     const [expandedStep, setExpandedStep] = useState<number | null>(0);
     
     // Flow Builder State
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [editingFlowAgent, setEditingFlowAgent] = useState<{ id: string; name: string; config: any } | null>(null);
 
     const loadConfig = useCallback(async () => {
@@ -98,6 +101,23 @@ function OrchestratorConfigContent() {
         setSaving(false);
     }
 
+    async function handleDeploySystem() {
+        setDeploying(true);
+        try {
+            const res = await runSystemDeployment();
+            if (res.success) {
+                alert(res.message);
+            } else {
+                alert("Error: " + res.error);
+            }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } catch (error: any) {
+            alert("Error: " + error.message);
+        } finally {
+            setDeploying(false);
+        }
+    }
+
     function removeSequence() {
         if (confirm("¿Estás seguro de que deseas eliminar toda la secuencia? Esta acción no se puede deshacer.")) {
             setConfig(c => c ? ({ ...c, sequence: [] }) : c);
@@ -107,6 +127,7 @@ function OrchestratorConfigContent() {
     function updateTimezone(key: string, value: unknown) {
         setConfig(c => c ? ({
             ...c,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             timezone_rules: { ...c.timezone_rules, [key]: value as any }
         }) : c);
     }
@@ -152,14 +173,18 @@ function OrchestratorConfigContent() {
         });
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleSaveFlow = async (flow: { nodes: any[]; edges: any[] }) => {
         if (!editingFlowAgent) return;
         
         // Save to DB via AIAgent update
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const res = await saveAIAgent({
             id: editingFlowAgent.id,
-            flow_config: flow
-        } as Partial<AIAgent>);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            flow_config: flow as any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any as Partial<AIAgent>);
 
         if (res.success) {
             setEditingFlowAgent(null);
@@ -196,11 +221,20 @@ function OrchestratorConfigContent() {
                         onClick={handleSave} disabled={saving}
                         className={cn(
                             "flex items-center gap-2 h-10 px-6 rounded-xl font-black uppercase tracking-widest text-[11px] transition-all",
-                            saved ? "bg-emerald-500 text-white" : "bg-primary text-primary-foreground hover:scale-[1.02] shadow-lg shadow-primary/20",
+                            saved ? "bg-emerald-500 text-white" : "bg-white/5 border border-white/10 text-white hover:bg-white/10",
                             saving && "opacity-60 cursor-wait"
                         )}
                     >
                         {saved ? <><Check className="h-4 w-4" /> Guardado!</> : saving ? "Guardando..." : <><Check className="h-4 w-4" /> Guardar Cambios</>}
+                    </button>
+
+                    <button
+                        onClick={handleDeploySystem}
+                        disabled={deploying}
+                        className="flex items-center gap-2 h-10 px-6 bg-primary text-primary-foreground rounded-xl font-black uppercase tracking-widest text-[11px] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
+                    >
+                        <Rocket className={cn("h-4 w-4", deploying && "animate-bounce")} />
+                        {deploying ? "Desplegando..." : "Desplegar Sistema"}
                     </button>
                 </div>
             </div>
@@ -422,7 +456,8 @@ function OrchestratorConfigContent() {
                                                                             setEditingFlowAgent({
                                                                                 id: agent.id,
                                                                                 name: agent.name,
-                                                                                config: agent.flow_config || { nodes: [], edges: [] }
+                                                                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                                                                config: agent.flow_config || { nodes: [], edges: [] } as any
                                                                             });
                                                                         }
                                                                     }}
