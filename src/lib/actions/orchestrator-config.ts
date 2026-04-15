@@ -11,6 +11,7 @@ export interface OrchestratorSequenceStep {
     agents?: string[];       // Array de agent IDs para A/B
     template?: string;       // WhatsApp template name
     delay_hours: number;     // Horas de espera antes de este paso
+    variableMappings?: Record<string, string>; // Mapeo de variables {{1}} -> lead.field
 }
 
 export interface OrchestratorTimezoneRules {

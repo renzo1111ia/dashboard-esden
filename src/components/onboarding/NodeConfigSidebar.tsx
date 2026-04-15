@@ -5,7 +5,7 @@ import {
     X, Save, Settings2, Info,
     Phone, MessageSquare, BrainCircuit,
     Globe, GitBranchPlus, Clock, Bot,
-    Webhook, Copy, Check, Reply, Hourglass
+    Webhook, Copy, Check, Reply, Hourglass, Zap
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -210,33 +210,100 @@ export function NodeConfigSidebar({ node, workflowId, onSave, onClose }: NodeCon
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold text-white/40 uppercase">Seleccionar Plantilla</label>
                             {loadingTemplates ? (
-                                <div className="h-12 bg-white/5 border border-white/5 rounded-xl animate-pulse flex items-center px-4 text-xs text-white/20">Sincronizando con Meta...</div>
+                                <div className="h-12 bg-white/5 border border-white/5 rounded-xl animate-pulse flex items-center px-4 text-xs text-white/20 font-bold uppercase tracking-widest">Sincronizando con Meta...</div>
                             ) : (
                                 <select
                                     title="WhatsApp Template"
                                     value={(config.templateId as string) || ""}
-                                    onChange={(e) => setConfig({ ...config, templateId: e.target.value })}
-                                    className="w-full h-12 bg-white/5 border border-white/10 rounded-xl px-4 text-sm appearance-none cursor-pointer focus:ring-2 focus:ring-emerald-500/20"
+                                    onChange={(e) => {
+                                        const tName = e.target.value;
+                                        const selected = templates.find(t => t.name === tName);
+                                        // Reset component mapping when template changes
+                                        setConfig({ 
+                                            ...config, 
+                                            templateId: tName,
+                                            templateLanguage: selected?.language || 'es',
+                                            components: [] 
+                                        });
+                                    }}
+                                    className="w-full h-12 bg-white/5 border border-white/10 rounded-xl px-4 text-sm appearance-none cursor-pointer focus:ring-2 focus:ring-emerald-500/20 font-bold text-emerald-400"
                                 >
                                     <option value="" disabled className="bg-black">-- Elige una plantilla --</option>
                                     {templates.map(t => (
-                                        <option key={t.id} value={t.name} className="bg-black text-white">{t.name}</option>
+                                        <option key={t.id} value={t.name} className="bg-black text-white">
+                                            {t.name} ({t.language}) {t.status !== 'APPROVED' ? `[${t.status}]` : ''}
+                                        </option>
                                     ))}
-                                    {templates.length === 0 && <option value="" className="bg-black">Ingresa manualmente abajo</option>}
+                                    {templates.length === 0 && <option value="" className="bg-black">Ingresa manualmente en Ajustes</option>}
                                 </select>
                             )}
                         </div>
 
-                        <div className="space-y-2">
-                            <label htmlFor="templateId" className="text-[10px] font-bold text-white/40 uppercase">Nombre Manual (Fallback)</label>
-                            <input
-                                id="templateId"
-                                value={(config.templateId as string) || ""}
-                                onChange={(e) => setConfig({ ...config, templateId: e.target.value })}
-                                className="w-full h-12 bg-white/5 border border-white/10 rounded-xl px-4 text-sm font-mono text-emerald-400/80"
-                                placeholder="Ej: welcome_lead_v1"
-                            />
-                        </div>
+                        {/* Template Preview & Variable Mapping */}
+                        {(() => {
+                            const selectedTemplate = templates.find(t => t.name === config.templateId);
+                            if (!selectedTemplate) return null;
+
+                            const bodyComponent = selectedTemplate.components?.find(c => c.type === 'BODY');
+                            const bodyText = bodyComponent?.text || "";
+                            
+                            // Find variables like {{1}}, {{2}}...
+                            const variableMatches = bodyText.match(/\{\{\d+\}\}/g) || [];
+                            const uniqueVars = Array.from(new Set(variableMatches));
+
+                            return (
+                                <motion.div 
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="space-y-4 pt-4 border-t border-white/5"
+                                >
+                                    <div className="p-4 rounded-2xl bg-black/40 border border-white/5 space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500/60">Vista Previa (Meta)</span>
+                                            <span className="text-[9px] font-medium text-white/20 italic">{selectedTemplate.language}</span>
+                                        </div>
+                                        <p className="text-[11px] text-white/70 leading-relaxed font-medium">
+                                            {bodyText}
+                                        </p>
+                                    </div>
+
+                                    {uniqueVars.length > 0 && (
+                                        <div className="space-y-3">
+                                            <label className="text-[10px] font-bold text-white/40 uppercase flex items-center gap-2">
+                                                <Zap className="h-3 w-3 text-amber-500" /> Mapeo de Variables ({uniqueVars.length})
+                                            </label>
+                                            <div className="space-y-2">
+                                                {uniqueVars.map((v, i) => {
+                                                    const idx = v.replace(/[\{\}]/g, '');
+                                                    const currentMappings = (config.variableMappings as Record<string, string>) || {};
+                                                    
+                                                    return (
+                                                        <div key={i} className="flex items-center gap-3">
+                                                            <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[10px] font-black text-white/40">
+                                                                {idx}
+                                                            </div>
+                                                            <input 
+                                                                title={`Mapeo para variable ${idx}`}
+                                                                value={currentMappings[idx] || ""}
+                                                                onChange={(e) => {
+                                                                    const newMappings = { ...currentMappings, [idx]: e.target.value };
+                                                                    setConfig({ ...config, variableMappings: newMappings });
+                                                                }}
+                                                                placeholder="field.name o Texto fijo"
+                                                                className="flex-1 h-10 bg-white/5 border border-white/10 rounded-xl px-4 text-xs font-bold focus:ring-1 focus:ring-emerald-500/20"
+                                                            />
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            <p className="text-[9px] text-white/20 italic px-1">
+                                                Tip: Usa <code className="text-emerald-400">lead.nombre</code> para insertar el nombre del lead.
+                                            </p>
+                                        </div>
+                                    )}
+                                </motion.div>
+                            );
+                        })()}
 
                         <div className="h-px bg-white/5 my-4" />
 

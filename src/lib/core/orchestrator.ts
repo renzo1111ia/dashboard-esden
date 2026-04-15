@@ -4,7 +4,7 @@ import { isFeatureEnabled } from "./feature-flags";
 import { buildComplianceDecision } from "./compliance";
 import { whatsappBridge, WhatsAppConfig } from "../integrations/whatsapp";
 import { retellBridge, RetellConfig } from "../integrations/retell";
-import { ultravoxBridge, UltravoxConfig } from "../integrations/ultravox";
+import { ultravoxBridge } from "../integrations/ultravox";
 import { getAgentVariants } from "../actions/agents";
 import { getOrchestratorConfigForTenant, TenantOrchestratorConfig, OrchestratorSequenceStep } from "../actions/orchestrator-config";
 import { enqueueLeadStep, LeadSequenceJob } from "./queue/lead-sequence-queue";
@@ -329,19 +329,47 @@ export class Orchestrator {
         };
         
         const template = step.template || "";
+        const mappings = step.variableMappings || {};
+
+        // 1. Resolve parameters for BODY (standard Meta format)
+        // Meta templates use {{1}}, {{2}}... we resolve them in order
+        const parameters: any[] = [];
+        const sortedIndices = Object.keys(mappings).sort((a, b) => parseInt(a) - parseInt(b));
+
+        for (const idx of sortedIndices) {
+            let value = mappings[idx];
+            
+            // Resolve dynamic variables
+            if (value === "lead.nombre") value = lead.nombre || "Cliente";
+            else if (value === "lead.apellido") value = lead.apellido || "";
+            else if (value === "lead.email") value = lead.email || "";
+            // ... add more as needed
+
+            parameters.push({ type: "text", text: value });
+        }
+
+        const components = parameters.length > 0 ? [
+            {
+                type: "body",
+                parameters: parameters
+            }
+        ] : [];
 
         if (lead.origen === 'Web Simulator' && !waConfig.accessToken) {
-            console.log(`[ORCHESTRATOR] [MOCK] Simulating WhatsApp message for lead ${lead.id}`);
+            console.log(`[ORCHESTRATOR] [MOCK] Simulating WhatsApp message for lead ${lead.id} with template ${template}`);
             await new Promise(r => setTimeout(r, 800));
         } else {
-            if (!waConfig.accessToken || !waConfig.phoneNumberId) return;
-            await whatsappBridge.sendTemplateMessage(lead.telefono || "", template, "es", [], waConfig);
+            if (!waConfig.accessToken || !waConfig.phoneNumberId) {
+                console.warn(`[ORCHESTRATOR] WhatsApp credentials missing for tenant ${tenantId}`);
+                return;
+            }
+            await whatsappBridge.sendTemplateMessage(lead.telefono || "", template, "es", components, waConfig);
         }
 
         await logOrchestrationStep({
             tenantId, leadId: lead.id, step: step.step,
             actionType: "WHATSAPP", result: "SUCCESS",
-            metadata: { template }
+            metadata: { template, components }
         });
     }
 
@@ -562,7 +590,26 @@ export class Orchestrator {
                     accessToken: tenantConf?.whatsapp?.accessToken,
                     phoneNumberId: tenantConf?.whatsapp?.phoneNumberId
                 };
-                await whatsappBridge.sendTemplateMessage(lead.telefono || "", conf?.templateId || "", "es", [], waConfig);
+                
+                const template = conf?.templateId || "";
+                const mappings = conf?.variableMappings || {};
+                
+                const parameters: any[] = [];
+                const sortedIndices = Object.keys(mappings).sort((a, b) => parseInt(a) - parseInt(b));
+
+                for (const idx of sortedIndices) {
+                    let value = mappings[idx];
+                    if (value === "lead.nombre") value = lead.nombre || "Cliente";
+                    else if (value === "lead.apellido") value = lead.apellido || "";
+                    else if (value === "lead.email") value = lead.email || "";
+                    parameters.push({ type: "text", text: value });
+                }
+
+                const components = parameters.length > 0 ? [
+                    { type: "body", parameters: parameters }
+                ] : [];
+
+                await whatsappBridge.sendTemplateMessage(lead.telefono || "", template, "es", components, waConfig);
                 break;
             }
             case "AI_AGENT": {
