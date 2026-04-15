@@ -1,48 +1,54 @@
 "use client";
 
 import React from "react";
-import { Clock, Phone, MessageSquare, Bot, ArrowRight } from "lucide-react";
+import { Clock, Phone, MessageSquare, Bot, ArrowRight, Database } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { OrchestratorSequenceStep } from "@/lib/actions/orchestrator-config";
+import type { LucideIcon } from "lucide-react";
 
 interface SequenceTimelineProps {
     sequence: OrchestratorSequenceStep[];
 }
 
-const ACTION_ICONS = {
+const ACTION_ICONS: Record<string, LucideIcon> = {
     call: Phone,
     whatsapp: MessageSquare,
     ai_agent: Bot,
     wait: Clock,
+    zoho: Database,
 };
 
-const ACTION_COLORS = {
+const ACTION_COLORS: Record<string, string> = {
     call: "text-blue-400 bg-blue-500/10 border-blue-500/20",
     whatsapp: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
     ai_agent: "text-purple-400 bg-purple-500/10 border-purple-500/20",
     wait: "text-amber-400 bg-amber-500/10 border-amber-500/20",
+    zoho: "text-orange-400 bg-orange-500/10 border-orange-500/20",
 };
 
 export function SequenceTimeline({ sequence }: SequenceTimelineProps) {
     if (sequence.length === 0) return null;
 
-    // Calculate cumulative hours for each step without reassigning in map
-    let cumulativeHours = 0;
-    const projectSteps = sequence.map((step) => {
-        cumulativeHours += step.delay_hours;
-        const Icon = ACTION_ICONS[step.action] || Phone;
+    const projectSteps = [];
+    let cumulative = 0;
+    for (const step of sequence) {
+        cumulative += step.delay_hours;
+        const Icon = (ACTION_ICONS[step.action] || Phone) as LucideIcon;
         const color = ACTION_COLORS[step.action] || ACTION_COLORS.call;
-        const days = Math.floor(cumulativeHours / 24);
-        const hours = cumulativeHours % 24;
+        const days = Math.floor(cumulative / 24);
+        const hours = cumulative % 24;
         
-        return {
+        projectSteps.push({
             ...step,
             Icon,
             color,
             timeLabel: days > 0 ? `+${days}d ${hours}h` : `+${hours}h`,
-            isImmediate: cumulativeHours === 0,
-        };
-    });
+            isImmediate: cumulative === 0,
+            cumulativeHours: cumulative
+        });
+    }
+
+    const totalHours = cumulative;
 
     return (
         <div className="bg-white/[0.02] border border-white/5 rounded-[40px] p-8 overflow-x-auto">
@@ -102,7 +108,7 @@ export function SequenceTimeline({ sequence }: SequenceTimelineProps) {
                     <span className="text-xs font-black uppercase tracking-widest text-white/40">Duración estimada del ciclo de contacto:</span>
                 </div>
                 <span className="text-lg font-black text-primary">
-                    {Math.floor(cumulativeHours / 24)}d {cumulativeHours % 24}h
+                    {Math.floor(totalHours / 24)}d {totalHours % 24}h
                 </span>
             </div>
         </div>
