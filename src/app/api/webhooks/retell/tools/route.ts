@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminSupabaseClient } from "@/lib/supabase/server";
+import { type SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * RETELL LIVE TOOLING WEBHOOK
@@ -41,11 +42,12 @@ export async function POST(req: Request) {
                 return NextResponse.json({ error: "Tool implementation not found" }, { status: 404 });
         }
 
-    } catch (error: any) {
-        console.error("[RETELL TOOLS CRITICAL ERROR]:", error.message);
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        console.error("[RETELL TOOLS CRITICAL ERROR]:", errorMessage);
         return NextResponse.json({ 
             error: "Internal Server Error", 
-            details: error.message 
+            details: errorMessage 
         }, { status: 500 });
     }
 }
@@ -54,7 +56,7 @@ export async function POST(req: Request) {
  * Tool: book_appointment
  * Creates a new appointment in the system database.
  */
-async function handleBookAppointment(supabase: any, tenantId: string, leadId: string, args: any) {
+async function handleBookAppointment(supabase: SupabaseClient, tenantId: string, leadId: string, args: Record<string, unknown>) {
     const { date, time, notes } = args;
     
     // 1. Format date (ISO 8601)
@@ -109,7 +111,7 @@ async function handleBookAppointment(supabase: any, tenantId: string, leadId: st
  * Tool: get_lead_info
  * Returns relevant CRM data to the agent so it can personalize the conversation.
  */
-async function handleGetLeadInfo(supabase: any, leadId: string) {
+async function handleGetLeadInfo(supabase: SupabaseClient, leadId: string) {
     const { data, error } = await supabase
         .from("lead")
         .select(`
@@ -130,7 +132,7 @@ async function handleGetLeadInfo(supabase: any, leadId: string) {
         throw error;
     }
 
-    const programName = data.lead_programas?.[0]?.programas?.nombre || "Sin programa definido";
+    const programName = (data as any).lead_programas?.[0]?.programas?.nombre || "Sin programa definido";
 
     return NextResponse.json({
         lead_name: data.nombre,

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { createBrowserClient } from "@supabase/ssr";
 import { AUTH_SUPABASE_URL, AUTH_SUPABASE_ANON_KEY } from "@/lib/auth-config";
 import { CheckCircle2, ShieldCheck } from "lucide-react";
+import NextImage from "next/image";
 
 export default function ResetPasswordPage() {
     const [password, setPassword] = useState("");
@@ -51,7 +52,7 @@ export default function ResetPasswordPage() {
         <div className="relative min-h-screen flex items-center justify-center bg-[#f8fafc]">
             <div className="w-full max-w-[440px] px-6 py-12">
                 <div className="mb-10 flex items-center justify-start">
-                    <img src="/logo.png" alt="App Automatiza" className="h-16 w-auto object-contain" />
+                    <NextImage src="/logo.png" alt="App Automatiza" width={240} height={64} className="h-16 w-auto object-contain" priority />
                 </div>
 
                 {success ? (

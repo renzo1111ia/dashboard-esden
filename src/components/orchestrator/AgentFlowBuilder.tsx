@@ -875,6 +875,7 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName, isIn
                                     <div className="space-y-3">
                                         <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Acción CRM</label>
                                         <select 
+                                            title="Seleccionar Acción CRM"
                                             value={(selectedNode.data.type as string) || "UPDATE_LEAD"}
                                             onChange={(e) => updateNodeData(selectedNode.id, { type: e.target.value })}
                                             className="w-full h-12 bg-white/5 border border-white/10 rounded-2xl px-4 text-xs text-white/80 focus:border-indigo-500/40 outline-none"
@@ -894,9 +895,9 @@ export function AgentFlowBuilder({ initialFlow, onSave, onClose, agentName, isIn
                                                     <div key={field} className="flex items-center gap-2 group">
                                                         <span className="w-16 text-[9px] text-white/40 uppercase">{field}</span>
                                                         <input 
-                                                            value={(selectedNode.data.mappings as any)?.[field] || ""}
+                                                            value={(selectedNode.data.mappings as Record<string, string>)?.[field] || ""}
                                                             onChange={(e) => {
-                                                                const newMappings = { ...(selectedNode.data.mappings as any || {}), [field]: e.target.value };
+                                                                const newMappings = { ...(selectedNode.data.mappings as Record<string, string> || {}), [field]: e.target.value };
                                                                 updateNodeData(selectedNode.id, { mappings: newMappings });
                                                             }}
                                                             placeholder={`ID de campo...`}

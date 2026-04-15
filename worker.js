@@ -17,7 +17,7 @@ console.log("[WORKER] 🚀 ESDEN Lead Sequence Worker starting...");
 console.log(`[WORKER] Redis: ${process.env.REDIS_URL || "redis://localhost:6379"}`);
 
 const worker = createLeadWorker(async (job) => {
-    const { leadId, tenantId, workflowId, step, action, transcript, callId } = job.data;
+    const { leadId, tenantId, step, action, transcript, callId } = job.data;
     
     console.log(`[WORKER] Incoming job ${job.id}: Action: ${action} | Lead: ${leadId}`);
 
@@ -28,6 +28,9 @@ const worker = createLeadWorker(async (job) => {
         return;
     }
 
+    // 2. HANDLER: Deep Qualification Analysis
+    if (action === "QUALIFY_ANALYSIS") {
+        const { qualificationProcessor } = await import("./src/lib/core/processors/QualificationProcessor.js");
         await qualificationProcessor.process({ leadId, tenantId, transcript, callId });
         return;
     }

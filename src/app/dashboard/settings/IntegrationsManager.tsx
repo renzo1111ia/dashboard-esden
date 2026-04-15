@@ -6,8 +6,24 @@ import { syncRetellResources } from "@/lib/actions/retell-sync";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+interface TelephonyConfig {
+    provider?: string;
+    credentials?: {
+        accountSid?: string;
+        authToken?: string;
+        fromNumber?: string;
+    };
+}
+
+interface WhatsAppConfig {
+    accessToken: string;
+    phoneNumberId: string;
+    wabaId: string;
+    verifyToken: string;
+}
+
 interface IntegrationsManagerProps {
-    config: Record<string, unknown>;
+    config: Record<string, unknown>; // Used in many places as an object
     onChange: (newConfig: Record<string, unknown>) => void;
 }
 
@@ -35,7 +51,7 @@ export function IntegrationsManager({ config, onChange }: IntegrationsManagerPro
     };
 
     // ── WhatsApp Config ──
-    const whatsapp = (config?.whatsapp as Record<string, unknown>) || {
+    const whatsapp = (config?.whatsapp as WhatsAppConfig) || {
         accessToken: "",
         phoneNumberId: "",
         wabaId: "",
@@ -43,12 +59,15 @@ export function IntegrationsManager({ config, onChange }: IntegrationsManagerPro
     };
 
     // ── Retell AI Config ──
-    const retell = (config?.retell as Record<string, unknown>) || {};
-    const retellApiKey = (retell.api_key as string) || ""; 
+    const retell = (config?.retell as { api_key?: string }) || {};
+    const retellApiKey = retell.api_key || ""; 
 
     // ── Ultravox AI Config ──
-    const ultravox = (config?.ultravox as Record<string, unknown>) || {};
-    const ultravoxApiKey = (ultravox.api_key as string) || "";
+    const ultravox = (config?.ultravox as { api_key?: string }) || {};
+    const ultravoxApiKey = ultravox.api_key || "";
+
+    // ── Telephony Config ──
+    const telephony = (config?.telephony as TelephonyConfig) || {};
 
     const updateField = (category: string, fields: Record<string, unknown>) => {
         const categoryData = { ...((config[category] as Record<string, unknown>) || {}), ...fields };
@@ -173,7 +192,8 @@ export function IntegrationsManager({ config, onChange }: IntegrationsManagerPro
                             Provider
                         </Label>
                         <select 
-                            value={(config?.telephony as any)?.provider || "twilio"}
+                            title="Telephony Provider"
+                            value={telephony.provider || "twilio"}
                             onChange={(e) => updateField('telephony', { provider: e.target.value })}
                             className="w-full h-11 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 text-xs font-bold"
                         >
@@ -188,8 +208,8 @@ export function IntegrationsManager({ config, onChange }: IntegrationsManagerPro
                              Account SID / API Key
                         </Label>
                         <Input 
-                            value={(config?.telephony as any)?.credentials?.accountSid || ""}
-                            onChange={(e) => updateField('telephony', { credentials: { ...((config?.telephony as any)?.credentials || {}), accountSid: e.target.value } })}
+                            value={telephony.credentials?.accountSid || ""}
+                            onChange={(e) => updateField('telephony', { credentials: { ...(telephony.credentials || {}), accountSid: e.target.value } })}
                             placeholder="AC..."
                             className="h-11 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 rounded-xl font-mono text-xs"
                         />
@@ -200,8 +220,8 @@ export function IntegrationsManager({ config, onChange }: IntegrationsManagerPro
                             Auth Token / API Secret
                         </Label>
                         <Input 
-                            value={(config?.telephony as any)?.credentials?.authToken || ""}
-                            onChange={(e) => updateField('telephony', { credentials: { ...((config?.telephony as any)?.credentials || {}), authToken: e.target.value } })}
+                            value={telephony.credentials?.authToken || ""}
+                            onChange={(e) => updateField('telephony', { credentials: { ...(telephony.credentials || {}), authToken: e.target.value } })}
                             type="password"
                             placeholder="••••••••"
                             className="h-11 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 rounded-xl font-mono text-xs"
@@ -213,8 +233,8 @@ export function IntegrationsManager({ config, onChange }: IntegrationsManagerPro
                              Default From Number
                         </Label>
                         <Input 
-                            value={(config?.telephony as any)?.credentials?.fromNumber || ""}
-                            onChange={(e) => updateField('telephony', { credentials: { ...((config?.telephony as any)?.credentials || {}), fromNumber: e.target.value } })}
+                            value={telephony.credentials?.fromNumber || ""}
+                            onChange={(e) => updateField('telephony', { credentials: { ...(telephony.credentials || {}), fromNumber: e.target.value } })}
                             placeholder="+1..."
                             className="h-11 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold"
                         />

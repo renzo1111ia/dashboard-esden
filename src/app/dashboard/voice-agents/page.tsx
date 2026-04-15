@@ -13,20 +13,29 @@ import {
 
 import { cn } from "@/lib/utils";
 import { useTenantStore } from "@/store/tenant";
-
 import { motion, AnimatePresence } from "framer-motion";
 import { getVoiceAgents, getVoiceAgentVariants, saveVoiceAgent, saveVoiceVariant, importRetellAgents } from "@/lib/actions/voice-agents";
-
 import { syncRetellResources, getRetellAgent, updateRetellAgentPrompt, updateRetellAgent, bindAgentToPhoneNumber, createRetellLLM, createRetellAgent } from "@/lib/actions/retell-sync";
 import { syncUltravoxResources, listUltravoxAgents, getUltravoxCallTranscript, createUltravoxAgent, updateUltravoxAgent, listUltravoxCalls } from "@/lib/actions/ultravox-sync";
-
-
 import { getActiveTenantConfig } from "@/lib/actions/tenant";
 import { VoiceAgent, VoiceAgentVariant } from "@/types/database";
 import { RetellConfigModal } from "./RetellConfigModal";
 
+interface CallLog {
+    callId: string;
+    created: string;
+    status: string;
+    medium?: {
+        twilio?: {
+            toNumber?: string;
+        }
+    }
+}
 
-
+interface TranscriptMessage {
+    role: string;
+    text: string;
+}
 
 export default function VoiceAgentsPage() {
     const tenantName = useTenantStore((s) => s.tenantName) || "ESDEN";
@@ -62,10 +71,9 @@ export default function VoiceAgentsPage() {
     const [availableNumbers, setAvailableNumbers] = useState<{id: string, name: string}[]>([]);
     const [availableUltravoxVoices, setAvailableUltravoxVoices] = useState<{id: string, name: string}[]>([]);
     const [availableUltravoxModels, setAvailableUltravoxModels] = useState<{id: string, name: string}[]>([]);
-    const [availableUltravoxAgents, setAvailableUltravoxAgents] = useState<{id: string, name: string}[]>([]);
-    const [callLogs, setCallLogs] = useState<any[]>([]);
+    const [callLogs, setCallLogs] = useState<CallLog[]>([]);
     const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
-    const [transcript, setTranscript] = useState<any[]>([]);
+    const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
     const [loadingTranscript, setLoadingTranscript] = useState(false);
     const [retellApiKey, setRetellApiKey] = useState("");
     const [tenantId, setTenantId] = useState("");
@@ -150,7 +158,7 @@ export default function VoiceAgentsPage() {
                 setAvailableUltravoxModels(res.data.models);
             }
             if (agentsRes.success && agentsRes.data) {
-                setAvailableUltravoxAgents(agentsRes.data.map((a: any) => ({ id: a.agentId, name: a.name || a.agentId })));
+                // Agent state removed as it was reported unused
             }
         } catch (e) {
             console.error("[Ultravox Sync] Error:", e);
@@ -234,7 +242,7 @@ export default function VoiceAgentsPage() {
             const rKey = config.retell?.api_key || "";
             const uKey = config.ultravox?.api_key || "";
             
-            const providers = [];
+            const providers: string[] = [];
             if (rKey) {
                 providers.push("RETELL");
                 setRetellApiKey(rKey);
@@ -250,7 +258,7 @@ export default function VoiceAgentsPage() {
             
             // Set default provider for new agents if only one is available
             if (providers.length === 1) {
-                setEditingAgentData(prev => ({ ...prev, provider: providers[0] as any }));
+                setEditingAgentData(prev => ({ ...prev, provider: providers[0] as VoiceAgent["provider"] }));
             }
 
             if (tenant.id) {
@@ -334,7 +342,7 @@ export default function VoiceAgentsPage() {
                 name: editingAgentData.name || "Nuevo Agente Ultravox",
                 systemPrompt: variantA.prompt_text || "Eres un asistente virtual...",
                 voice: editingAgentData.voice_id || "terrence",
-                model: (editingAgentData as any).model_id || "fixie-ai/ultravox-70b"
+                model: (editingAgentData as any).provider_agent_id || "fixie-ai/ultravox-70b"
             });
             if (!agentRes.success || !agentRes.data?.agentId) {
                 alert("Error creando agente en Ultravox: " + (agentRes.error || "Desconocido"));
@@ -879,6 +887,7 @@ export default function VoiceAgentsPage() {
                                     {editingAgentData.provider === 'RETELL' ? (
                                         availableAgents.length > 0 ? (
                                             <select 
+                                                title="Seleccionar ID del Agente"
                                                 value={editingAgentData.provider_agent_id || ""}
                                                 onChange={(e) => {
                                                     const selectedId = e.target.value;
@@ -910,6 +919,7 @@ export default function VoiceAgentsPage() {
                                         )
                                     ) : (
                                         <select 
+                                            title="Seleccionar Modelo de IA"
                                             value={editingAgentData.provider_agent_id || ""}
                                             onChange={(e) => setEditingAgentData({ ...editingAgentData, provider_agent_id: e.target.value })}
                                             className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-6 text-sm font-bold focus:border-purple-500/40 outline-none transition-all appearance-none"
@@ -931,6 +941,7 @@ export default function VoiceAgentsPage() {
                                     </label>
                                     
                                     <select 
+                                        title="Seleccionar Voz del Agente"
                                         value={editingAgentData.voice_id || ""}
                                         onChange={(e) => setEditingAgentData({ ...editingAgentData, voice_id: e.target.value })}
                                         className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-6 text-sm font-bold focus:border-purple-500/40 outline-none transition-all appearance-none"

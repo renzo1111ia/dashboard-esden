@@ -5,11 +5,12 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useTenantStore } from "@/store/tenant";
+import NextImage from "next/image";
 
 import { 
     LayoutDashboard, Megaphone, MessageCircle, 
     Clock, History, Settings, X, ChevronDown, PlusCircle,
-    Workflow, Bot, ShieldCheck, BarChart3, PhoneCall, Terminal,
+    Workflow, Bot, ShieldCheck, Terminal,
     Calendar, Zap, MessageSquare, FlaskConical, Mic
 } from "lucide-react";
 import { TenantSelector } from "./TenantSelector";
@@ -236,7 +237,7 @@ export function Sidebar({ isAdmin, mobileOpen, onMobileClose }: {
                 {/* Logo */}
                 <div className={cn("flex h-16 md:h-20 items-center justify-between border-b border-sidebar-border transition-all px-4")}>
                     {!collapsed ? (
-                        <img src="/logo.png" alt="App Automatiza" className="h-9 w-auto object-contain" />
+                        <NextImage src="/logo.png" alt="App Automatiza" width={180} height={36} className="h-9 w-auto object-contain" />
                     ) : (
                         <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10 mx-auto transition-colors">
                             <svg viewBox="0 0 24 24" className="h-7 w-7 text-primary" fill="currentColor">

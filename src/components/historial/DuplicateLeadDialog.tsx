@@ -118,7 +118,6 @@ function CallCard({ call }: { call: HistorialRow }) {
 // ─── INTENTO CARD ─────────────────────────────────────────────────────────────
 
 function IntentoCard({ intento }: { intento: IntentoLlamada }) {
-    const [expanded, setExpanded] = useState(false);
 
     const fields: [string, string | number | null | undefined][] = [
         ["Tipo intento", intento.tipo_intento],
@@ -175,7 +174,6 @@ export function DuplicateLeadDialog({ phone, onClose }: Props) {
 
     useEffect(() => {
         let mounted = true;
-        setLoading(true);
         Promise.all([
             getCallsByPhone(phone).catch(() => [] as HistorialRow[]),
             fetchIntentosByPhone(phone).catch(() => [] as IntentoLlamada[]),

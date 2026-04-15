@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import NextImage from "next/image";
 
 export default function LoginPage() {
     const [email, setEmail] = useState("");
@@ -51,7 +52,7 @@ export default function LoginPage() {
             <div className="relative min-h-screen flex items-center justify-center bg-[#f8fafc]">
                 <div className="w-full max-w-[440px] px-6 py-12">
                     <div className="mb-10 flex items-center justify-start">
-                        <img src="/logo.png" alt="App Automatiza" className="h-16 w-auto object-contain" />
+                        <NextImage src="/logo.png" alt="App Automatiza" width={240} height={64} className="h-16 w-auto object-contain" priority />
                     </div>
 
                     {resetSuccess ? (
@@ -143,7 +144,7 @@ export default function LoginPage() {
         <div className="relative min-h-screen flex items-center justify-center bg-[#f8fafc]">
             <div className="w-full max-w-[440px] px-6 py-12">
                 <div className="mb-10 flex items-center justify-start">
-                    <img src="/logo.png" alt="App Automatiza" className="h-16 w-auto object-contain" />
+                    <NextImage src="/logo.png" alt="App Automatiza" width={240} height={64} className="h-16 w-auto object-contain" priority />
                 </div>
 
                 <div className="mb-10">

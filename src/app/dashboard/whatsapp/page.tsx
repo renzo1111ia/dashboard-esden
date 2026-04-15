@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import {
     getKpiWhatsapp, getDynamicKpis, getDynamicChartSeries,
-    type AnalyticsFilters,
+    type AnalyticsFilters, type KpiGenerales
 } from "@/lib/actions/analytics";
 import { getActiveTenantConfig } from "@/lib/actions/tenant";
 import { getAdminStatus } from "@/lib/actions/auth";
@@ -25,7 +25,7 @@ async function WhatsappKpis({
     const tenantConfig = await getActiveTenantConfig();
     if (!tenantConfig) return null;
 
-    const currentKpis = (tenantConfig.config as any)?.kpis_whatsapp as KpiConfig[] || [];
+    const currentKpis = (tenantConfig.config as Record<string, unknown>)?.kpis_whatsapp as KpiConfig[] || [];
     const mergedKpis  = currentKpis.length > 0 ? currentKpis : WHATSAPP_KPIS;
 
     const [kpi, dynamicValues] = await Promise.all([
@@ -49,7 +49,9 @@ async function WhatsappKpis({
         total_no_cualificados: 0, por_estado_llamada: [], por_razon_termino: [],
         por_origen: [], por_tipo_lead: [], por_cualificacion: [],
         por_motivo_anulacion: [], agendados_por_fecha: [], primer_contacto_por_fecha: [],
-    } as any;
+        total_segundos: 0, total_leads_alcanzados: 0, minutos_ahorrados: 0, 
+        horas_ahorradas: 0, tiempo_ahorrado_formateado: "0h 0m"
+    } as KpiGenerales;
 
     return (
         <SummaryManager
@@ -113,7 +115,7 @@ async function WhatsappChartsSection({
     const tenantConfig = await getActiveTenantConfig();
     if (!tenantConfig) return null;
 
-    const savedCharts = (tenantConfig.config as any)?.charts_whatsapp as ChartConfig[] || [];
+    const savedCharts = (tenantConfig.config as Record<string, unknown>)?.charts_whatsapp as ChartConfig[] || [];
     const mergedCharts = savedCharts.length > 0 ? savedCharts : DEFAULT_CHARTS_WHATSAPP;
 
     const chartData = await getDynamicChartSeries(mergedCharts, from, to, filters);
@@ -133,7 +135,7 @@ async function WhatsappChartsSection({
 
 // ─── PAGE ─────────────────────────────────────────────────────────────────────
 
-export default async function WhatsappPage({ searchParams }: { searchParams: Promise<any> }) {
+export default async function WhatsappPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
     const params = await searchParams;
     const { from, to, filters } = parseFilters(params);
     const isAdmin = await getAdminStatus();
