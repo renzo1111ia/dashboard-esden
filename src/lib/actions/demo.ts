@@ -3,8 +3,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { getAdminStatus } from "./auth";
 
+// v1.2 - Forced Refresh
 export async function runLaboratoryInjection(tenantId: string) {
-    console.log("[DEMO] Inicia inyección encapsulada para:", tenantId);
+    const timestamp = new Date().toLocaleTimeString();
+    console.log(`[DEMO] [${timestamp}] Invocando laboratorio para:`, tenantId);
     
     try {
         // Init internally to avoid import-time crashes
