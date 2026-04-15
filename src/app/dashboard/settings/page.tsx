@@ -377,6 +377,7 @@ export default function SettingsPage() {
                                                                     <Zap className="h-4 w-4 text-blue-600" /> Servidodes Externos e Integraciones
                                                                 </h3>
                                                                 <IntegrationsManager 
+                                                                    tenantId={isEditing || undefined}
                                                                     config={(editForm.config as Record<string, unknown>) || {}}
                                                                     onChange={(newConf) => {
                                                                         setEditForm({ ...editForm, config: newConf as any });
@@ -448,6 +449,7 @@ export default function SettingsPage() {
                                                             <Zap className="h-4 w-4 text-blue-600" /> Integraciones de Voz y Mensajería
                                                         </h3>
                                                         <IntegrationsManager 
+                                                            tenantId={isEditing || undefined}
                                                             config={(editForm.config as Record<string, unknown>) || {}}
                                                             onChange={(newConf) => {
                                                                     setEditForm({ ...editForm, config: newConf as any });

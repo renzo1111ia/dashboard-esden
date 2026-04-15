@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { MessageSquare, ShieldCheck, Key, Phone, Mic, PhoneCall, Zap, RefreshCw } from "lucide-react";
+import { 
+    MessageSquare, Key, Phone, Mic, 
+    PhoneCall, Zap, RefreshCw, CheckCircle2 
+} from "lucide-react";
 import { syncRetellResources } from "@/lib/actions/retell-sync";
+import { syncWhatsAppTemplates } from "@/lib/actions/whatsapp-sync";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -20,35 +24,20 @@ interface WhatsAppConfig {
     phoneNumberId: string;
     wabaId: string;
     verifyToken: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    templates?: any[];
+    lastSync?: string;
 }
 
 interface IntegrationsManagerProps {
-    config: Record<string, unknown>; // Used in many places as an object
+    tenantId?: string;
+    config: Record<string, unknown>; 
     onChange: (newConfig: Record<string, unknown>) => void;
 }
 
-export function IntegrationsManager({ config, onChange }: IntegrationsManagerProps) {
+export function IntegrationsManager({ tenantId, config, onChange }: IntegrationsManagerProps) {
     const [isSyncing, setIsSyncing] = useState(false);
-
-    const handleSync = async (apiKey: string) => {
-        if (!apiKey) {
-            alert("Por favor, introduce una API Key antes de sincronizar.");
-            return;
-        }
-        setIsSyncing(true);
-        try {
-            const res = await syncRetellResources(apiKey);
-            if (res.success && res.data) {
-                // Success feedback
-            } else {
-                alert(res.error || "Error al sincronizar con Retell");
-            }
-        } catch {
-            alert("Fallo crítico en la conexión con Retell.");
-        } finally {
-            setIsSyncing(false);
-        }
-    };
+    const [isSyncingWA, setIsSyncingWA] = useState(false);
 
     // ── WhatsApp Config ──
     const whatsapp = (config?.whatsapp as WhatsAppConfig) || {
@@ -72,22 +61,69 @@ export function IntegrationsManager({ config, onChange }: IntegrationsManagerPro
     const updateField = (category: string, fields: Record<string, unknown>) => {
         const categoryData = { ...((config[category] as Record<string, unknown>) || {}), ...fields };
         
-        // Forced cleanup of legacy keys for Retell
         if (category === 'retell') {
             delete categoryData.apiKey;
             delete categoryData.agentId;
         }
 
-        // Standardization for Ultravox (handle migration from legacy apiKey if existing)
-        if (category === 'ultravox' && categoryData.apiKey) {
-            categoryData.api_key = categoryData.apiKey;
-            delete categoryData.apiKey;
+        if (category === 'ultravox' && (categoryData as any).apiKey) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (categoryData as any).api_key = (categoryData as any).apiKey;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            delete (categoryData as any).apiKey;
         }
 
         onChange({
             ...config,
             [category]: categoryData
         });
+    };
+
+    const handleSync = async (apiKey: string) => {
+        if (!apiKey) {
+            alert("Por favor, introduce una API Key antes de sincronizar.");
+            return;
+        }
+        setIsSyncing(true);
+        try {
+            const res = await syncRetellResources(apiKey);
+            if (!res.success) {
+                alert(res.error || "Error al sincronizar con Retell");
+            }
+        } catch {
+            alert("Fallo crítico en la conexión con Retell.");
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
+    const handleWASync = async () => {
+        if (!tenantId) {
+            alert("Primero debes guardar el cliente antes de sincronizar sus plantillas.");
+            return;
+        }
+        if (!whatsapp.accessToken || !whatsapp.wabaId) {
+            alert("Se requiere Access Token y WABA ID para sincronizar.");
+            return;
+        }
+
+        setIsSyncingWA(true);
+        try {
+            const res = await syncWhatsAppTemplates(tenantId, whatsapp);
+            if (res.success && res.data) {
+                updateField('whatsapp', { 
+                    templates: res.data,
+                    lastSync: new Date().toISOString() 
+                });
+            } else {
+                alert(res.error || "Error al sincronizar con Meta");
+            }
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } catch (err: any) {
+            alert("Error de conexión: " + err.message);
+        } finally {
+            setIsSyncingWA(false);
+        }
     };
 
     return (
@@ -131,15 +167,6 @@ export function IntegrationsManager({ config, onChange }: IntegrationsManagerPro
                         />
                     </div>
                 </div>
-
-                <div className="p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 space-y-2">
-                    <p className="text-[10px] text-slate-500 font-medium italic">
-                        * Sugerencia: La API Key de Retell permite que el sistema se comunique con tus agentes. La configuración específica de IDs y números se realiza ahora directamente en el módulo de **Agentes de Voz**.
-                    </p>
-                    <p className="text-[9px] text-blue-500 font-black uppercase tracking-widest">
-                        RECUERDA PULSAR &quot;GUARDAR&quot; AL FINAL DEL PANEL PARA PERSISTIR LOS CAMBIOS.
-                    </p>
-                </div>
             </div>
 
             {/* ── SECTION: ULTRAVOX AI ── */}
@@ -172,7 +199,7 @@ export function IntegrationsManager({ config, onChange }: IntegrationsManagerPro
                 </div>
             </div>
 
-            {/* ── SECTION: TELEPHONY (Multi-Provider) ── */}
+            {/* ── SECTION: TELEPHONY ── */}
             <div className="space-y-6">
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                     <div className="flex items-center gap-3">
@@ -188,9 +215,7 @@ export function IntegrationsManager({ config, onChange }: IntegrationsManagerPro
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2 text-left">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                            Provider
-                        </Label>
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">Provider</Label>
                         <select 
                             title="Telephony Provider"
                             value={telephony.provider || "twilio"}
@@ -202,11 +227,8 @@ export function IntegrationsManager({ config, onChange }: IntegrationsManagerPro
                             <option value="plivo">Plivo (Próximamente)</option>
                         </select>
                     </div>
-
                     <div className="space-y-2 text-left">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                             Account SID / API Key
-                        </Label>
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">Account SID / API Key</Label>
                         <Input 
                             value={telephony.credentials?.accountSid || ""}
                             onChange={(e) => updateField('telephony', { credentials: { ...(telephony.credentials || {}), accountSid: e.target.value } })}
@@ -214,11 +236,8 @@ export function IntegrationsManager({ config, onChange }: IntegrationsManagerPro
                             className="h-11 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 rounded-xl font-mono text-xs"
                         />
                     </div>
-
                     <div className="space-y-2 text-left">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                            Auth Token / API Secret
-                        </Label>
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">Auth Token / API Secret</Label>
                         <Input 
                             value={telephony.credentials?.authToken || ""}
                             onChange={(e) => updateField('telephony', { credentials: { ...(telephony.credentials || {}), authToken: e.target.value } })}
@@ -227,11 +246,8 @@ export function IntegrationsManager({ config, onChange }: IntegrationsManagerPro
                             className="h-11 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 rounded-xl font-mono text-xs"
                         />
                     </div>
-
                     <div className="space-y-2 text-left">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                             Default From Number
-                        </Label>
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">Default From Number</Label>
                         <Input 
                             value={telephony.credentials?.fromNumber || ""}
                             onChange={(e) => updateField('telephony', { credentials: { ...(telephony.credentials || {}), fromNumber: e.target.value } })}
@@ -241,22 +257,35 @@ export function IntegrationsManager({ config, onChange }: IntegrationsManagerPro
                     </div>
                 </div>
             </div>
+
+            {/* ── SECTION: WHATSAPP ── */}
             <div className="space-y-6">
-                <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
-                    <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center border border-emerald-500/20">
-                        <MessageSquare className="h-5 w-5" />
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+                    <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center border border-emerald-500/20">
+                            <MessageSquare className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white">Meta API (WhatsApp Cloud)</h3>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest text-left">Configuraciones de mensajería empresarial</p>
+                        </div>
                     </div>
-                    <div>
-                        <h3 className="text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white">Meta API (WhatsApp Cloud)</h3>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest text-left">Configuraciones de mensajería empresarial</p>
-                    </div>
+                    <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm"
+                        onClick={handleWASync}
+                        disabled={isSyncingWA || !whatsapp.accessToken || !whatsapp.wabaId}
+                        className="h-8 rounded-lg text-[10px] font-black uppercase tracking-widest gap-2 bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100"
+                    >
+                        <RefreshCw className={cn("h-3 w-3", isSyncingWA && "animate-spin")} />
+                        {isSyncingWA ? "Sincronizando..." : "Sincronizar Plantillas"}
+                    </Button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="md:col-span-2 space-y-2 text-left">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                            <Key className="h-3 w-3" /> Access Token (Permanent)
-                        </Label>
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">Access Token (Permanent)</Label>
                         <Input 
                             value={whatsapp.accessToken}
                             onChange={(e) => updateField('whatsapp', { accessToken: e.target.value })}
@@ -265,11 +294,8 @@ export function IntegrationsManager({ config, onChange }: IntegrationsManagerPro
                             className="h-11 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 rounded-xl font-mono text-xs"
                         />
                     </div>
-
                     <div className="space-y-2 text-left">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                            <Phone className="h-3 w-3" /> Phone Number ID
-                        </Label>
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">Phone Number ID</Label>
                         <Input 
                             value={whatsapp.phoneNumberId}
                             onChange={(e) => updateField('whatsapp', { phoneNumberId: e.target.value })}
@@ -277,11 +303,8 @@ export function IntegrationsManager({ config, onChange }: IntegrationsManagerPro
                             className="h-11 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 rounded-xl text-sm"
                         />
                     </div>
-
                     <div className="space-y-2 text-left">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                            <ShieldCheck className="h-3 w-3" /> WABA ID
-                        </Label>
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">WABA ID</Label>
                         <Input 
                             value={whatsapp.wabaId}
                             onChange={(e) => updateField('whatsapp', { wabaId: e.target.value })}
@@ -290,6 +313,37 @@ export function IntegrationsManager({ config, onChange }: IntegrationsManagerPro
                         />
                     </div>
                 </div>
+
+                {whatsapp.templates && whatsapp.templates.length > 0 && (
+                    <div className="mt-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                                <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Plantillas Sincronizadas ({whatsapp.templates.length})
+                            </h4>
+                            {whatsapp.lastSync && (
+                                <span className="text-[9px] text-slate-400 font-medium">Último sync: {new Date(whatsapp.lastSync).toLocaleString()}</span>
+                            )}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                            {whatsapp.templates.slice(0, 6).map((tp: any, idx: number) => (
+                                <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 shadow-sm">
+                                    <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 truncate max-w-[120px]" title={tp.name}>{tp.name}</span>
+                                    <span className={cn(
+                                        "px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter",
+                                        tp.status === 'APPROVED' ? "bg-emerald-50 text-emerald-600" : "bg-orange-50 text-orange-600"
+                                    )}>
+                                        {tp.language} | {tp.status?.slice(0, 3)}
+                                    </span>
+                                </div>
+                            ))}
+                            {whatsapp.templates.length > 6 && (
+                                <div className="flex items-center justify-center p-2 rounded-lg border border-dashed border-slate-200 text-[9px] font-bold text-slate-400">
+                                    + {whatsapp.templates.length - 6} más...
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className="p-4 rounded-2xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 flex gap-4 items-start text-left">
