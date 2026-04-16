@@ -68,7 +68,7 @@ export async function getInboxLeads(): Promise<{ success: boolean; data?: InboxL
             .from("lead")
             .select("*")
             .eq("tenant_id", tenant.id)
-            .order("created_at", { ascending: false })
+            .order("fecha_creacion", { ascending: false })
             .limit(50) as any);
 
         if (leadError) throw leadError;
@@ -105,8 +105,8 @@ export async function getInboxLeads(): Promise<{ success: boolean; data?: InboxL
                 foto_url: (l as any).foto_url || null,
                 is_ai_enabled: l.is_ai_enabled ?? true,
                 last_message: msg?.content || "Nueva conversación (sin mensajes)",
-                last_message_time: msg?.time || l.created_at, // Use creation time if no messages
-                created_at: l.created_at,
+                last_message_time: msg?.time || l.fecha_creacion, // Use creation time if no messages
+                created_at: l.fecha_creacion,
                 tipo_lead: l.tipo_lead || 'SIN CALIFICAR',
                 pais: l.pais || 'Identificando...',
                 origen: l.origen || 'Manual / CRM',
