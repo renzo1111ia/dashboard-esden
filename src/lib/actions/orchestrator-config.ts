@@ -1,7 +1,6 @@
 "use server";
 
-import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { getActiveTenantConfig } from "./tenant";
+import { getAdminSupabaseClient, getActiveTenantId } from "@/lib/supabase/server";
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -56,9 +55,9 @@ const DEFAULT_CONFIG: TenantOrchestratorConfig = {
         }
     },
     sequence: [
-        { step: 1, action: "call",      agents: [], delay_hours: 0 },
-        { step: 2, action: "whatsapp",  template: "", delay_hours: 0 },
-        { step: 3, action: "call",      agents: [], delay_hours: 27 },
+        { step: 1, action: "call",   agents: [], delay_hours: 0 },
+        { step: 2, action: "whatsapp", template: "", delay_hours: 0 },
+        { step: 3, action: "call",   agents: [], delay_hours: 27 },
     ],
     ab_testing: {
         enabled: false,
@@ -76,29 +75,23 @@ const DEFAULT_CONFIG: TenantOrchestratorConfig = {
 
 /**
  * Fetches the orchestrator config for the active tenant.
- * Returns a default config if none is set.
  */
 export async function getOrchestratorConfig(): Promise<{ success: boolean; data?: TenantOrchestratorConfig; error?: string }> {
     try {
-        const tenant = await getActiveTenantConfig();
-        if (!tenant) return { success: false, error: "No active tenant" };
+        const tenantId = await getActiveTenantId();
+        if (!tenantId) return { success: false, error: "No hay un cliente seleccionado." };
 
-        const supabase = await getSupabaseServerClient();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const supabase = await getAdminSupabaseClient();
         const { data, error } = await (supabase.from("tenant_orchestrator_config" as any) as any)
             .select("config, flow_graph")
-            .eq("tenant_id", tenant.id)
+            .eq("tenant_id", tenantId)
             .single();
 
         if (error || !data) {
-            // No config yet — return defaults (not an error)
             return { success: true, data: DEFAULT_CONFIG };
         }
 
-        // Merge with defaults for any missing keys
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const merged = deepMerge(DEFAULT_CONFIG, data.config as any);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         merged.flow_graph = (data.flow_graph as any) || DEFAULT_CONFIG.flow_graph;
         return { success: true, data: merged };
     } catch (e: unknown) {
@@ -112,19 +105,16 @@ export async function getOrchestratorConfig(): Promise<{ success: boolean; data?
  */
 export async function saveOrchestratorConfig(config: Partial<TenantOrchestratorConfig>): Promise<{ success: boolean; error?: string }> {
     try {
-        const tenant = await getActiveTenantConfig();
-        if (!tenant) return { success: false, error: "No active tenant" };
+        const tenantId = await getActiveTenantId();
+        if (!tenantId) return { success: false, error: "No hay un cliente seleccionado." };
 
-        const supabase = await getSupabaseServerClient();
-        console.log(`[SAVE_FLOW] Saving for tenant ${tenant.id}. Graph nodes: ${config.flow_graph?.nodes?.length || 0}`);
+        const supabase = await getAdminSupabaseClient();
+        console.log(`[SAVE_FLOW] Saving for tenant ${tenantId}. Graph nodes: ${config.flow_graph?.nodes?.length || 0}`);
 
-        // We use a partial update approach: 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error } = await (supabase.from("tenant_orchestrator_config" as any) as any)
             .upsert({ 
-                tenant_id: tenant.id, 
+                tenant_id: tenantId, 
                 flow_graph: config.flow_graph || { nodes: [], edges: [] }
-                // Note: we don't update 'config' JSON here to avoid overwriting other settings
             }, { 
                 onConflict: "tenant_id",
                 ignoreDuplicates: false 
@@ -132,13 +122,9 @@ export async function saveOrchestratorConfig(config: Partial<TenantOrchestratorC
 
         if (error) {
             console.error("[SAVE_FLOW] Upsert Error:", error);
-            if (error.message.includes("column") && error.message.includes("flow_graph")) {
-                return { success: false, error: "Columna 'flow_graph' no encontrada. ¿Ejecutaste el SQL?" };
-            }
             return { success: false, error: error.message };
         }
 
-        console.log("[SAVE_FLOW] Success!");
         return { success: true };
     } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Unknown error";
@@ -148,20 +134,17 @@ export async function saveOrchestratorConfig(config: Partial<TenantOrchestratorC
 }
 
 /**
- * Fetches the raw config for a given tenantId (for server-side use in orchestrator).
- * Does NOT require cookies — accepts tenantId directly.
+ * Server-side use for orchestrator execution engine.
  */
 export async function getOrchestratorConfigForTenant(tenantId: string): Promise<TenantOrchestratorConfig> {
     try {
-        const supabase = await getSupabaseServerClient();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const supabase = await getAdminSupabaseClient();
         const { data } = await (supabase.from("tenant_orchestrator_config" as any) as any)
             .select("config")
             .eq("tenant_id", tenantId)
             .single();
 
         if (!data) return DEFAULT_CONFIG;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return deepMerge(DEFAULT_CONFIG, data.config as any);
     } catch {
         return DEFAULT_CONFIG;
@@ -170,14 +153,11 @@ export async function getOrchestratorConfigForTenant(tenantId: string): Promise<
 
 // ─── Utility ──────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function deepMerge<T extends Record<string, any>>(base: T, override: Partial<T>): T {
     const result = { ...base };
     for (const key in override) {
         const val = override[key];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if (val && typeof val === "object" && !Array.isArray(val)) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             result[key] = deepMerge(base[key] as Record<string, any>, val as Record<string, any>) as T[typeof key];
         } else if (val !== undefined) {
             result[key] = val as T[typeof key];

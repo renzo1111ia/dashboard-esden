@@ -12,26 +12,28 @@ export async function GET(req: Request) {
         const workflowId = searchParams.get("workflowId");
 
         if (!workflowId) {
-            return NextResponse.json({ error: "Missing workflowId" }, { status: 400 });
+            return NextResponse.json({ error: "Falta el workflowId" }, { status: 400 });
         }
 
         const supabase = await getAdminSupabaseClient();
 
-        const { data, error } = await supabase
-            .from("orchestration_graphs")
+        const { data, error } = await (supabase
+            .from("orchestration_graphs" as any) as any)
             .select("*")
             .eq("workflow_id", workflowId)
             .single();
 
-        if (error && error.code !== 'PGRST116') { // PGRST116 is code for 'no rows found'
+        if (error && error.code !== 'PGRST116') { // PGRST116: no rows found
+            console.error("[API_GET_GRAPH] Error de Supabase:", error);
             throw error;
         }
 
-        return NextResponse.json(data || { graph_data: null });
+        // Return empty graph if none exists
+        return NextResponse.json(data || { graph_data: { nodes: [], edges: [] } });
 
     } catch (error: unknown) {
         const err = error as { message: string };
-        console.error("[API_GET_GRAPH] Error:", err.message);
+        console.error("[API_GET_GRAPH] Error crítico:", err.message);
         return NextResponse.json({ error: err.message }, { status: 500 });
     }
 }

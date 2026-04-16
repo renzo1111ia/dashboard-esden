@@ -14,7 +14,7 @@ const publishSchema = z.object({
 
 /**
  * API: PUBLISH ORCHESTRATION SEQUENCE (v2.0 - Workflow Aware)
- * Saves the visual graph and flattens it for the execution engine within a specific workflow.
+ * Saves the visual graph and flattens it for the execution engine.
  */
 
 export async function POST(req: Request) {
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
 
         const supabase = await getAdminSupabaseClient();
 
-        // 1. Save the visual graph state for this specific workflow
+        // 1. Save the visual graph state
         const { error: graphError } = await (supabase
             .from("orchestration_graphs" as any) as any)
             .upsert({
@@ -34,19 +34,26 @@ export async function POST(req: Request) {
                 updated_at: new Date().toISOString()
             }, { onConflict: 'workflow_id' });
 
-        if (graphError) throw graphError;
+        if (graphError) {
+            console.error("[PUBLISH] Graph Error:", graphError);
+            throw graphError;
+        }
 
         // 2. Flatten the graph into execution rules
         const executionSteps = flattenGraph(graphData.nodes as any, graphData.edges as any);
 
         // 3. Clear existing rules for THIS workflow and insert new ones
-        await supabase
-            .from("orchestration_rules")
+        const { error: deleteError } = await (supabase
+            .from("orchestration_rules" as any) as any)
             .delete()
             .eq("workflow_id", workflowId);
 
+        if (deleteError) {
+            console.warn("[PUBLISH] Rule cleanup warning (non-fatal):", deleteError);
+        }
+
         if (executionSteps.length > 0) {
-        const { data: rules, error: rulesError } = await (supabase
+            const { error: rulesError } = await (supabase
                 .from("orchestration_rules" as any) as any)
                 .insert(executionSteps.map((step, index) => ({
                     tenant_id: tenantId,
@@ -59,14 +66,17 @@ export async function POST(req: Request) {
                     is_active: true
                 })));
             
-            if (rulesError) throw rulesError;
+            if (rulesError) {
+                console.error("[PUBLISH] Rules Insertion Error:", rulesError);
+                throw rulesError;
+            }
         }
 
         return NextResponse.json({ success: true, stepsCount: executionSteps.length });
 
     } catch (error: unknown) {
         const err = error as { message: string; stack?: string };
-        console.error("CRITICAL PUBLISH API ERROR:", err.message, err.stack);
+        console.error("CRITICAL PUBLISH API ERROR:", err.message);
         return NextResponse.json({ error: err.message }, { status: 500 });
     }
 }
@@ -84,7 +94,6 @@ function flattenGraph(nodes: { id: string; type?: string; data?: Record<string, 
         let currentNode = trigger;
         let order = 0;
         
-        // Track visited nodes per trigger path to avoid infinite loops
         const visited = new Set<string>();
         visited.add(trigger.id);
 
@@ -97,12 +106,16 @@ function flattenGraph(nodes: { id: string; type?: string; data?: Record<string, 
             
             visited.add(nextNode.id);
 
-            if (['action', 'delay', 'api', 'subWorkflow', 'llm', 'webhook'].includes(nextNode.type || '')) {
+            if (['action', 'delay', 'api', 'subWorkflow', 'llm', 'webhook', 'webhookWait', 'webhookResponse'].includes(nextNode.type || '')) {
                 let actionType = nextNode.type?.toUpperCase() || 'UNKNOWN';
                 if (nextNode.type === 'action') {
                     actionType = (nextNode.data?.action as string)?.toUpperCase() || 'UNKNOWN';
                 } else if (nextNode.type === 'delay') {
                     actionType = 'WAIT';
+                } else if (nextNode.type === 'webhookWait') {
+                    actionType = 'WEBHOOK_WAIT';
+                } else if (nextNode.type === 'webhookResponse') {
+                    actionType = 'WEBHOOK_RESPONSE';
                 }
 
                 allSteps.push({

@@ -57,16 +57,13 @@ export async function POST(req: Request) {
                 .from("workflows" as any) as any)
                 .update({ is_primary: false })
                 .eq("tenant_id", tenantId);
+            
             if (clearError) {
-            console.error("[ACTIONS] Supabase Insert ERROR:", clearError.message, clearError.details);
-            // If the error is about RLS, it means the Service Role key isn't working/present
-            const errorMsg = clearError.message.includes("policy") 
-                ? "Error de permisos (RLS). Contacte al administrador para revisar la Service Role Key." 
-                : clearError.message;
-            return NextResponse.json({ error: errorMsg }, { status: 500 });
-        }
+                console.error("[WORKFLOW_POST] Clear Primary Error:", clearError.message);
+            }
         }
 
+        // 1. Create the workflow record
         const { data: workflowData, error: workflowError } = await (supabase
             .from("workflows" as any) as any)
             .insert({
@@ -79,35 +76,26 @@ export async function POST(req: Request) {
             .single();
 
         if (workflowError) {
-            console.error("Workflow Insert Error:", workflowError);
-            return NextResponse.json({ error: workflowError.message, details: workflowError }, { status: 500 });
+            return NextResponse.json({ error: workflowError.message }, { status: 500 });
         }
 
-        if (!workflowData) {
-            return NextResponse.json({ error: "Failed to create workflow record" }, { status: 500 });
-        }
-
-        // Initialize a blank graph for this workflow - MUST succeed
+        // 2. Initialize a blank graph for this workflow
         const { error: graphError } = await (supabase
             .from("orchestration_graphs" as any) as any)
             .insert({
                 tenant_id: tenantId,
-                workflow_id: workflowData.id,
+                workflow_id: (workflowData as any).id,
                 graph_data: { nodes: [], edges: [] }
             });
 
         if (graphError) {
-            console.error("Graph Init Error:", graphError);
-            // We might want to delete the workflow here if atomic is needed, 
-            // but for now let's just report the error.
-            return NextResponse.json({ error: `Workflow created but graph init failed: ${graphError.message}` }, { status: 500 });
+            console.error("[WORKFLOW_POST] Graph Init Failed:", graphError.message);
         }
 
         return NextResponse.json(workflowData);
     } catch (error: unknown) {
-        const err = error as { message: string; stack?: string };
-        console.error("CRITICAL WORKFLOW API ERROR:", err.message, err.stack);
-        return NextResponse.json({ error: err.message || "An unexpected error occurred" }, { status: 500 });
+        const err = error as { message: string };
+        return NextResponse.json({ error: err.message }, { status: 500 });
     }
 }
 
@@ -123,10 +111,6 @@ export async function DELETE(req: Request) {
 
         const supabase = await getAdminSupabaseClient();
         
-        // Deleting the workflow. 
-        // Note: orchestration_graphs should have a CASCADE DELETE constraint 
-        // in the DB, but we'll delete it explicitly here just in case if needed 
-        // OR rely on the DB.
         const { error } = await (supabase
             .from("workflows" as any) as any)
             .delete()
