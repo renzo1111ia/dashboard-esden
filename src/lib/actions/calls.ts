@@ -1,6 +1,6 @@
 "use server";
 
-import { getSupabaseServerClient, getActiveTenantId } from "@/lib/supabase/server";
+import { getSupabaseServerClient, getActiveTenantId, getAdminSupabaseClient } from "@/lib/supabase/server";
 import type { 
     HistorialRow, 
     IntentoLlamada, 
@@ -355,15 +355,12 @@ export async function fetchIntentosByPhone(phone: string): Promise<IntentoLlamad
             console.error("fetchIntentosByPhone ERROR:", error.message);
             return [];
         }
-        const leads = (data ?? []) as IntentoLlamada[];
-        return leads;
+        return (data ?? []) as any[];
     } catch (e) {
         console.error("fetchIntentosByPhone EXCEPTION:", e);
         return [];
     }
 }
-
-// ─── FETCH CONVERSACIONES WHATSAPP BY PHONE ───────────────────────────────────
 
 export async function fetchWhatsappByPhone(phone: string) {
     try {
@@ -385,72 +382,40 @@ export async function fetchWhatsappByPhone(phone: string) {
     }
 }
 
-// ─── CREATE LEAD ─────────────────────────────────────────────────────────────
-
-
-export async function createLead(data: Partial<HistorialRow> & { id_programa?: string }) {
-    console.log("[ACTIONS] createLead started with data:", JSON.stringify(data));
+export async function createLead(data: any) {
     try {
-        const client = await getSupabaseServerClient();
+        const client = await getAdminSupabaseClient();
         const tenantId = await getActiveTenantId();
-        
-        if (!tenantId) {
-            console.error("[ACTIONS] createLead FAILED: No active tenant ID found in cookies.");
-            throw new Error("No hay un cliente seleccionado en el selector.");
-        }
+        if (!tenantId) return { success: false, error: "No active tenant" };
 
-        console.log(`[ACTIONS] Scoping new lead to tenant: ${tenantId}`);
-
-        // 1. Insert into lead table
-        const leadData = {
-            tenant_id: tenantId,
-            nombre: data.nombre,
-            apellido: data.apellido,
-            telefono: data.telefono,
-            email: data.email,
-            pais: data.pais,
-            tipo_lead: data.tipo_lead || "nuevo",
-            origen: data.origen,
-            campana: data.campana,
-            fecha_ingreso_crm: new Date().toISOString(),
-        };
-
-        const { data: newLead, error: leadError } = await client
-            .from("lead")
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .insert(leadData as any)
+        const { data: newLead, error: leadError } = await (client.from("lead" as any) as any)
+            .insert({
+                tenant_id: tenantId,
+                nombre: data.nombre,
+                apellido: data.apellido,
+                telefono: data.telefono,
+                email: data.email,
+                pais: data.pais,
+                tipo_lead: data.tipo_lead || "nuevo",
+                origen: data.origen,
+                campana: data.campana,
+                fecha_ingreso_crm: new Date().toISOString(),
+            })
             .select()
             .single();
 
-        if (leadError) {
-            console.error("[ACTIONS] Supabase Insert ERROR:", leadError.message, leadError.details);
-            throw new Error(leadError.message);
-        }
+        if (leadError) throw leadError;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        console.log("[ACTIONS] Lead created successfully with ID:", (newLead as any).id);
-
-        // 2. If program is selected, associate it
         if (data.id_programa && newLead) {
-            console.log(`[ACTIONS] Associating lead with program: ${data.id_programa}`);
-            const { error: progError } = await client
-                .from("lead_programas")
-                .insert({
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    id_lead: (newLead as any).id,
-                    id_programa: data.id_programa
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                } as any);
-            
-            if (progError) {
-                console.warn("[ACTIONS] Error associating program, but lead was created:", progError.message);
-            }
+            await (client.from("lead_programas" as any) as any).insert({
+                id_lead: (newLead as any).id,
+                id_programa: data.id_programa
+            });
         }
-
-        return { success: true, data: newLead as unknown as Lead };
-    } catch (e) {
-        console.error("[ACTIONS] createLead EXCEPTION:", e instanceof Error ? e.message : e);
-        return { success: false, error: e instanceof Error ? e.message : String(e) };
+        return { success: true, data: newLead };
+    } catch (e: any) {
+        console.error("createLead Error:", e.message);
+        return { success: false, error: e.message };
     }
 }
 

@@ -25,16 +25,22 @@ export async function getActiveTenantId(): Promise<string | null> {
 export async function getSupabaseServerClient() {
     try {
         const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        // Prioritize SERVICE_ROLE_KEY for server-side management to bypass RLS issues in actions
         const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
         if (!url || !key) {
-            console.error("SUPABASE SERVER CLIENT: Missing env vars — using placeholder.");
+            console.error("SUPABASE SERVER CLIENT ERROR: Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY. Using placeholder.");
             return createClient<Database>(PLACEHOLDER_URL, PLACEHOLDER_KEY);
         }
 
-        return createClient<Database>(url, key);
+        return createClient<Database>(url, key, {
+            auth: {
+                persistSession: false,
+                autoRefreshToken: false
+            }
+        });
     } catch (error) {
-        console.error("SUPABASE SERVER CLIENT EXCEPTION:", error);
+        console.error("SUPABASE SERVER CLIENT CRITICAL EXCEPTION:", error);
         return createClient<Database>(PLACEHOLDER_URL, PLACEHOLDER_KEY);
     }
 }
@@ -49,9 +55,15 @@ export async function getAdminSupabaseClient() {
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!url || !key) {
-        console.error("ADMIN SUPABASE CLIENT: Missing environment variables — check .env");
+        const missing = !url ? "NEXT_PUBLIC_SUPABASE_URL" : "SUPABASE_SERVICE_ROLE_KEY";
+        console.error(`ADMIN SUPABASE CLIENT ERROR: Missing ${missing} environment variable.`);
         return createClient<Database>(PLACEHOLDER_URL, PLACEHOLDER_KEY);
     }
 
-    return createClient<Database>(url, key);
+    return createClient<Database>(url, key, {
+        auth: {
+            persistSession: false,
+            autoRefreshToken: false
+        }
+    });
 }

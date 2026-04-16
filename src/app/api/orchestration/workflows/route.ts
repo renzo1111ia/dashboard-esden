@@ -57,7 +57,14 @@ export async function POST(req: Request) {
                 .from("workflows" as any) as any)
                 .update({ is_primary: false })
                 .eq("tenant_id", tenantId);
-            if (clearError) throw clearError;
+            if (clearError) {
+            console.error("[ACTIONS] Supabase Insert ERROR:", clearError.message, clearError.details);
+            // If the error is about RLS, it means the Service Role key isn't working/present
+            const errorMsg = clearError.message.includes("policy") 
+                ? "Error de permisos (RLS). Contacte al administrador para revisar la Service Role Key." 
+                : clearError.message;
+            return NextResponse.json({ error: errorMsg }, { status: 500 });
+        }
         }
 
         const { data: workflowData, error: workflowError } = await (supabase
