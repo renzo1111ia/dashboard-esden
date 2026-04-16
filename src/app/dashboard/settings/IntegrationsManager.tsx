@@ -66,11 +66,10 @@ export function IntegrationsManager({ tenantId, config, onChange }: Integrations
             delete categoryData.agentId;
         }
 
-        if (category === 'ultravox' && (categoryData as any).apiKey) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (categoryData as any).api_key = (categoryData as any).apiKey;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            delete (categoryData as any).apiKey;
+        if (category === 'ultravox' && (categoryData as Record<string, unknown>).apiKey) {
+            const data = categoryData as Record<string, unknown>;
+            data.api_key = data.apiKey;
+            delete data.apiKey;
         }
 
         onChange({
@@ -118,9 +117,9 @@ export function IntegrationsManager({ tenantId, config, onChange }: Integrations
             } else {
                 alert(res.error || "Error al sincronizar con Meta");
             }
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } catch (err: any) {
-            alert("Error de conexión: " + err.message);
+        } catch (err: unknown) {
+            const error = err as Error;
+            alert("Error de conexión: " + error.message);
         } finally {
             setIsSyncingWA(false);
         }
@@ -325,7 +324,7 @@ export function IntegrationsManager({ tenantId, config, onChange }: Integrations
                             )}
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                            {whatsapp.templates.slice(0, 6).map((tp: any, idx: number) => (
+                            {whatsapp.templates.slice(0, 6).map((tp, idx: number) => (
                                 <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 shadow-sm">
                                     <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 truncate max-w-[120px]" title={tp.name}>{tp.name}</span>
                                     <span className={cn(

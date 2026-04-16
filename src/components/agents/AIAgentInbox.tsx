@@ -134,11 +134,14 @@ export default function AIAgentInbox() {
         setSending(true);
         const res = await sendManualMessage(selectedLead.id, messageText.trim(), "TEXT");
         if (res.success && res.data) {
+            // Capture data to ensure TypeScript knows it's not undefined inside the callback
+            const newMessage = res.data;
+            
             // No need to manually update messages if realtime is working, 
             // but keeping it for immediate feedback feeling.
             setMessages((prev: ChatMessage[]) => {
-                if (prev.find(m => m.id === res.data.id)) return prev;
-                return [...prev, res.data as ChatMessage];
+                if (prev.find(m => m.id === newMessage.id)) return prev;
+                return [...prev, newMessage];
             });
             setMessageText("");
             setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
@@ -194,7 +197,11 @@ export default function AIAgentInbox() {
         setSending(true);
         const res = await sendManualMessage(selectedLead.id, templateName, "TEMPLATE");
         if (res.success && res.data) {
-            setMessages((prev: ChatMessage[]) => [...prev, res.data as ChatMessage]);
+            const newMessage = res.data;
+            setMessages((prev: ChatMessage[]) => {
+                if (prev.find(m => m.id === newMessage.id)) return prev;
+                return [...prev, newMessage];
+            });
             setIsTemplateModalOpen(false);
             setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
         }
