@@ -3,16 +3,10 @@ import IORedis from "ioredis";
 
 /**
  * LEAD SEQUENCE QUEUE (BullMQ + Upstash Redis)
- * 
- * Handles delayed execution of orchestration steps.
- * Uses ioredis directly (BullMQ's native client) with:
- *   - TLS support for Upstash (rediss://)
- *   - maxRetriesPerRequest: null (REQUIRED by BullMQ for blocking commands)
  */
 
 const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
 
-// Build ioredis connection — supports local redis:// and Upstash rediss://
 function createRedisConnection(): IORedis {
     const isTLS = REDIS_URL.startsWith("rediss://");
     
@@ -26,14 +20,17 @@ function createRedisConnection(): IORedis {
             maxRetriesPerRequest: null,
             ...(isTLS && { tls: {} }),
             enableReadyCheck: false,
-            // Retry strategy to avoid crashing on start
             retryStrategy(times) {
                 const delay = Math.min(times * 100, 3000);
                 return delay;
             }
         });
 
-        // CRITICAL: Handle errors to prevent process crash
+        // 🟢 CONFIRMATION LOG: This will show in Dokploy logs
+        client.on('ready', () => {
+            console.log(`[REDIS] ✅ READY - Connection established to ${url.hostname}`);
+        });
+
         client.on('error', (err) => {
             console.warn(`[REDIS_QUEUE] Connection Issue: ${err.message}`);
         });
@@ -44,9 +41,9 @@ function createRedisConnection(): IORedis {
             host: "localhost",
             port: 6379,
             maxRetriesPerRequest: null,
-            lazyConnect: true // Don't crash if localhost isn't there
+            lazyConnect: true 
         });
-        fallback.on('error', () => {}); // Silence fallback errors
+        fallback.on('error', () => {}); 
         return fallback;
     }
 }
@@ -106,8 +103,7 @@ export async function enqueueLeadStep(
         console.log(`[QUEUE] Enqueued ${jobName} with delay ${Math.round(delayMs / 1000 / 60)}min`);
         return job.id || jobName;
     } catch (error: any) {
-        console.warn(`[QUEUE_BYPASS] Redis down, processing step immediately or logging: ${error.message}`);
-        // Here you could trigger the action directly if delay is 0
+        console.warn(`[QUEUE_BYPASS] Redis down/error: ${error.message}`);
         return `fallback-${Date.now()}`;
     }
 }
