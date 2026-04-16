@@ -1,8 +1,11 @@
 "use server";
 
-import { getSupabaseServerClient, getAdminSupabaseClient } from "@/lib/supabase/server";
+import { getAdminSupabaseClient } from "@/lib/supabase/server";
 import { getActiveTenantConfig } from "./tenant";
 import { whatsappBridge, WhatsAppConfig } from "../integrations/whatsapp";
+import type { Database } from "@/types/database";
+
+type LeadRow = Database['public']['Tables']['lead']['Row'];
 
 export interface ChatMessage {
     id: string;
@@ -61,17 +64,18 @@ export async function getInboxLeads(): Promise<{ success: boolean; data?: InboxL
         const supabase = await getAdminSupabaseClient();
         
         // 1. Fetch ALL leads for this tenant (Limit to 50 most recent for performance)
-        const { data: leads, error: leadError } = await supabase
+        const { data: leads, error: leadError } = await (supabase
             .from("lead")
             .select("*")
             .eq("tenant_id", tenant.id)
             .order("created_at", { ascending: false })
-            .limit(50);
+            .limit(50) as any);
 
         if (leadError) throw leadError;
-        if (!leads || leads.length === 0) return { success: true, data: [] };
+        const leadList = (leads as LeadRow[]) || [];
+        if (leadList.length === 0) return { success: true, data: [] };
 
-        const leadIds = leads.map(l => l.id);
+        const leadIds = leadList.map(l => l.id);
 
         // 2. Fetch the most recent message for each of these leads
         const { data: messages, error: msgError } = await supabase
@@ -91,8 +95,7 @@ export async function getInboxLeads(): Promise<{ success: boolean; data?: InboxL
         });
 
         // 4. Transform into InboxLead objects
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const results: InboxLead[] = (leads as any[]).map(l => {
+        const results: InboxLead[] = leadList.map(l => {
             const msg = latestMsgByLead.get(l.id);
             return {
                 id: l.id,
@@ -108,7 +111,7 @@ export async function getInboxLeads(): Promise<{ success: boolean; data?: InboxL
                 pais: l.pais || 'Identificando...',
                 origen: l.origen || 'Manual / CRM',
                 campana: l.campana || 'General',
-                segmentacion: l.segmentacion || null,
+                segmentacion: (l as any).segmentacion || null,
                 unread_count: 0
             };
         });
