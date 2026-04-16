@@ -11,6 +11,13 @@ export async function GET() {
     try {
         console.log('[RDS SETUP] Iniciando creación de tablas en AWS...');
 
+        if (!process.env.AWS_RDS_URL) {
+            return NextResponse.json({ 
+                success: false, 
+                error: "Falta la variable de entorno AWS_RDS_URL en Dokploy. Por favor, asegúrate de configurarla con el formato postgresql://..." 
+            }, { status: 400 });
+        }
+
         // 1. Tabla de Leads (Espejo de Supabase para datos sensibles)
         await rds`
             CREATE TABLE IF NOT EXISTS leads (
