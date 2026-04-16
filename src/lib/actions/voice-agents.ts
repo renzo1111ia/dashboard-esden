@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getAdminSupabaseClient, getActiveTenantId } from "@/lib/supabase/server";
 import { VoiceAgent, VoiceAgentVariant } from "@/types/database";
+import { revalidatePath } from "next/cache";
 
 /**
  * Los agentes de voz tienen su aislamiento garantizado por el tenant_id.
@@ -12,11 +13,10 @@ import { VoiceAgent, VoiceAgentVariant } from "@/types/database";
 
 export async function getVoiceAgents(tenantId?: string) {
     try {
-        const supabase = await getSupabaseServerClient();
+        const supabase = await getAdminSupabaseClient();
         
         let targetTenantId = tenantId;
         if (!targetTenantId) {
-            const { getActiveTenantId } = await import("@/lib/supabase/server");
             targetTenantId = await getActiveTenantId() || undefined;
         }
 
@@ -40,7 +40,7 @@ export async function getVoiceAgents(tenantId?: string) {
 
 export async function getVoiceAgentVariants(agentId: string) {
     try {
-        const supabase = await getSupabaseServerClient();
+        const supabase = await getAdminSupabaseClient();
         const { data, error } = await (supabase
             .from('voice_agent_variants' as any) as any)
             .select('*')
@@ -56,7 +56,7 @@ export async function getVoiceAgentVariants(agentId: string) {
 
 export async function saveVoiceAgent(agent: Partial<VoiceAgent>, tenantId: string) {
     try {
-        const supabase = await getSupabaseServerClient();
+        const supabase = await getAdminSupabaseClient();
 
         if (agent.id) {
             const { data, error } = await (supabase
@@ -90,7 +90,7 @@ export async function saveVoiceAgent(agent: Partial<VoiceAgent>, tenantId: strin
 
 export async function saveVoiceVariant(variant: Partial<VoiceAgentVariant>) {
     try {
-        const supabase = await getSupabaseServerClient();
+        const supabase = await getAdminSupabaseClient();
 
         if (variant.id) {
             const { error } = await (supabase
@@ -112,8 +112,6 @@ export async function saveVoiceVariant(variant: Partial<VoiceAgentVariant>) {
 
 /**
  * Bulk-imports Retell agents into the local voice_agents table.
- * Skips any agent whose provider_agent_id already exists for this tenant.
- * Creates default A/B variant stubs for each imported agent.
  */
 export async function importRetellAgents(
     tenantId: string,
@@ -128,18 +126,14 @@ export async function importRetellAgents(
 ) {
     try {
         const { getRetellAgent } = await import("./retell-sync");
-        const supabase = await getSupabaseServerClient();
+        const supabase = await getAdminSupabaseClient();
 
-        // 2. Fetch full details (Prompts) for ALL selected agents
-        // Using smaller chunks to avoid "TypeError: fetch failed" / socket exhaustion or rate limits
         console.log(`[importRetellAgents] Syncing ${retellAgents.length} agents...`);
         
         const records: any[] = [];
         const chunkSize = 5;
         for (let i = 0; i < retellAgents.length; i += chunkSize) {
             const chunk = retellAgents.slice(i, i + chunkSize);
-            console.log(`[importRetellAgents] Processing chunk ${Math.floor(i/chunkSize) + 1}...`);
-            
             const details = await Promise.all(
                 chunk.map(a => getRetellAgent(retellApiKey, a.id))
             );
@@ -148,148 +142,51 @@ export async function importRetellAgents(
                 const a = chunk[j];
                 const detail = details[j];
                 
-                if (!detail.success) {
-                    console.warn(`[importRetellAgents] Could not fetch details for agent ${a.id}: ${detail.error}`);
-                }
-
                 const prompt = (detail.success && detail.data) ? detail.data.prompt : "";
                 const llmConfigRaw = (detail.success && detail.data) ? detail.data.llm_config : null;
                 
-                // SANITIZE: Remove potentially massive and unnecessary fields from config before saving
                 let llmConfig = llmConfigRaw;
-                if (llmConfigRaw) {
-                    // Deep copy to avoid mutating original if needed
+                if (llmConfigRaw && llmConfigRaw.states) {
                     llmConfig = { ...llmConfigRaw };
-                    // Remove common heavy metadata that we don't use in dashboard UI
-                    if (llmConfig.states) {
-                        llmConfig.states = llmConfig.states.map((s: any) => ({
-                            name: s.name,
-                            state_prompt: s.state_prompt,
-                            // Keep edges but simplify them?
-                            edges: s.edges
-                        }));
-                    }
+                    llmConfig.states = llmConfig.states.map((s: any) => ({
+                        name: s.name,
+                        state_prompt: s.state_prompt,
+                        edges: s.edges
+                    }));
                 }
                 
                 records.push({
                     tenant_id: tenantId,
                     name: a.name || a.id,
-                    description: null as null,
-                    provider: 'RETELL' as const,
+                    provider: 'RETELL',
                     provider_agent_id: a.id,
                     retell_llm_id: a.llm_id || null,
                     voice_id: a.voice_id || null,
-                    from_number: null as null,
                     prompt_text_retell: prompt,
                     retell_llm_config: llmConfig,
-                    status: 'ACTIVE' as const,
+                    status: 'ACTIVE',
                 });
             }
         }
 
-        console.log("[importRetellAgents] Upserting", records.length, "records with prompts for tenant", tenantId);
-
-        // 3. Upsert records in smaller chunks to prevent large JSON payload timeout / connection reset
-        console.log(`[importRetellAgents] Upserting ${records.length} records for tenant ${tenantId}...`);
         const inserted: any[] = [];
-        const upsertChunkSize = 1; // Minimum possible chunk size for maximum reliability
-        const delayBetweenChunks = 500; // ms
+        for (let i = 0; i < records.length; i++) {
+            const record = records[i];
+            const { data: chunkInserted, error: upsertError } = await (supabase
+                .from('voice_agents' as any) as any)
+                .upsert(record, { 
+                    onConflict: 'tenant_id,provider_agent_id',
+                    ignoreDuplicates: false 
+                })
+                .select('id, provider_agent_id');
 
-        const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
-
-        for (let i = 0; i < records.length; i += upsertChunkSize) {
-            const chunk = records.slice(i, i + upsertChunkSize);
-            const chunkNum = Math.floor(i/upsertChunkSize) + 1;
-            const totalChunks = Math.ceil(records.length/upsertChunkSize);
-            
-            // Log payload size for debugging
-            const payloadSize = encodeURI(JSON.stringify(chunk)).split(/%..|./).length - 1;
-            console.log(`[importRetellAgents] Chunk ${chunkNum}/${totalChunks} size: ${Math.round(payloadSize/1024)} KB`);
-            
-            let attempts = 0;
-            const maxAttempts = 3;
-            let lastError = null;
-            let success = false;
-
-            while (attempts < maxAttempts && !success) {
-                try {
-                    const { data: chunkInserted, error: upsertError } = await (supabase
-                        .from('voice_agents' as any) as any)
-                        .upsert(chunk, { 
-                            onConflict: 'tenant_id,provider_agent_id',
-                            ignoreDuplicates: false 
-                        })
-                        .select('id, provider_agent_id');
-
-                    if (upsertError) {
-                        const msg = upsertError.message || upsertError.details || upsertError.hint || JSON.stringify(upsertError);
-                        throw new Error(msg);
-                    }
-                    
-                    if (chunkInserted) inserted.push(...chunkInserted);
-                    success = true;
-                } catch (err: any) {
-                    attempts++;
-                    lastError = err;
-                    console.warn(`[importRetellAgents] Attempt ${attempts} failed for chunk ${chunkNum}:`, err.message || err);
-                    
-                    if (attempts >= maxAttempts) {
-                        // EXTREME FALLBACK: Try to upsert WITHOUT the potentially heavy llm_config
-                        console.log(`[importRetellAgents] Attempting CRITICAL FALLBACK (no config) for agent...`);
-                        try {
-                            const lightChunk = chunk.map(r => ({
-                                ...r,
-                                prompt_text_retell: "--- Configuración demasiado pesada omitida automáticamente ---",
-                                retell_llm_config: { warning: "Payload exceeds network limits", size_kb: Math.round(payloadSize/1024) }
-                            }));
-                            
-                            const { data: lightInserted, error: lightError } = await (supabase
-                                .from('voice_agents' as any) as any)
-                                .upsert(lightChunk, { onConflict: 'tenant_id,provider_agent_id' })
-                                .select('id, provider_agent_id');
-                            
-                            if (!lightError && lightInserted) {
-                                inserted.push(...lightInserted);
-                                console.log("[importRetellAgents] Fallback success: Agent imported without config.");
-                                success = true;
-                                break;
-                            }
-                        } catch (err) {
-                            console.error("[importRetellAgents] Fallback also failed.", err);
-                        }
-                    } else {
-                        await sleep(1000 * attempts);
-                    }
-                }
-            }
-
-            if (!success) {
-                const msg = lastError?.message || lastError || "Unknown error";
-                console.error(`[importRetellAgents] Upsert PERMANENTLY FAILED at chunk ${chunkNum}:`, msg);
-                throw new Error(`Error fatal (Agente ${chunkNum}/${records.length}, Tamaño: ${Math.round(payloadSize/1024)}KB): ${msg}.`);
-            }
-
-            if (i + upsertChunkSize < records.length) {
-                await sleep(delayBetweenChunks);
-            }
+            if (upsertError) throw upsertError;
+            if (chunkInserted) inserted.push(...chunkInserted);
         }
 
-        // 4. Create default A/B variant stubs ONLY for the truly new ones? 
-        // Actually, to keep it simple, we skip variant creation if they already had them, 
-        // but the current logic creates them for everything 'inserted'.
-        // If we want to avoid double variants, we should check which were existing.
-        // For now, let's just complete the import.
         const variantRows = (inserted || []).flatMap((row: any) => {
-            // Check if this agent already has variants to avoid duplicates
-            // Implementation detail: we could check existingIds here if we still had it
-            
-            // To be safe and avoid cluttering, let's only create variants for the agents that record says were new.
-            // But 'upsert' returns all rows. We'll skip variants for now in this pass to avoid duplicates, 
-            // or just let them be if the DB has a unique constraint on (agent_id, version_label, is_variant_b).
-            
             const agentInfo = records.find(r => r.provider_agent_id === row.provider_agent_id);
             const prompt = agentInfo?.prompt_text_retell || "";
-
             return [
                 { agent_id: row.id, is_variant_b: false, version_label: 'v1.0', prompt_text: prompt, weight: 0.5 },
                 { agent_id: row.id, is_variant_b: true, version_label: 'v1.0', prompt_text: prompt, weight: 0.5 },
@@ -297,24 +194,14 @@ export async function importRetellAgents(
         });
 
         if (variantRows.length > 0) {
-            // Use upsert for variants too to avoid unique constraint violations
-            const { error: variantError } = await (supabase.from('voice_agent_variants' as any) as any)
+            await (supabase.from('voice_agent_variants' as any) as any)
                 .upsert(variantRows, { onConflict: 'agent_id,version_label,is_variant_b' });
-            
-            if (variantError) {
-                console.warn("[importRetellAgents] Variant upsert warning:", variantError.message || variantError);
-            }
         }
 
-        return {
-            success: true,
-            imported: retellAgents.length,
-            skipped: 0
-        };
+        revalidatePath("/dashboard/voice-agents");
+        return { success: true, imported: retellAgents.length };
     } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : JSON.stringify(error);
-        console.error("Error importRetellAgents:", message);
-        return { success: false, error: message };
+        console.error("Error importRetellAgents:", error);
+        return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
     }
 }
-

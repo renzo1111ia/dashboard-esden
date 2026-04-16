@@ -1,14 +1,18 @@
 "use server";
 
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getAdminSupabaseClient, getActiveTenantId } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { Campana } from "@/types/database";
 
 export async function createCampaign(data: Partial<Campana>) {
     try {
-        const supabase = await getSupabaseServerClient();
+        const client = await getAdminSupabaseClient();
+        const tenantId = await getActiveTenantId();
         
+        if (!tenantId) return { success: false, error: "No hay un cliente activo seleccionado." };
+
         const campaignData = {
+            tenant_id: tenantId,
             nombre: data.nombre,
             descripcion: data.descripcion,
             estado: data.estado || "ACTIVA",
@@ -18,8 +22,8 @@ export async function createCampaign(data: Partial<Campana>) {
             agente_llamada_id: data.agente_llamada_id,
         };
 
-        const { data: newCampaign, error } = await (supabase
-            .from("campanas") as any)
+        const { data: newCampaign, error } = await (client
+            .from("campanas" as any) as any)
             .insert(campaignData)
             .select()
             .single();
@@ -39,10 +43,14 @@ export async function createCampaign(data: Partial<Campana>) {
 
 export async function getCampaigns() {
     try {
-        const supabase = await getSupabaseServerClient();
-        const { data, error } = await supabase
-            .from("campanas")
+        const supabase = await getAdminSupabaseClient();
+        const tenantId = await getActiveTenantId();
+        if (!tenantId) return [];
+
+        const { data, error } = await (supabase
+            .from("campanas" as any) as any)
             .select("*")
+            .eq("tenant_id", tenantId)
             .order("fecha_creacion", { ascending: false });
 
         if (error) throw new Error(error.message);

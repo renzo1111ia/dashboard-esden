@@ -1,7 +1,6 @@
 "use server";
 
-import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { getActiveTenantConfig } from "./tenant";
+import { getAdminSupabaseClient, getActiveTenantId } from "@/lib/supabase/server";
 
 export interface Advisor {
     id: string;
@@ -37,14 +36,14 @@ export interface Appointment {
 // ─── Advisors ─────────────────────────────────────────────────────
 
 export async function getAdvisors() {
-    const tenant = await getActiveTenantConfig();
-    if (!tenant) return { error: "No tenant" };
+    const tenantId = await getActiveTenantId();
+    if (!tenantId) return { error: "No hay un cliente seleccionado." };
 
-    const supabase = await getSupabaseServerClient();
+    const supabase = await getAdminSupabaseClient();
     const { data, error } = await (supabase
         .from("advisors" as any) as any)
         .select("*")
-        .eq("tenant_id", tenant.id)
+        .eq("tenant_id", tenantId)
         .order("name");
 
     if (error) return { error: error.message };
@@ -52,11 +51,11 @@ export async function getAdvisors() {
 }
 
 export async function saveAdvisor(advisor: Partial<Advisor> & { id?: string }) {
-    const tenant = await getActiveTenantConfig();
-    if (!tenant) return { error: "No tenant" };
+    const tenantId = await getActiveTenantId();
+    if (!tenantId) return { error: "No hay un cliente seleccionado." };
 
-    const supabase = await getSupabaseServerClient();
-    const payload = { ...advisor, tenant_id: tenant.id };
+    const supabase = await getAdminSupabaseClient();
+    const payload = { ...advisor, tenant_id: tenantId };
 
     const { data, error } = advisor.id
         ? await (supabase.from("advisors" as any) as any).update(payload as any).eq("id", advisor.id).select().single()
@@ -67,7 +66,7 @@ export async function saveAdvisor(advisor: Partial<Advisor> & { id?: string }) {
 }
 
 export async function deleteAdvisor(advisorId: string) {
-    const supabase = await getSupabaseServerClient();
+    const supabase = await getAdminSupabaseClient();
     const { error } = await (supabase.from("advisors" as any) as any).delete().eq("id", advisorId);
     if (error) return { error: error.message };
     return { success: true };
@@ -76,7 +75,7 @@ export async function deleteAdvisor(advisorId: string) {
 // ─── Availability Slots ───────────────────────────────────────────
 
 export async function getAdvisorSlots(advisorId: string) {
-    const supabase = await getSupabaseServerClient();
+    const supabase = await getAdminSupabaseClient();
     const { data, error } = await (supabase
         .from("availability_slots" as any) as any)
         .select("*")
@@ -88,8 +87,7 @@ export async function getAdvisorSlots(advisorId: string) {
 }
 
 export async function saveAdvisorSlots(advisorId: string, slots: Partial<AvailabilitySlot>[]) {
-    const supabase = await getSupabaseServerClient();
-    // Delete existing and re-insert (simplest approach for slot management)
+    const supabase = await getAdminSupabaseClient();
     await (supabase.from("availability_slots" as any) as any).delete().eq("advisor_id", advisorId);
 
     if (slots.length === 0) return { success: true };
@@ -110,14 +108,14 @@ export async function getAppointments(options?: {
     advisorId?: string;
     status?: string;
 }) {
-    const tenant = await getActiveTenantConfig();
-    if (!tenant) return { error: "No tenant" };
+    const tenantId = await getActiveTenantId();
+    if (!tenantId) return { error: "No hay un cliente seleccionado." };
 
-    const supabase = await getSupabaseServerClient();
+    const supabase = await getAdminSupabaseClient();
     let query = (supabase
         .from("appointments" as any) as any)
         .select("*, advisors(name), lead(nombre, apellido, telefono)")
-        .eq("tenant_id", tenant.id)
+        .eq("tenant_id", tenantId)
         .order("scheduled_at", { ascending: true });
 
     if (options?.from) query = query.gte("scheduled_at", options.from);
@@ -131,7 +129,7 @@ export async function getAppointments(options?: {
 }
 
 export async function updateAppointmentStatus(appointmentId: string, status: string) {
-    const supabase = await getSupabaseServerClient();
+    const supabase = await getAdminSupabaseClient();
     const { error } = await (supabase
         .from("appointments" as any) as any)
         .update({ status, updated_at: new Date().toISOString() } as any)
@@ -144,14 +142,14 @@ export async function updateAppointmentStatus(appointmentId: string, status: str
 // ─── AB Metrics ───────────────────────────────────────────────────
 
 export async function getABMetrics(agentId?: string) {
-    const tenant = await getActiveTenantConfig();
-    if (!tenant) return { error: "No tenant" };
+    const tenantId = await getActiveTenantId();
+    if (!tenantId) return { error: "No hay un cliente seleccionado." };
 
-    const supabase = await getSupabaseServerClient();
+    const supabase = await getAdminSupabaseClient();
     let query = (supabase
         .from("orchestration_logs" as any) as any)
         .select("ab_variant, result, action_type, agent_used, executed_at")
-        .eq("tenant_id", tenant.id)
+        .eq("tenant_id", tenantId)
         .not("ab_variant", "is", null);
 
     if (agentId) query = query.eq("agent_used", agentId);
@@ -159,10 +157,10 @@ export async function getABMetrics(agentId?: string) {
     const { data, error } = await query;
     if (error) return { error: error.message };
 
-    // Aggregate
     const stats = { A: { total: 0, success: 0 }, B: { total: 0, success: 0 } };
     (data || []).forEach((row: any) => {
         const v = row.ab_variant as "A" | "B";
+        if (v !== "A" && v !== "B") return;
         if (!stats[v]) return;
         stats[v].total++;
         if (row.result === "SUCCESS") stats[v].success++;
