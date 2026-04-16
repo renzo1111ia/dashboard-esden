@@ -371,7 +371,7 @@ export default function AIAgentInbox() {
                                             {lead.nombre || lead.apellido ? `${lead.nombre || ''} ${lead.apellido || ''}` : lead.telefono || "Sin Nombre"}
                                         </p>
                                         <span className="text-[9px] font-bold text-white/20 uppercase tracking-tighter">
-                                            {formatTime(lead.last_message_time)}
+                                            {formatTime(lead.last_message_time || undefined)}
                                         </span>
                                     </div>
                                     <p className={cn(
