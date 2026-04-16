@@ -29,7 +29,7 @@ export interface InboxLead {
     foto_url: string | null;
     is_ai_enabled: boolean;
     last_message?: string;
-    last_message_time?: string;
+    last_message_time?: string | null;
     unread_count?: number;
     // Fields for detailed view
     tipo_lead?: string | null;
@@ -37,7 +37,7 @@ export interface InboxLead {
     origen?: string | null;
     campana?: string | null;
     segmentacion?: 'PUESTO 1' | 'REVISADO' | 'CUALIFICADO' | 'SIN INTERÉS' | null;
-    created_at?: string;
+    created_at?: string | null;
 }
 
 export async function updateLeadSegment(leadId: string, segment: InboxLead['segmentacion']): Promise<{ success: boolean; error?: string }> {
@@ -105,8 +105,8 @@ export async function getInboxLeads(): Promise<{ success: boolean; data?: InboxL
                 foto_url: (l as any).foto_url || null,
                 is_ai_enabled: l.is_ai_enabled ?? true,
                 last_message: msg?.content || "Nueva conversación (sin mensajes)",
-                last_message_time: msg?.time || l.fecha_creacion, // Use creation time if no messages
-                created_at: l.fecha_creacion,
+                last_message_time: msg?.time || l.fecha_creacion || null, 
+                created_at: l.fecha_creacion || null,
                 tipo_lead: l.tipo_lead || 'SIN CALIFICAR',
                 pais: l.pais || 'Identificando...',
                 origen: l.origen || 'Manual / CRM',
