@@ -687,20 +687,6 @@ export default function AIAgentInbox() {
                                 </div>
                             </div>
 
-                            {/* CRM Quick Actions */}
-                            <div className="space-y-4 pt-4">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-white/20">Acciones CRM</p>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button className="p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all flex flex-col items-center gap-2 group">
-                                        <span className="text-xs font-black text-[#ff7a59]">HUB</span>
-                                        <span className="text-[9px] font-black text-white/40 group-hover:text-white transition-colors">HUBSPOT</span>
-                                    </button>
-                                    <button className="p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all flex flex-col items-center gap-2 group">
-                                        <span className="text-xs font-black text-[#00a1e0]">SF</span>
-                                        <span className="text-[9px] font-black text-white/40 group-hover:text-white transition-colors">SALESFORCE</span>
-                                    </button>
-                                </div>
-                            </div>
                         </div>
 
                         <div className="p-8 border-t border-white/5 bg-black/20">
