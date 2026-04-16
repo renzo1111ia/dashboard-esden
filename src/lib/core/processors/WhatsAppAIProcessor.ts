@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { whatsappBridge } from "../../integrations/whatsapp";
 import OpenAI from "openai";
+import { queryKnowledgeBase } from "../../integrations/aws/bedrock";
 
 /**
  * WHATSAPP AI PROCESSOR (CEREBRO)
@@ -83,10 +84,17 @@ INFORMACIÓN DEL CURSO:
             return;
         }
 
-        // 5. Initialize OpenAI with Tenant Key
+        // 5. Get Deep Knowledge from AWS Bedrock (RAG)
+        // Consultamos la base de conocimientos de Automatiza Formación para obtener datos técnicos precisos
+        const kbResults = await queryKnowledgeBase(incomingMessage, activeVariant.knowledge_base_id);
+        const deepKnowledgeContext = kbResults.length > 0 
+            ? `\nCONOCIMIENTO ADICIONAL (AWS):\n${kbResults.map(r => `- ${r.text}`).join("\n")}\n`
+            : "";
+
+        // 6. Initialize OpenAI with Tenant Key
         const openai = new OpenAI({ apiKey });
 
-        // 6. Build Prompt
+        // 7. Build Prompt
         const systemPrompt = `
 ${activeVariant.prompt_text}
 
@@ -95,6 +103,7 @@ CONTEXTO DEL LEAD:
 - Email: ${lead.email || "No proveído"}
 - País: ${lead.pais || "No proveído"}
 ${courseContext}
+${deepKnowledgeContext}
 
 HISTORIAL DE CONVERSACIÓN RECIENTE:
 ${conversationHistory}

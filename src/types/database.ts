@@ -262,6 +262,7 @@ export interface AIAgentVariant {
     model_provider?: 'OPENAI' | 'ANTHROPIC' | 'GEMINI';
     model_name?: string;
     api_key?: string;
+    knowledge_base_id?: string | null;
     is_active: boolean;
     is_variant_b: boolean;
     weight: number;

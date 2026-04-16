@@ -387,12 +387,38 @@ export default function AgentsPage() {
                                             })}
                                         </div>
 
+                                        {/* AWS Knowledge Base Config */}
+                                        <div className="pt-4 border-t border-white/5 space-y-4">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <Brain className="h-4 w-4 text-emerald-400" />
+                                                    <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Memoria de la IA (AWS Bedrock)</p>
+                                                </div>
+                                            </div>
+                                            <div className="relative">
+                                                <input 
+                                                    type="text"
+                                                    value={(activeTab === 'A' ? variantA : variantB).knowledge_base_id || ""}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        if (activeTab === 'A') setVariantA(prev => ({...prev, knowledge_base_id: val}));
+                                                        else setVariantB(prev => ({...prev, knowledge_base_id: val}));
+                                                    }}
+                                                    placeholder="Introduce el ID de tu Knowledge Base (ej: G9P0FC3S29)..."
+                                                    className="w-full h-12 bg-black/40 border border-white/5 rounded-xl px-4 text-xs font-mono text-white/80 placeholder:text-white/10 focus:border-emerald-500/40 focus:bg-emerald-500/5 transition-all outline-none"
+                                                />
+                                            </div>
+                                            <p className="text-[9px] text-white/20 italic">
+                                                * Al proporcionar un ID, el agente consultará automáticamente tus documentos en S3 antes de responder por WhatsApp.
+                                            </p>
+                                        </div>
+
                                         {/* API Key Input */}
                                         <div className="pt-4 border-t border-white/5 space-y-4">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
                                                     <Key className="h-4 w-4 text-white/40" />
-                                                    <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Credenciales de Acceso</p>
+                                                    <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Credenciales de Acceso (Model Provider)</p>
                                                 </div>
                                                 <button 
                                                     onClick={() => setShowApiKey(!showApiKey)}
