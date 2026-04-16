@@ -20,8 +20,8 @@ export async function runLaboratoryInjection(tenantId: string) {
         let isAdmin = false;
         try {
             isAdmin = await getAdminStatus();
-        } catch (e) {
-            console.error("[DEMO] Auth check failed:", e);
+        } catch (error) {
+            console.error("[DEMO] Auth check failed:", error);
             return { error: "Error de sesión al verificar permisos." };
         }
 
@@ -93,8 +93,8 @@ export async function runLaboratoryInjection(tenantId: string) {
                 content: "¡Bienvenido al Lab de Esden! Este es un mensaje de prueba.",
                 status: 'SENT'
             });
-        } catch (e) {
-            console.warn("[DEMO] Secondary activity failed:", e);
+        } catch (error) {
+            console.warn("[DEMO] Secondary activity failed:", error);
         }
 
         return { 
@@ -102,9 +102,67 @@ export async function runLaboratoryInjection(tenantId: string) {
             message: `¡Inyección Exitosa! Se ha creado el lead con ID ${lead.id.slice(0,8)}. Revisa el dashboard para ver los resultados.` 
         };
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
-        console.error("[DEMO] Critical Crash:", err);
-        return { error: `Error interno de ejecución: ${err.message || "Desconocido"}` };
+    } catch (err: unknown) {
+        const error = err as Error;
+        console.error("[DEMO] Critical Crash:", error);
+        return { error: `Error interno de ejecución: ${error.message || "Desconocido"}` };
+    }
+}
+
+export async function clearDemoData(tenantId: string) {
+    console.log(`[DEMO] 🧹 Limpiando datos demo para: ${tenantId}`);
+
+    try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY;
+        
+        if (!url || !key) return { error: "Configuración de Supabase incompleta." };
+        
+        const internalSupabase = createClient(url, key);
+
+        let isAdmin = false;
+        try {
+            isAdmin = await getAdminStatus();
+        } catch {
+            return { error: "Error de sesión." };
+        }
+
+        if (!isAdmin) return { error: "No tienes permisos de administrador." };
+        if (!tenantId) return { error: "ID de cliente no especificado." };
+
+        // 1. Borrar Leads con origen 'LAB DEMO'
+        // Esto borrará en cascada llamadas, mensajes de whatsapp, etc.
+        const { error: errLeads } = await internalSupabase
+            .from('lead')
+            .delete()
+            .eq('tenant_id', tenantId)
+            .eq('origen', 'LAB DEMO');
+
+        if (errLeads) {
+            console.error("[DEMO] Error al borrar leads:", errLeads);
+            return { error: `Error borrando leads: ${errLeads.message}` };
+        }
+
+        // 2. Borrar Campañas con nombre que empiece por 'Lab Demo'
+        const { error: errCamp } = await internalSupabase
+            .from('campanas')
+            .delete()
+            .eq('tenant_id', tenantId)
+            .like('nombre', 'Lab Demo%');
+
+        if (errCamp) {
+            console.error("[DEMO] Error al borrar campañas:", errCamp);
+            return { error: `Error borrando campañas: ${errCamp.message}` };
+        }
+
+        return { 
+            success: true, 
+            message: "Datos de demostración eliminados correctamente. El sistema está limpio." 
+        };
+
+    } catch (err: unknown) {
+        const error = err as Error;
+        console.error("[DEMO] Clear Data Crash:", error);
+        return { error: `Error interno: ${error.message}` };
     }
 }

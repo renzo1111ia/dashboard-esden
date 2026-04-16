@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useTenantStore } from "@/store/tenant";
-import { runLaboratoryInjection } from "@/lib/actions/demo";
+import { runLaboratoryInjection, clearDemoData } from "@/lib/actions/demo";
 import { 
     FlaskConical, 
     CheckCircle2, 
     AlertTriangle,
     Database,
-    Loader2
+    Loader2,
+    Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -42,9 +43,41 @@ export default function DemoSimulatorPage() {
                 setStatus('success');
                 setMessage(res.message || "Datos inyectados correctamente.");
             }
-        } catch (err: any) {
+        } catch (err) {
             setStatus('error');
-            setMessage(err.message || 'Error desconocido.');
+            setMessage(err instanceof Error ? err.message : 'Error desconocido.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleClear = async () => {
+        if (!tenantId) {
+            setStatus('error');
+            setMessage('No hay ningún cliente seleccionado.');
+            return;
+        }
+
+        if (!confirm(`¿Estás seguro de ELIMINAR TODOS los datos de prueba del cliente "${tenantName}"? Esto no afectará a los datos reales.`)) {
+            return;
+        }
+
+        setLoading(true);
+        setStatus('idle');
+        setMessage('');
+
+        try {
+            const res = await clearDemoData(tenantId);
+            if (res.error) {
+                setStatus('error');
+                setMessage(res.error);
+            } else {
+                setStatus('success');
+                setMessage(res.message || "Datos limpiados correctamente.");
+            }
+        } catch (err) {
+            setStatus('error');
+            setMessage(err instanceof Error ? err.message : 'Error desconocido.');
         } finally {
             setLoading(false);
         }
@@ -102,20 +135,20 @@ export default function DemoSimulatorPage() {
                             </button>
 
                             {status === 'success' && (
-                                <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 flex items-start gap-3">
+                                <div className="rounded-xl bg-emerald-50 border border-emerald-200 mt-4 p-4 flex items-start gap-3">
                                     <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
                                     <div>
-                                        <h4 className="text-sm font-bold text-emerald-800">¡Inyección Completada!</h4>
+                                        <h4 className="text-sm font-bold text-emerald-800">¡Acción Completada!</h4>
                                         <p className="text-xs text-emerald-600 mt-1">{message}</p>
                                     </div>
                                 </div>
                             )}
 
                             {status === 'error' && (
-                                <div className="rounded-xl bg-red-50 border border-red-200 p-4 flex items-start gap-3">
+                                <div className="rounded-xl bg-red-50 border border-red-200 mt-4 p-4 flex items-start gap-3">
                                     <AlertTriangle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
                                     <div>
-                                        <h4 className="text-sm font-bold text-red-800">Error en la inyección</h4>
+                                        <h4 className="text-sm font-bold text-red-800">Error en la operación</h4>
                                         <p className="text-xs text-red-600 mt-1">{message}</p>
                                     </div>
                                 </div>
@@ -125,23 +158,40 @@ export default function DemoSimulatorPage() {
 
                     <div className="space-y-4">
                         <div className="rounded-2xl border border-sidebar-border bg-card p-6 shadow-sm">
-                            <h3 className="font-bold text-card-foreground mb-2 flex items-center gap-2">
-                                <span className="h-6 w-6 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs">1</span> 
+                            <h3 className="font-bold text-card-foreground mb-2 flex items-center gap-2 text-sm">
+                                <span className="h-6 w-6 rounded-lg bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center text-[10px] font-black">01</span> 
                                 Aislamiento Multi-Tenant
                             </h3>
-                            <p className="text-sm text-muted-foreground leading-relaxed">
-                                Todos los datos inyectados heredan instantáneamente el <code>tenant_id</code> de <strong>{tenantName}</strong>. 
-                                Las políticas de seguridad RLS (Row Level Security) garantizan que estos datos jamás crucen a otro cliente.
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                                Los datos inyectados heredan el <code>tenant_id</code> de <strong>{tenantName}</strong>. 
+                                Las políticas RLS garantizan el aislamiento absoluto.
                             </p>
                         </div>
-                        <div className="rounded-2xl border border-sidebar-border bg-card p-6 shadow-sm">
-                            <h3 className="font-bold text-card-foreground mb-2 flex items-center gap-2">
-                                <span className="h-6 w-6 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs">2</span> 
-                                Efectos en el Dashboard
+                        
+                        <div className="rounded-2xl border border-red-200 bg-red-50/30 p-6 shadow-sm">
+                            <h3 className="font-bold text-red-900 mb-2 flex items-center gap-2 text-sm">
+                                <Trash2 className="h-5 w-5 text-red-600" />
+                                Gestión de Limpieza
                             </h3>
-                            <p className="text-sm text-muted-foreground leading-relaxed">
-                                Al inyectar datos, los gráficos del dashboard, la bandeja de WhatsApp y el orquestador registrarán al instante interacciones como si acabaran de ocurrir en tiempo real.
+                            <p className="text-xs text-red-800/80 leading-relaxed mb-4">
+                                Elimina únicamente los datos generados por este simulador (leads con origen &quot;LAB DEMO&quot;).
                             </p>
+                            <button
+                                onClick={handleClear}
+                                disabled={loading}
+                                className={cn(
+                                    "w-full h-11 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm transition-all flex items-center justify-center gap-2",
+                                    loading 
+                                        ? "bg-slate-200 text-slate-400 cursor-not-allowed" 
+                                        : "bg-white border border-red-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 shadow-red-100"
+                                )}
+                            >
+                                {loading ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <>Limpiar Datos Demo</>
+                                )}
+                            </button>
                         </div>
                     </div>
                 </div>
