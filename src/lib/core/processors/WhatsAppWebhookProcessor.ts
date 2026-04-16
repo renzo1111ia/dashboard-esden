@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { Database } from "@/types/database";
-import { whatsappBridge } from "../integrations/whatsapp";
+import { whatsappBridge } from "../../integrations/whatsapp";
 
 /**
  * WHATSAPP WEBHOOK PROCESSOR
