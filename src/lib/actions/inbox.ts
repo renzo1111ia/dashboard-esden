@@ -99,10 +99,10 @@ export async function getInboxLeads(): Promise<{ success: boolean; data?: InboxL
             const msg = latestMsgByLead.get(l.id);
             return {
                 id: l.id,
-                nombre: l.nombre,
-                apellido: l.apellido,
-                telefono: l.telefono,
-                foto_url: l.foto_url || null,
+                nombre: l.nombre || null,
+                apellido: l.apellido || null,
+                telefono: l.telefono || null,
+                foto_url: (l as any).foto_url || null,
                 is_ai_enabled: l.is_ai_enabled ?? true,
                 last_message: msg?.content || "Nueva conversación (sin mensajes)",
                 last_message_time: msg?.time || l.created_at, // Use creation time if no messages
