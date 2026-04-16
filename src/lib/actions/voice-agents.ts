@@ -193,8 +193,9 @@ export async function importRetellAgents(
             let attempts = 0;
             const maxAttempts = 3;
             let lastError = null;
+            let success = false;
 
-            while (attempts < maxAttempts) {
+            while (attempts < maxAttempts && !success) {
                 try {
                     const { data: chunkInserted, error: upsertError } = await (supabase
                         .from('voice_agents' as any) as any)
@@ -210,26 +211,48 @@ export async function importRetellAgents(
                     }
                     
                     if (chunkInserted) inserted.push(...chunkInserted);
-                    
-                    // Success!
-                    break;
+                    success = true;
                 } catch (err: any) {
                     attempts++;
                     lastError = err;
                     console.warn(`[importRetellAgents] Attempt ${attempts} failed for chunk ${chunkNum}:`, err.message || err);
-                    if (attempts < maxAttempts) {
-                        await sleep(1000 * attempts); // Exponential-ish backoff
+                    
+                    if (attempts >= maxAttempts) {
+                        // EXTREME FALLBACK: Try to upsert WITHOUT the potentially heavy llm_config
+                        console.log(`[importRetellAgents] Attempting CRITICAL FALLBACK (no config) for agent...`);
+                        try {
+                            const lightChunk = chunk.map(r => ({
+                                ...r,
+                                prompt_text_retell: "--- Configuración demasiado pesada omitida automáticamente ---",
+                                retell_llm_config: { warning: "Payload exceeds network limits", size_kb: Math.round(payloadSize/1024) }
+                            }));
+                            
+                            const { data: lightInserted, error: lightError } = await (supabase
+                                .from('voice_agents' as any) as any)
+                                .upsert(lightChunk, { onConflict: 'tenant_id,provider_agent_id' })
+                                .select('id, provider_agent_id');
+                            
+                            if (!lightError && lightInserted) {
+                                inserted.push(...lightInserted);
+                                console.log("[importRetellAgents] Fallback success: Agent imported without config.");
+                                success = true;
+                                break;
+                            }
+                        } catch (fallbackErr) {
+                            console.error("[importRetellAgents] Fallback also failed.");
+                        }
+                    } else {
+                        await sleep(1000 * attempts);
                     }
                 }
             }
 
-            if (attempts >= maxAttempts) {
+            if (!success) {
                 const msg = lastError?.message || lastError || "Unknown error";
                 console.error(`[importRetellAgents] Upsert PERMANENTLY FAILED at chunk ${chunkNum}:`, msg);
-                throw new Error(`Error fatal en la base de datos (Agente ${chunkNum}/${records.length}): ${msg}. Inténtalo de nuevo en unos minutos.`);
+                throw new Error(`Error fatal (Agente ${chunkNum}/${records.length}, Tamaño: ${Math.round(payloadSize/1024)}KB): ${msg}.`);
             }
 
-            // Small breather to avoid saturating the database / fetch client
             if (i + upsertChunkSize < records.length) {
                 await sleep(delayBetweenChunks);
             }
