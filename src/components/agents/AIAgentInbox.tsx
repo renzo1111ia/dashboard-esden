@@ -20,6 +20,7 @@ import { getWhatsAppTemplates } from "@/lib/actions/orchestration";
 import { AgentFlowBuilder } from "@/components/orchestrator/AgentFlowBuilder";
 import { useTenantStore } from "@/store/tenant";
 import { CreateLeadDialog } from "@/components/historial/CreateLeadDialog";
+import { getSupabaseClient } from "@/lib/supabase/client";
 import type { LucideIcon } from "lucide-react";
 
 
@@ -133,12 +134,60 @@ export default function AIAgentInbox() {
         setSending(true);
         const res = await sendManualMessage(selectedLead.id, messageText.trim(), "TEXT");
         if (res.success && res.data) {
-            setMessages((prev: ChatMessage[]) => [...prev, res.data as ChatMessage]);
+            // No need to manually update messages if realtime is working, 
+            // but keeping it for immediate feedback feeling.
+            setMessages((prev: ChatMessage[]) => {
+                if (prev.find(m => m.id === res.data.id)) return prev;
+                return [...prev, res.data as ChatMessage];
+            });
             setMessageText("");
             setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
         }
         setSending(false);
     };
+
+    // --- Realtime Subscription ---
+    useEffect(() => {
+        const supabase = getSupabaseClient();
+        const tenantId = useTenantStore.getState().tenantId;
+        
+        if (!tenantId) return;
+
+        console.log(`[REALTIME] Subscribing to chat_messages for tenant: ${tenantId}`);
+
+        const channel = supabase
+            .channel('public:chat_messages')
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'chat_messages',
+                    filter: `tenant_id=eq.${tenantId}`
+                },
+                (payload) => {
+                    const newMessage = payload.new as ChatMessage;
+                    console.log("[REALTIME] New message received:", newMessage);
+
+                    // 1. Update messages if current lead is selected
+                    if (selectedLead && newMessage.lead_id === selectedLead.id) {
+                        setMessages((prev) => {
+                            if (prev.find(m => m.id === newMessage.id)) return prev;
+                            return [...prev, newMessage];
+                        });
+                        setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+                    }
+
+                    // 2. Refresh leads list to update "last message" and order
+                    loadLeads();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [selectedLead, loadLeads]);
 
     const handleSendTemplate = async (templateName: string) => {
         if (!selectedLead) return;

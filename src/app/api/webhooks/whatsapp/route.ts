@@ -1,0 +1,76 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { Database } from "@/types/database";
+
+/**
+ * WHATSAPP WEBHOOK (META CLOUD API)
+ * GET: Verification for Meta Dashboard
+ * POST: Incoming messages and status updates
+ */
+
+const VERIFY_TOKEN = "automatiza_for_2025";
+
+// Verification Endpoint (GET)
+export async function GET(req: Request) {
+    const { searchParams } = new URL(req.url);
+    const mode = searchParams.get("hub.mode");
+    const token = searchParams.get("hub.verify_token");
+    const challenge = searchParams.get("hub.challenge");
+
+    if (mode === "subscribe" && token === VERIFY_TOKEN) {
+        console.log("[WHATSAPP WEBHOOK] ✅ Webhook verified successfully.");
+        return new Response(challenge, { status: 200 });
+    }
+
+    console.warn("[WHATSAPP WEBHOOK] ❌ Verification failed. Invalid token.");
+    return new Response("Forbidden", { status: 403 });
+}
+
+// Message Receiver (POST)
+export async function POST(req: Request) {
+    try {
+        const body = await req.json();
+
+        // 1. Basic Structure check
+        if (body.object !== "whatsapp_business_account") {
+            return NextResponse.json({ error: "Invalid object type" }, { status: 400 });
+        }
+
+        const entries = body.entry || [];
+        for (const entry of entries) {
+            const changes = entry.changes || [];
+            for (const change of changes) {
+                const value = change.value;
+                if (!value) continue;
+
+                // ── A. Handle Status Updates (Sent, Delivered, Read) ──
+                if (value.statuses) {
+                    for (const status of value.statuses) {
+                        console.log(`[WHATSAPP WEBHOOK] Status Update: ${status.status} for message ${status.id}`);
+                        // Logic to update `chat_messages` status can be added here
+                    }
+                }
+
+                // ── B. Handle Incoming Messages ──
+                if (value.messages) {
+                    for (const message of value.messages) {
+                        const from = message.from; // Phone number (sender)
+                        const wabaId = value.metadata?.phone_number_id;
+
+                        // Delegate processing to a core processor to keep the API route clean 
+                        // and handle heavy logic (AI, DB) asynchronously or via worker if needed.
+                        const { processIncomingWhatsApp } = await import("@/lib/core/processors/WhatsAppWebhookProcessor");
+                        
+                        await processIncomingWhatsApp(from, message, wabaId);
+                    }
+                }
+            }
+        }
+
+        return NextResponse.json({ success: true });
+
+    } catch (error: any) {
+        console.error("[WHATSAPP WEBHOOK POST] Error:", error.message);
+        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    }
+}
