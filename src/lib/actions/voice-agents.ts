@@ -153,7 +153,23 @@ export async function importRetellAgents(
                 }
 
                 const prompt = (detail.success && detail.data) ? detail.data.prompt : "";
-                const llmConfig = (detail.success && detail.data) ? detail.data.llm_config : null;
+                const llmConfigRaw = (detail.success && detail.data) ? detail.data.llm_config : null;
+                
+                // SANITIZE: Remove potentially massive and unnecessary fields from config before saving
+                let llmConfig = llmConfigRaw;
+                if (llmConfigRaw) {
+                    // Deep copy to avoid mutating original if needed
+                    llmConfig = { ...llmConfigRaw };
+                    // Remove common heavy metadata that we don't use in dashboard UI
+                    if (llmConfig.states) {
+                        llmConfig.states = llmConfig.states.map((s: any) => ({
+                            name: s.name,
+                            state_prompt: s.state_prompt,
+                            // Keep edges but simplify them?
+                            edges: s.edges
+                        }));
+                    }
+                }
                 
                 records.push({
                     tenant_id: tenantId,
@@ -238,8 +254,8 @@ export async function importRetellAgents(
                                 success = true;
                                 break;
                             }
-                        } catch (fallbackErr) {
-                            console.error("[importRetellAgents] Fallback also failed.");
+                        } catch (err) {
+                            console.error("[importRetellAgents] Fallback also failed.", err);
                         }
                     } else {
                         await sleep(1000 * attempts);

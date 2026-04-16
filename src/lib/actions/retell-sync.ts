@@ -77,7 +77,7 @@ export async function syncRetellResources(apiKey: string) {
         const numbers: RetellPhoneNumber[] = await numbersRes.json();
 
         // 3. Fetch Voices
-        const voicesRes = await fetch("https://api.retellai.com/list-voices", { headers });
+        const voicesRes = await fetch("https://api.retellai.com/list-voices?limit=1000", { headers });
         let voices: RetellVoiceResponse[] = [];
         if (voicesRes.ok) {
             voices = await voicesRes.json();
@@ -186,7 +186,7 @@ export async function listRetellVoices(apiKey: string) {
     if (!apiKey) return { success: false, error: "API Key is required" };
 
     try {
-        const res = await fetch("https://api.retellai.com/list-voices", {
+        const res = await fetch("https://api.retellai.com/list-voices?limit=1000", {
             headers: { "Authorization": `Bearer ${apiKey}` }
         });
         if (!res.ok) throw new Error(`Failed to fetch voices from Retell (${res.status})`);
