@@ -1,6 +1,6 @@
 "use server";
 
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseServerClient, getAdminSupabaseClient } from "@/lib/supabase/server";
 import { getActiveTenantConfig } from "./tenant";
 import { whatsappBridge, WhatsAppConfig } from "../integrations/whatsapp";
 
@@ -38,7 +38,7 @@ export interface InboxLead {
 }
 
 export async function updateLeadSegment(leadId: string, segment: InboxLead['segmentacion']): Promise<{ success: boolean; error?: string }> {
-    const supabase = await getSupabaseServerClient();
+    const supabase = await getAdminSupabaseClient();
     const { error } = await (supabase
         .from('lead')
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -50,73 +50,77 @@ export async function updateLeadSegment(leadId: string, segment: InboxLead['segm
 }
 
 /**
- * Gets the list of leads that have conversations, sorted by most recent message.
+ * Gets the list of ALL leads for the current tenant, attaching their most recent message if it exists.
+ * Upgraded to show leads even if they don't have conversation history yet.
  */
 export async function getInboxLeads(): Promise<{ success: boolean; data?: InboxLead[]; error?: string }> {
     const tenant = await getActiveTenantConfig();
-    if (!tenant) return { success: false, error: "No tenant" };
+    if (!tenant) return { success: false, error: "No se encontró configuración de tenant activa." };
 
-    const supabase = await getSupabaseServerClient();
-    
-    // 1. Fetch distinct lead IDs that have messages
-    const { data: recentMessages, error } = await supabase
-        .from("chat_messages")
-        .select(`
-            lead_id,
-            content,
-            created_at
-        `)
-        .eq("tenant_id", tenant.id)
-        .order("created_at", { ascending: false });
+    try {
+        const supabase = await getAdminSupabaseClient();
+        
+        // 1. Fetch ALL leads for this tenant (Limit to 50 most recent for performance)
+        const { data: leads, error: leadError } = await supabase
+            .from("lead")
+            .select("*")
+            .eq("tenant_id", tenant.id)
+            .order("created_at", { ascending: false })
+            .limit(50);
 
-    if (error) return { success: false, error: error.message };
+        if (leadError) throw leadError;
+        if (!leads || leads.length === 0) return { success: true, data: [] };
 
-    // 2. Group by lead_id to keep ONLY the most recent message
-    const latestMsgByLead = new Map<string, { content: string; time: string }>();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (recentMessages as any[] || []).forEach(m => {
-        if (m.lead_id && !latestMsgByLead.has(m.lead_id)) {
-            latestMsgByLead.set(m.lead_id, { content: m.content, time: m.created_at });
-        }
-    });
+        const leadIds = leads.map(l => l.id);
 
-    const leadIds = Array.from(latestMsgByLead.keys());
-    if (leadIds.length === 0) return { success: true, data: [] };
+        // 2. Fetch the most recent message for each of these leads
+        const { data: messages, error: msgError } = await supabase
+            .from("chat_messages")
+            .select("lead_id, content, created_at")
+            .in("lead_id", leadIds)
+            .order("created_at", { ascending: false });
 
-    // 3. Fetch full lead details for those IDs
-    const { data: leads, error: leadError } = await supabase
-        .from("lead")
-        .select("*")
-        .in("id", leadIds);
+        if (msgError) throw msgError;
 
-    if (leadError) return { success: false, error: leadError.message };
+        // 3. Map latest messages to their leads
+        const latestMsgByLead = new Map<string, { content: string; time: string }>();
+        (messages as any[] || []).forEach(m => {
+            if (m.lead_id && !latestMsgByLead.has(m.lead_id)) {
+                latestMsgByLead.set(m.lead_id, { content: m.content, time: m.created_at });
+            }
+        });
 
-    // 4. Combine and Map
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const results: InboxLead[] = (leads as any[] || []).map(l => {
-        const msg = latestMsgByLead.get(l.id);
-        return {
-            id: l.id,
-            nombre: l.nombre,
-            apellido: l.apellido,
-            telefono: l.telefono,
-            foto_url: l.foto_url || null,
-            is_ai_enabled: l.is_ai_enabled ?? true,
-            last_message: msg?.content || "",
-            last_message_time: msg?.time || "",
-            created_at: l.fecha_primer_contacto || l.created_at,
-            tipo_lead: l.tipo_lead || 'SIN CALIFICAR',
-            pais: l.pais || 'España',
-            origen: l.origen || 'Web Simulator',
-            campana: l.campana || 'General',
-            unread_count: 0
-        };
-    });
+        // 4. Transform into InboxLead objects
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const results: InboxLead[] = (leads as any[]).map(l => {
+            const msg = latestMsgByLead.get(l.id);
+            return {
+                id: l.id,
+                nombre: l.nombre,
+                apellido: l.apellido,
+                telefono: l.telefono,
+                foto_url: l.foto_url || null,
+                is_ai_enabled: l.is_ai_enabled ?? true,
+                last_message: msg?.content || "Nueva conversación (sin mensajes)",
+                last_message_time: msg?.time || l.created_at, // Use creation time if no messages
+                created_at: l.created_at,
+                tipo_lead: l.tipo_lead || 'SIN CALIFICAR',
+                pais: l.pais || 'Identificando...',
+                origen: l.origen || 'Manual / CRM',
+                campana: l.campana || 'General',
+                segmentacion: l.segmentacion || null,
+                unread_count: 0
+            };
+        });
 
-    // Sort by message time descending
-    results.sort((a, b) => new Date(b.last_message_time || 0).getTime() - new Date(a.last_message_time || 0).getTime());
+        // 5. Final Sort: By message time (or creation time if new) descending
+        results.sort((a, b) => new Date(b.last_message_time || 0).getTime() - new Date(a.last_message_time || 0).getTime());
 
-    return { success: true, data: results };
+        return { success: true, data: results };
+    } catch (e: any) {
+        console.error("[INBOX_LEADS] Error:", e.message);
+        return { success: false, error: e.message };
+    }
 }
 
 /**
@@ -126,7 +130,7 @@ export async function getChatHistory(leadId: string): Promise<{ success: boolean
     const tenant = await getActiveTenantConfig();
     if (!tenant) return { success: false, error: "No tenant" };
 
-    const supabase = await getSupabaseServerClient();
+    const supabase = await getAdminSupabaseClient();
     
     // Fetch Messages
     const { data: messages, error: msgError } = await supabase
@@ -185,7 +189,7 @@ export async function sendManualMessage(
     const tenant = await getActiveTenantConfig();
     if (!tenant) return { success: false, error: "No tenant" };
 
-    const supabase = await getSupabaseServerClient();
+    const supabase = await getAdminSupabaseClient();
 
     // 1. Fetch Lead data (for phone and name)
     const { data: leadRaw, error: leadError } = await supabase
@@ -269,7 +273,7 @@ export async function injectMockupMessage(
     const tenant = await getActiveTenantConfig();
     if (!tenant) return;
 
-    const supabase = await getSupabaseServerClient();
+    const supabase = await getAdminSupabaseClient();
     await supabase.from("chat_messages").insert({
         tenant_id: tenant.id,
         lead_id: leadId,
@@ -285,7 +289,7 @@ export async function injectMockupMessage(
  * Toggles the AI agent status for a specific lead.
  */
 export async function toggleLeadAI(leadId: string, enabled: boolean): Promise<{ success: boolean; error?: string }> {
-    const supabase = await getSupabaseServerClient();
+    const supabase = await getAdminSupabaseClient();
     const { error } = await (supabase
         .from("lead")
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
