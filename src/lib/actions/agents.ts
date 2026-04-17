@@ -72,7 +72,10 @@ export async function saveAgentVariant(variant: Partial<AIAgentVariant>) {
     const { data, error } = await (supabase
         .from("ai_agent_variants" as any) as any)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .upsert(variant as any)
+        .upsert(variant as any, { 
+            onConflict: 'agent_id,is_variant_b',
+            ignoreDuplicates: false 
+        })
         .select()
         .single();
 

@@ -150,9 +150,15 @@ export default function AgentsPage() {
         if (!selectedAgent) return;
         setSaving(true);
         try {
-            await saveAgentVariant(variantA);
-            await saveAgentVariant(variantB);
+            const resA = await saveAgentVariant(variantA);
+            const resB = await saveAgentVariant(variantB);
+            
+            if (resA.success && resA.data) setVariantA(resA.data);
+            if (resB.success && resB.data) setVariantB(resB.data);
+
             alert("Cambios de prompts publicados correctamente.");
+        } catch (err: any) {
+            alert("Error al guardar: " + err.message);
         } finally {
             setSaving(false);
         }

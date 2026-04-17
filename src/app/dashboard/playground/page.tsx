@@ -138,11 +138,16 @@ export default function OrchestratorPlaygroundPage() {
                     </div>
                 </div>
                 <button
-                    onClick={loadData}
-                    title="Refrescar datos"
-                    className="flex items-center gap-2 h-10 px-4 border border-white/10 rounded-xl text-white/40 hover:bg-white/5 text-xs font-bold uppercase tracking-widest"
+                    onClick={() => {
+                        loadData();
+                        setLogs([]);
+                        setStatus("idle");
+                        setSelectedLead(null);
+                    }}
+                    title="Reiniciar todo el laboratorio"
+                    className="flex items-center gap-2 h-10 px-4 border border-white/10 rounded-xl text-white/40 hover:bg-white/5 text-xs font-bold uppercase tracking-widest transition-all hover:text-white"
                 >
-                    <RotateCcw className="h-3.5 w-3.5" /> Refrescar
+                    <RotateCcw className="h-3.5 w-3.5" /> Reiniciar Laboratorio
                 </button>
             </div>
 
