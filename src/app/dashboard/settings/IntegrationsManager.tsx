@@ -3,7 +3,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { 
     MessageSquare, Key, Phone, Mic, 
-    PhoneCall, Zap, RefreshCw, CheckCircle2 
+    PhoneCall, Zap, RefreshCw, CheckCircle2, Brain 
 } from "lucide-react";
 import { syncRetellResources } from "@/lib/actions/retell-sync";
 import { syncWhatsAppTemplates } from "@/lib/actions/whatsapp-sync";
@@ -311,6 +311,21 @@ export function IntegrationsManager({ tenantId, config, onChange }: Integrations
                             className="h-11 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 rounded-xl text-sm"
                         />
                     </div>
+                    <div className="space-y-2 text-left">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">Verify Token (Para Webhook)</Label>
+                        <Input 
+                            value={whatsapp.verifyToken}
+                            onChange={(e) => updateField('whatsapp', { verifyToken: e.target.value })}
+                            placeholder="automatiza_for_2025"
+                            className="h-11 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 rounded-xl text-sm"
+                        />
+                    </div>
+                    <div className="md:col-span-2 p-4 rounded-xl bg-slate-950/5 border border-dashed border-slate-200 dark:border-slate-800">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Webhook URL (Pega esto en Meta Dashboard)</p>
+                        <code className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 break-all">
+                            https://app.automatizaformacion.com/api/webhooks/whatsapp
+                        </code>
+                    </div>
                 </div>
 
                 {whatsapp.templates && whatsapp.templates.length > 0 && (
@@ -354,6 +369,49 @@ export function IntegrationsManager({ tenantId, config, onChange }: Integrations
                     <p className="text-[11px] text-blue-700/70 dark:text-blue-300/60 font-medium leading-relaxed">
                         Estas credenciales permiten al orquestador central disparar llamadas y mensajes automáticos bajo la identidad de este cliente.
                     </p>
+                </div>
+            </div>
+
+            {/* ── SECTION: AWS BEDROCK & S3 (KNOWLEDGE BASE) ── */}
+            <div className="space-y-6 pt-6 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-orange-500/10 text-orange-600 flex items-center justify-center border border-orange-500/20">
+                        <Brain className="h-5 w-5" />
+                    </div>
+                    <div>
+                        <h3 className="text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white">AWS Intelligence (Knowledge Base)</h3>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest text-left">Gestión de cerebro RAG y almacenamiento S3</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="md:col-span-2 space-y-2 text-left">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">Default Knowledge Base ID (Bedrock)</Label>
+                        <Input 
+                            value={(config?.aws as any)?.kbId || ""}
+                            onChange={(e) => updateField('aws', { kbId: e.target.value })}
+                            placeholder="G9P0FC3S29"
+                            className="h-11 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 rounded-xl font-mono text-xs"
+                        />
+                    </div>
+                    <div className="space-y-2 text-left">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">AWS Region</Label>
+                        <Input 
+                            value={(config?.aws as any)?.region || "us-east-1"}
+                            onChange={(e) => updateField('aws', { region: e.target.value })}
+                            placeholder="us-east-1"
+                            className="h-11 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold"
+                        />
+                    </div>
+                    <div className="space-y-2 text-left">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">S3 Bucket Name</Label>
+                        <Input 
+                            value={(config?.aws as any)?.s3Bucket || "automatiza-knowledge-base"}
+                            onChange={(e) => updateField('aws', { s3Bucket: e.target.value })}
+                            placeholder="nombre-del-bucket"
+                            className="h-11 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold"
+                        />
+                    </div>
                 </div>
             </div>
         </div>

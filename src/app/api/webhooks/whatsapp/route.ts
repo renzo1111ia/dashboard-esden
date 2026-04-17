@@ -29,7 +29,25 @@ export async function GET(req: Request) {
 // Message Receiver (POST)
 export async function POST(req: Request) {
     try {
-        const body = await req.json();
+        const rawBody = await req.text();
+        const signature = req.headers.get("x-hub-signature-256");
+        const appSecret = process.env.WHATSAPP_APP_SECRET;
+
+        // 1. Validar firma si existe el App Secret
+        if (appSecret && signature) {
+            const crypto = await import("crypto");
+            const hash = "sha256=" + crypto
+                .createHmac("sha256", appSecret)
+                .update(rawBody)
+                .digest("hex");
+
+            if (hash !== signature) {
+                console.warn("[WHATSAPP WEBHOOK] ❌ Invalid signature.");
+                return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+            }
+        }
+
+        const body = JSON.parse(rawBody);
 
         // 1. Basic Structure check
         if (body.object !== "whatsapp_business_account") {

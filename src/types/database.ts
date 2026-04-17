@@ -395,7 +395,7 @@ export interface HistorialRow {
     total_llamadas: number;            // = llamadas.length
 
     // ── Dynamic / Extra Fields ──
-    [key: string]: unknown; 
+    [key: string]: unknown;
 }
 
 /** Supabase database shape (for createClient generic) */

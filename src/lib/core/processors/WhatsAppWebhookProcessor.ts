@@ -1,15 +1,18 @@
 import { createClient } from "@supabase/supabase-js";
 import { Database } from "@/types/database";
+import { uploadToS3 } from "@/lib/integrations/aws/s3";
+import axios from "axios";
 
 /**
  * WHATSAPP WEBHOOK PROCESSOR
  * Handles the logic of identifying leads, logging messages, and triggering AI responses.
  */
 
-export async function processIncomingWhatsApp(fromNumber: string, message: { type: string; text?: { body: string }; button?: { text: string }; interactive?: { button_reply?: { title: string }; list_reply?: { title: string } }; id: string }, wabaId: string) {
+export async function processIncomingWhatsApp(fromNumber: string, message: any, wabaId: string) {
     console.log(`[WHATSAPP PROCESSOR] Processing message from ${fromNumber} (WABA ID: ${wabaId})`);
-
+    
     try {
+        // We get the config early to have the access token for media
         const supabase = getAdminSupabase();
 
         // 1. Identify Tenant by WABA ID (phone_number_id)
@@ -67,12 +70,49 @@ export async function processIncomingWhatsApp(fromNumber: string, message: { typ
 
         // 4. Extract content (Text or Media)
         let content = "";
+        let mediaUrl = null;
+
         if (message.type === "text") {
             content = message.text?.body || "";
         } else if (message.type === "button") {
             content = message.button?.text || "";
         } else if (message.type === "interactive") {
             content = message.interactive?.button_reply?.title || message.interactive?.list_reply?.title || "Interacción Botón";
+        } else if (message.type === "image" || message.type === "audio" || message.type === "document") {
+            const mediaId = message[message.type].id;
+            content = `[Archivo ${message.type} recibido]`;
+            
+            // Try to download and upload to S3
+            try {
+                // We need the access token from the tenant config
+                const { data: tenantData } = await (supabase.from("tenants" as any) as any).select("config").eq("id", tenantId).single();
+                const token = (tenantData as any)?.config?.whatsapp?.accessToken;
+
+                if (token) {
+                    console.log(`[WHATSAPP PROCESSOR] Downloading media ${mediaId} from Meta...`);
+                    // 1. Get download URL
+                    const metaRes = await axios.get(`https://graph.facebook.com/v20.0/${mediaId}`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    
+                    const downloadUrl = metaRes.data.url;
+                    
+                    // 2. Download Buffer
+                    const fileRes = await axios.get(downloadUrl, {
+                        headers: { Authorization: `Bearer ${token}` },
+                        responseType: 'arraybuffer'
+                    });
+
+                    // 3. Upload to S3
+                    const fileName = `whatsapp/${tenantId}/${message.id}.${message.type === 'audio' ? 'ogg' : 'jpg'}`;
+                    mediaUrl = await uploadToS3(fileName, Buffer.from(fileRes.data), fileRes.headers['content-type']);
+                    content = `[${message.type.toUpperCase()}]: ${mediaUrl}`;
+                    console.log(`[WHATSAPP PROCESSOR] Media uploaded to S3: ${mediaUrl}`);
+                }
+            } catch (mediaErr) {
+                console.error("[WHATSAPP PROCESSOR] Failed to process media:", mediaErr);
+                content = `[Error al procesar ${message.type}]`;
+            }
         } else {
             content = `[Mensaje tipo: ${message.type}]`;
         }
@@ -87,7 +127,7 @@ export async function processIncomingWhatsApp(fromNumber: string, message: { typ
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: leadPrograms } = await (supabase.from("lead_programas" as any) as any).select("id_programa").eq("id_lead", lead.id);
 
-        // 5. Log Message in `chat_messages`
+        // 5. Log Message in `chat_messages` (Supabase)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error: logError } = await (supabase.from("chat_messages" as any) as any)
             .insert({
@@ -97,10 +137,15 @@ export async function processIncomingWhatsApp(fromNumber: string, message: { typ
                 message_type: "TEXT",
                 content: content,
                 status: "RECEIVED",
-                metadata: { meta_id: message.id, raw: message, programs: leadPrograms }
+                metadata: { 
+                    meta_id: message.id, 
+                    raw: message, 
+                    programs: leadPrograms,
+                    media_url: mediaUrl
+                }
             });
 
-        if (logError) console.error("[WHATSAPP PROCESSOR] Failed to log message:", logError);
+        if (logError) console.error("[WHATSAPP PROCESSOR] Failed to log message in Supabase:", logError);
 
         // 6. Trigger AI Response if AI is enabled for this lead
         if (lead.is_ai_enabled) {

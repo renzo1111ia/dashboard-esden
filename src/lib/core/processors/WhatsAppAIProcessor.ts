@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { whatsappBridge } from "../../integrations/whatsapp";
 import OpenAI from "openai";
-import { queryKnowledgeBase } from "../../integrations/aws/bedrock";
+import { queryKnowledgeBase, invokeClaude } from "../../integrations/aws/bedrock";
 
 /**
  * WHATSAPP AI PROCESSOR (CEREBRO)
@@ -91,9 +91,6 @@ INFORMACIÓN DEL CURSO:
             ? `\nCONOCIMIENTO ADICIONAL (AWS):\n${kbResults.map(r => `- ${r.text}`).join("\n")}\n`
             : "";
 
-        // 6. Initialize OpenAI with Tenant Key
-        const openai = new OpenAI({ apiKey });
-
         // 7. Build Prompt
         const systemPrompt = `
 ${activeVariant.prompt_text}
@@ -109,18 +106,29 @@ HISTORIAL DE CONVERSACIÓN RECIENTE:
 ${conversationHistory}
 `;
 
-        // 7. Call LLM
-        const completion = await openai.chat.completions.create({
-            model: activeVariant.model_name || "gpt-4o",
-            messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: incomingMessage }
-            ],
-            temperature: 0.7,
-            max_tokens: 500
-        });
+        // 11. Call LLM (OpenAI or Bedrock)
+        let aiResponse = "";
+        const modelName = activeVariant.model_name || "gpt-4o";
+        let usage = null;
 
-        const aiResponse = completion.choices[0]?.message?.content || "";
+        if (modelName.includes("claude") || modelName.includes("anthropic")) {
+            console.log(`[AI PROCESSOR] Using AWS Bedrock (Claude) for response`);
+            aiResponse = await invokeClaude(systemPrompt, incomingMessage, modelName) || "";
+        } else {
+            console.log(`[AI PROCESSOR] Using OpenAI (${modelName}) for response`);
+            const openai = new OpenAI({ apiKey });
+            const completion = await openai.chat.completions.create({
+                model: modelName,
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: incomingMessage }
+                ],
+                temperature: 0.7,
+                max_tokens: 500
+            });
+            aiResponse = completion.choices[0]?.message?.content || "";
+            usage = completion.usage;
+        }
 
         if (aiResponse) {
             // 8. Send via WhatsApp
@@ -135,7 +143,7 @@ ${conversationHistory}
                     phoneNumberId: waConfig.phoneNumberId
                 });
 
-                // 9. Log Outbound Message
+                // 9. Log Outbound Message (Supabase)
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 await (supabase.from("chat_messages" as any) as any).insert({
                     tenant_id: tenantId,
@@ -146,9 +154,9 @@ ${conversationHistory}
                     sent_by: "AI_AGENT",
                     status: "SENT",
                     metadata: { 
-                        model: activeVariant.model_name,
+                        model: modelName,
                         variant_id: activeVariant.id,
-                        token_usage: completion.usage
+                        token_usage: usage
                     }
                 });
             } else {
