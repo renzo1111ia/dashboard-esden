@@ -102,9 +102,12 @@ export default function AIAgentInbox() {
     
     // Initial Load
     useEffect(() => {
-        const timer = setTimeout(() => loadLeads(), 0);
+        const timer = setTimeout(() => {
+            loadLeads();
+            loadTemplates(); // Load templates early for mapping in history
+        }, 0);
         return () => clearTimeout(timer);
-    }, [loadLeads]);
+    }, [loadLeads, loadTemplates]);
 
     useEffect(() => {
         if (activeView === 'LOGIC') {
@@ -569,7 +572,11 @@ export default function AIAgentInbox() {
                         <div className="h-full flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
                     ) : (
                         messages.map((msg) => (
-                            <ChatMessageBubble key={msg.id} message={msg} />
+                            <ChatMessageBubble 
+                                key={msg.id} 
+                                message={msg} 
+                                templates={templates}
+                            />
                         ))
                     )}
                     <div ref={chatEndRef} />
@@ -882,10 +889,26 @@ function DetailField({ label, value, icon: Icon, copyable }: { label: string, va
 }
 
 
-function ChatMessageBubble({ message }: { message: ChatMessage }) {
+function ChatMessageBubble({ message, templates = [] }: { message: ChatMessage; templates?: any[] }) {
     const isOut = message.direction === "OUTBOUND";
     const isBot = message.sent_by?.toLowerCase().includes("agente") || message.message_type === "TEMPLATE";
     const time = new Date(message.created_at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+
+    // --- Template Parsing ---
+    const isTemplate = message.message_type === "TEMPLATE";
+    let displayContent = message.content;
+
+    if (isTemplate) {
+        // Try to find the template in the loaded list to get the actual body text
+        const template = templates.find(t => t.name === message.content);
+        if (template) {
+            // Meta structure: components[type=BODY].text
+            const bodyComp = template.components?.find((c: any) => c.type === 'BODY');
+            if (bodyComp?.text) {
+                displayContent = bodyComp.text;
+            }
+        }
+    }
 
     if (message.message_type === "SYSTEM_LOG") {
         return (
@@ -915,10 +938,15 @@ function ChatMessageBubble({ message }: { message: ChatMessage }) {
                 )}>
                     {isOut ? (
                         <>
-                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20">{isBot ? "Neural Agent" : "Asesor Senior"}</span>
+                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20">
+                                {isTemplate ? "Plantilla Meta" : isBot ? "Neural Agent" : "Asesor Senior"}
+                            </span>
                             {isBot ? (
-                                <div className="h-4 w-4 rounded-md bg-primary/20 flex items-center justify-center border border-primary/20">
-                                    <Bot className="h-2.5 w-2.5 text-primary" />
+                                <div className={cn(
+                                    "h-4 w-4 rounded-md flex items-center justify-center border",
+                                    isTemplate ? "bg-emerald-500/20 border-emerald-500/20 text-emerald-500" : "bg-primary/20 border-primary/20 text-primary"
+                                )}>
+                                    <Bot className="h-2.5 w-2.5" />
                                 </div>
                             ) : (
                                 <User className="h-3 w-3 text-white/20" />
@@ -932,10 +960,16 @@ function ChatMessageBubble({ message }: { message: ChatMessage }) {
                 <div className={cn(
                     "px-6 py-4 rounded-[28px] shadow-2xl relative group/bubble transition-all duration-300",
                     isOut 
-                        ? "bg-[#111622] border border-white/10 rounded-tr-none text-white/90 hover:border-white/20" 
+                        ? (isTemplate ? "bg-[#0b1410] border border-emerald-500/20 rounded-tr-none text-white/90" : "bg-[#111622] border border-white/10 rounded-tr-none text-white/90 hover:border-white/20")
                         : "bg-primary rounded-tl-none text-white font-medium shadow-[0_10px_40px_rgba(var(--primary-rgb),0.2)]"
                 )}>
-                    <p className="text-[14px] leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                    {isTemplate && (
+                        <div className="flex items-center gap-2 mb-2 pb-2 border-b border-emerald-500/10 text-[9px] font-black uppercase tracking-widest text-emerald-500/50">
+                            <Star className="h-3 w-3" />
+                            <span>Contenido de Plantilla</span>
+                        </div>
+                    )}
+                    <p className="text-[14px] leading-relaxed whitespace-pre-wrap">{displayContent}</p>
                     
                     {/* Status Icons */}
                     <div className={cn(
