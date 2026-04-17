@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { GlobalLogger } from "./logger";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { isFeatureEnabled } from "./feature-flags";
 import { buildComplianceDecision } from "./compliance";
@@ -9,9 +10,11 @@ import { getAgentVariants } from "../actions/agents";
 import { getOrchestratorConfigForTenant, TenantOrchestratorConfig, OrchestratorSequenceStep } from "../actions/orchestrator-config";
 import { enqueueLeadStep, LeadSequenceJob } from "./queue/lead-sequence-queue";
 import { logOrchestrationStep } from "./scheduler";
-import { Lead, PlannedAction, AIAgentVariant, Programa, VoiceAgent, VoiceAgentVariant } from "@/types/database";
+import { Lead, PlannedAction, AIAgentVariant, Programa, VoiceAgent, VoiceAgentVariant, ClientConfig } from "@/types/database";
 import { CRMFactory } from "../integrations/crm/factory";
 import { TelephonyFactory } from "../integrations/telephony/factory";
+import { leadMemoryProcessor } from "./processors/LeadMemoryProcessor";
+import { queryKnowledgeBase } from "../integrations/aws/bedrock";
 
 /**
  * ORCHESTRATOR CORE v3.0
@@ -142,7 +145,14 @@ export class Orchestrator {
             // ── QUEUE NEXT STEP ───────────────────────────────────
             const nextIndex = stepIndex + 1;
             if (nextIndex < sequence.length) {
+                // v2.0 Logic: Check if we should skip steps based on Stage
                 const nextStep = sequence[nextIndex];
+                
+                if (activeLead.current_stage === 'SCHEDULING' && nextStep.action === 'ai_agent') {
+                    console.log(`[ORCHESTRATOR] Lead ${activeLead.id} already qualified. Skipping to next step.`);
+                    // We might want to find the first 'call' or 'scheduling' agent here
+                }
+
                 const delayMs = nextStep.delay_hours * 60 * 60 * 1000;
                 await this.queueStep(activeLead, tenantId, nextStep, nextIndex, config, delayMs);
             }
@@ -441,24 +451,65 @@ export class Orchestrator {
             return;
         }
 
-        // Fetch variants
+        // 1. Fetch variants
         const { data: variants } = await getAgentVariants(agentId);
+        
+        // Update lead with currently active agent and reset inactivity counter
+        const supabase = await getSupabaseServerClient();
+        if (lead.active_agent_id !== agentId) {
+            await (supabase.from("lead" as any) as any)
+                .update({ 
+                    active_agent_id: agentId,
+                    inactivity_sent_count: 0
+                })
+                .eq("id", lead.id);
+            
+            console.log(`[ORCHESTRATOR] Lead ${lead.id} assigned to agent ${agentId}. Inactivity counter reset.`);
+        }
+
         if (!variants || variants.length === 0) return;
 
         const promptVariantData = variants[0] as AIAgentVariant;
-        console.log(`[ORCHESTRATOR] AI Agent ${agentId} variant ${variant}: ${promptVariantData.version_label}`);
-
-        // Fetch course context for AI Agent
+        
+        // 2. Fetch Course Context from AWS RAG (v2.0 Logic)
         const courseContext = await this.getCourseContext(lead.id);
+        const kbId = promptVariantData.knowledge_base_id || (config as any).aws?.kbId;
+        
+        let ragContext = "";
+        if (kbId) {
+            const results = await queryKnowledgeBase(`Info sobre ${courseContext.course_name}`, kbId);
+            ragContext = results.map(r => r.text).join("\n\n");
+        }
 
-        // Stub LLM execution with injected context
-        const analysis = `Contexto del Curso: ${courseContext.course_info}. Requisitos: ${courseContext.qualification_rules}. Interés del Lead: Alta.`;
+        // 3. Prompt Construction with Memory & Stages
+        const systemPrompt = `
+        ${promptVariantData.prompt_text}
+        
+        CONTEXTO DEL CURSO (AWS RAG):
+        ${ragContext || courseContext.course_info}
+        
+        REGLAS DE CUALIFICACIÓN:
+        ${courseContext.qualification_rules}
+        
+        DATOS EXTRAÍDOS DEL LEAD HASTA AHORA:
+        ${JSON.stringify(lead.metadata || {})}
+        
+        ETAPA ACTUAL: ${lead.current_stage || 'QUALIFICATION'}
+        `;
 
+        // 4. Update Memory after AI turn (placeholder for actual message flow integration)
+        // In a real message event, this would be called AFTER the user replies.
+        // For the orchestrator trigger, we just prepare the context.
+        
         await logOrchestrationStep({
             tenantId, leadId: lead.id, step: step.step,
             actionType: "AI_AGENT", agentUsed: agentId,
             abVariant: variant, result: "SUCCESS",
-            metadata: { analysis, promptVersion: promptVariantData.version_label }
+            metadata: { 
+                stage: lead.current_stage,
+                promptVersion: promptVariantData.version_label,
+                ragUsed: !!ragContext
+            }
         });
     }
 

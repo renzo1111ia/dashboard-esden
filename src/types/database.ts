@@ -19,6 +19,14 @@ export interface Lead {
     fecha_ingreso_crm?: string | null;
     fecha_creacion?: string | null;
     fecha_actualizacion?: string | null;
+
+    // v2.0 Memory Fields
+    current_stage?: 'QUALIFICATION' | 'SCHEDULING' | 'COMPLETED' | 'DROPPED' | string | null;
+    metadata?: Record<string, any> | null;
+    last_interaction_at?: string | null;
+    is_ai_paused?: boolean;
+    active_agent_id?: string | null;
+    inactivity_sent_count?: number;
 }
 
 // ─── LLAMADA (resumen de una llamada individual) ──────────────────────────────
@@ -342,6 +350,31 @@ export interface VoiceAgentVariant {
     updated_at: string;
 }
 
+// ─── CLIENT CONFIG (v2.0) ────────────────────────────────────────────────────────
+
+export interface ClientConfig {
+    id: string;
+    tenant_id: string;
+    routing_rules: {
+        allowed_campaigns: string[];
+        allowed_origins: string[];
+        drop_invalid_leads: boolean;
+        contact_sequence: ("whatsapp" | "call")[];
+    };
+    rescue_config: {
+        enabled: boolean;
+        wait_minutes: number;
+        template_id: string;
+    };
+    timezone_config: {
+        default_timezone: string;
+        compliance_start: string; // e.g., "09:00"
+        compliance_end: string;   // e.g., "21:00"
+    };
+    created_at: string;
+    updated_at: string;
+}
+
 // ─── COMBINED / VIEW TYPES ────────────────────────────────────────────────────
 
 /**
@@ -424,6 +457,7 @@ export type Database = {
             voice_agent_variants: { Row: VoiceAgentVariant; Insert: Omit<VoiceAgentVariant, "id" | "created_at" | "updated_at">; Update: Partial<VoiceAgentVariant>; };
             tenant_orchestrator_config: { Row: { id: string; tenant_id: string; config: Record<string, unknown>; created_at: string; updated_at: string }; Insert: { tenant_id: string; config: Record<string, unknown> }; Update: { config?: Record<string, unknown> }; };
             advisors: { Row: { id: string; tenant_id: string; name: string; email: string | null; phone: string | null; is_active: boolean; created_at: string }; Insert: { tenant_id: string; name: string; email?: string | null; phone?: string | null; is_active?: boolean }; Update: Partial<{ name: string; email: string | null; phone: string | null; is_active: boolean }>; };
+            client_configs: { Row: ClientConfig; Insert: Omit<ClientConfig, "id" | "created_at" | "updated_at">; Update: Partial<ClientConfig>; };
             availability_slots: { Row: { id: string; advisor_id: string; day_of_week: number; start_time: string; end_time: string; slot_duration_minutes: number }; Insert: { advisor_id: string; day_of_week: number; start_time: string; end_time: string; slot_duration_minutes?: number }; Update: Partial<{ day_of_week: number; start_time: string; end_time: string }>; };
             appointments: { Row: { id: string; tenant_id: string; advisor_id: string; lead_id: string | null; scheduled_at: string; duration_minutes: number; status: string; notes: string | null; agent_used: string | null; ab_variant: string | null; created_at: string; updated_at: string; watchdog_processed: boolean }; Insert: { tenant_id: string; advisor_id: string; lead_id?: string | null; scheduled_at: string; duration_minutes?: number; status?: string; notes?: string | null; agent_used?: string | null; ab_variant?: string | null; watchdog_processed?: boolean }; Update: Partial<{ status: string; notes: string | null; updated_at: string; watchdog_processed: boolean }>; };
             orchestration_logs: { Row: { id: string; tenant_id: string; lead_id: string | null; workflow_id: string | null; step_number: number; action_type: string; agent_used: string | null; ab_variant: string | null; result: string; error_message: string | null; metadata: Record<string, unknown>; executed_at: string }; Insert: { tenant_id: string; lead_id?: string | null; workflow_id?: string | null; step_number: number; action_type: string; agent_used?: string | null; ab_variant?: string | null; result: string; error_message?: string | null; metadata?: Record<string, unknown> }; Update: Partial<{ result: string }>; };

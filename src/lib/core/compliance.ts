@@ -36,12 +36,18 @@ const PHONE_PREFIX_TIMEZONE: Record<string, string> = {
     "+595": "America/Asuncion",
     "+591": "America/La_Paz",
     "+593": "America/Guayaquil",
-    "+1":   "Etc/GMT+6", // Fixed Central Time matching n8n logic for USA
+    "+507": "America/Panama",
+    "+502": "America/Guatemala",
+    "+503": "America/El_Salvador",
+    "+504": "America/Tegucigalpa",
+    "+505": "America/Managua",
+    "+506": "America/Costa_Rica",
+    "+1":   "America/New_York", // Default to Eastern, but we refine via area codes if needed
     "+44":  "Europe/London",
     "+33":  "Europe/Paris",
     "+49":  "Europe/Berlin",
+    "+39":  "Europe/Rome",
     "+55":  "America/Sao_Paulo",
-    "+506": "America/Costa_Rica",
 };
 
 /**

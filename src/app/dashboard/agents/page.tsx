@@ -70,6 +70,8 @@ export default function AgentsPage() {
     const [inactivityAction, setInactivityAction] = useState<'template' | 'agent_message'>('template');
     const [inactivityTemplate, setInactivityTemplate] = useState<string>('');
     const [inactivityMessage, setInactivityMessage] = useState<string>('');
+    const [inactivityMode, setInactivityMode] = useState<'fixed' | 'smart'>('fixed');
+    const [inactivityMaxRetries, setInactivityMaxRetries] = useState<number>(1);
     const [savingInactivity, setSavingInactivity] = useState(false);
     const [saving, setSaving] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -118,11 +120,15 @@ export default function AgentsPage() {
                 setInactivityAction(inactivity.action ?? 'template');
                 setInactivityTemplate(inactivity.template_name ?? '');
                 setInactivityMessage(inactivity.agent_message ?? '');
+                setInactivityMode(inactivity.mode ?? 'fixed');
+                setInactivityMaxRetries(inactivity.max_retries ?? 1);
             } else {
                 setInactivityMinutes(4);
                 setInactivityAction('template');
                 setInactivityTemplate('');
                 setInactivityMessage('');
+                setInactivityMode('fixed');
+                setInactivityMaxRetries(1);
             }
         }
     }, [selectedAgent]);
@@ -138,6 +144,8 @@ export default function AgentsPage() {
                 action: inactivityAction,
                 template_name: inactivityTemplate,
                 agent_message: inactivityMessage,
+                mode: inactivityMode,
+                max_retries: inactivityMaxRetries,
             }
         };
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -618,6 +626,66 @@ export default function AgentsPage() {
                                             </div>
                                         </div>
 
+                                        {/* Mode selector (Fixed vs Smart) */}
+                                        <div className="space-y-4 pt-4 border-t border-white/5">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Estilo de Comunicación</p>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <button
+                                                    onClick={() => setInactivityMode('fixed')}
+                                                    className={cn(
+                                                        "h-12 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                                                        inactivityMode === 'fixed'
+                                                            ? "bg-white/10 border border-white/20 text-white"
+                                                            : "bg-white/[0.02] border border-white/5 text-white/20 hover:text-white/40"
+                                                    )}
+                                                >
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <Bot className="h-3.5 w-3.5" />
+                                                        Texto Fijo
+                                                    </div>
+                                                </button>
+                                                <button
+                                                    onClick={() => setInactivityMode('smart')}
+                                                    className={cn(
+                                                        "h-12 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                                                        inactivityMode === 'smart'
+                                                            ? "bg-primary/20 border border-primary/40 text-primary shadow-lg shadow-primary/10"
+                                                            : "bg-white/[0.02] border border-white/5 text-white/20 hover:text-white/40"
+                                                    )}
+                                                >
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <Sparkles className="h-3.5 w-3.5" />
+                                                        IA Inteligente
+                                                    </div>
+                                                </button>
+                                            </div>
+                                            <p className="text-[9px] text-white/20 italic">
+                                                * El modo inteligente permite que la IA redacte un mensaje corto basado en la charla actual.
+                                            </p>
+                                        </div>
+
+                                        {/* Frequency selector (Max Retries) */}
+                                        <div className="space-y-4 pt-4 border-t border-white/5">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Frecuencia Máxima de Rescate</p>
+                                            <div className="flex items-center gap-3">
+                                                {[1, 2, 3, 5].map(r => (
+                                                    <button
+                                                        key={r}
+                                                        onClick={() => setInactivityMaxRetries(r)}
+                                                        className={cn(
+                                                            "h-10 px-6 rounded-xl text-[10px] font-black uppercase transition-all",
+                                                            inactivityMaxRetries === r
+                                                                ? "bg-amber-500/20 border border-amber-500/40 text-amber-400"
+                                                                : "bg-white/[0.02] border border-white/5 text-white/20 hover:text-white/40"
+                                                        )}
+                                                    >
+                                                        {r} {r === 1 ? 'Vez' : 'Veces'}
+                                                    </button>
+                                                ))}
+                                                <span className="text-[9px] text-white/20 italic ml-auto mr-2">¿Cuántas veces insistir?</span>
+                                            </div>
+                                        </div>
+
                                         {/* Sub-config based on action */}
                                         {inactivityAction === 'template' && (
                                             <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
@@ -657,7 +725,8 @@ export default function AgentsPage() {
                                                 Si el cliente no responde en <span className="text-amber-400 font-black">{inactivityMinutes} minutos</span>, 
                                                 el sistema {inactivityAction === 'template'
                                                     ? <> enviará la plantilla <span className="text-emerald-400 font-black">&quot;{inactivityTemplate || 'sin nombre'}&quot;</span></>  
-                                                    : <> activará al agente para enviar un mensaje de reactivación</>}.
+                                                    : <> activará al agente para enviar un mensaje de reactivación <span className="text-primary font-black">({inactivityMode === 'smart' ? 'IA Smart' : 'Texto Fijo'})</span></>} 
+                                                hasta <span className="text-amber-400 font-black">{inactivityMaxRetries} {inactivityMaxRetries === 1 ? 'vez' : 'veces'}</span>.
                                             </p>
                                         </div>
 

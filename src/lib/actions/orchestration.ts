@@ -149,3 +149,25 @@ export async function triggerOrchestratorForLead(leadId: string, workflowId: str
         return { error: e.message };
     }
 }
+
+/**
+ * Fetches recent system logs for the active tenant
+ */
+export async function getSystemLogs(limit = 100) {
+    try {
+        const supabase = await getSupabaseServerClient();
+        const tenant = await getActiveTenantConfig();
+        if (!tenant) return { error: "No active tenant" };
+
+        const { data, error } = await (supabase.from("system_logs" as any) as any)
+            .select("*")
+            .eq("tenant_id", tenant.id)
+            .order("created_at", { ascending: false })
+            .limit(limit);
+
+        if (error) return { error: error.message };
+        return { success: true, data };
+    } catch (e: any) {
+        return { error: e.message };
+    }
+}
