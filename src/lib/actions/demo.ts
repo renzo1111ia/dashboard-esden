@@ -1,21 +1,15 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { getAdminSupabaseClient } from "@/lib/supabase/server";
 import { getAdminStatus } from "./auth";
 
-// v1.2 - Forced Refresh
+// v1.3 - Centralized Client Fix
 export async function runLaboratoryInjection(tenantId: string) {
     const timestamp = new Date().toLocaleTimeString();
     console.log(`[DEMO] [${timestamp}] Invocando laboratorio para:`, tenantId);
     
     try {
-        // Init internally to avoid import-time crashes
-        const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://interno-supabase-a201be-46-62-193-169.traefik.me";
-        const key = process.env.SUPABASE_SERVICE_ROLE_KEY || 
-                    process.env.SERVICE_ROLE_KEY || 
-                    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NzI0OTEyMjksImV4cCI6MTg5MzQ1NjAwMCwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlzcyI6InN1cGFiYXNlIn0.5VpQVwUhqDkHgplZiPE4iGjduuB2NfGNq-5vsASGAbI";
-        
-        const internalSupabase = createClient(url, key);
+        const internalSupabase = await getAdminSupabaseClient();
 
         let isAdmin = false;
         try {
@@ -113,12 +107,7 @@ export async function clearDemoData(tenantId: string) {
     console.log(`[DEMO] 🧹 Limpiando datos demo para: ${tenantId}`);
 
     try {
-        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY;
-        
-        if (!url || !key) return { error: "Configuración de Supabase incompleta." };
-        
-        const internalSupabase = createClient(url, key);
+        const internalSupabase = await getAdminSupabaseClient();
 
         let isAdmin = false;
         try {
@@ -131,9 +120,8 @@ export async function clearDemoData(tenantId: string) {
         if (!tenantId) return { error: "ID de cliente no especificado." };
 
         // 1. Borrar Leads con origen 'LAB DEMO'
-        // Esto borrará en cascada llamadas, mensajes de whatsapp, etc.
-        const { error: errLeads } = await internalSupabase
-            .from('lead')
+        const { error: errLeads } = await (internalSupabase
+            .from('lead' as any) as any)
             .delete()
             .eq('tenant_id', tenantId)
             .eq('origen', 'LAB DEMO');
@@ -144,8 +132,8 @@ export async function clearDemoData(tenantId: string) {
         }
 
         // 2. Borrar Campañas con nombre que empiece por 'Lab Demo'
-        const { error: errCamp } = await internalSupabase
-            .from('campanas')
+        const { error: errCamp } = await (internalSupabase
+            .from('campanas' as any) as any)
             .delete()
             .eq('tenant_id', tenantId)
             .like('nombre', 'Lab Demo%');
