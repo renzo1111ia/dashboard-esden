@@ -1,7 +1,6 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { whatsappBridge } from "@/lib/integrations/whatsapp";
 import { GlobalLogger } from "../logger";
-import { Database, Lead } from "@/types/database";
 
 interface InactivityRules {
     timeout_minutes?: number;
@@ -30,10 +29,10 @@ export async function runRescueCheck() {
     // 1. Fetch leads that are: 
     // - Assigned to an AI text agent
     // - Not paused
-    const { data: leads, error } = await supabase
-        .from("lead")
+    const { data: leads, error } = await (supabase
+        .from("lead" as unknown as string) as unknown as { select: (s: string) => { not: (f: string, o: string, v: null) => { eq: (f: string, v: boolean) => Promise<{ data: unknown[], error: unknown }> } } })
         .select("*, ai_agents!lead_active_agent_id_fkey(*)")
-        .not("active_agent_id", "is", null) // Using null value is handled by Postgrest
+        .not("active_agent_id", "is", null)
         .eq("is_ai_paused", false);
 
     if (error || !leads) return;
@@ -41,8 +40,18 @@ export async function runRescueCheck() {
     console.log(`[RESCUE v2.0] Checking ${leads.length} leads with active agents.`);
 
     for (const leadData of leads) {
-        // Explicitly cast to include the joined agent
-        const lead = leadData as any; 
+        // Use unknown cast to access joined properties
+        const lead = leadData as unknown as { 
+            id: string;
+            tenant_id: string;
+            telefono: string;
+            last_interaction_at: string;
+            fecha_actualizacion: string;
+            inactivity_sent_count: number;
+            metadata: Record<string, unknown>;
+            ai_agents: { id: string; flow_config: unknown };
+        };
+
         try {
             const agent = lead.ai_agents;
             if (!agent) continue;
@@ -67,8 +76,8 @@ export async function runRescueCheck() {
             if (sentCount >= maxRetries) continue;
 
             // 5. Fetch Tenant Credentials for WhatsApp
-            const { data: tenant } = await supabase
-                .from("tenants")
+            const { data: tenant } = await (supabase
+                .from("tenants" as unknown as string) as unknown as { select: (s: string) => { eq: (f: string, v: string) => { single: () => Promise<{ data: unknown }> } } })
                 .select("config")
                 .eq("id", lead.tenant_id)
                 .single();
@@ -116,13 +125,12 @@ export async function runRescueCheck() {
             }
 
             // 7. Update tracking
-            await supabase
-                .from("lead")
+            await (supabase.from("lead" as unknown as string) as unknown as { update: (d: unknown) => { eq: (f: string, v: string) => Promise<unknown> } })
                 .update({ 
                     last_interaction_at: now.toISOString(),
                     inactivity_sent_count: sentCount + 1,
                     metadata: { 
-                        ...((lead.metadata as Record<string, unknown>) || {}), 
+                        ...(lead.metadata || {}), 
                         last_rescue_at: now.toISOString(),
                         last_rescue_agent: agent.id
                     }
@@ -131,8 +139,10 @@ export async function runRescueCheck() {
 
         } catch (err: unknown) {
             const error = err as Error;
-            console.error(`[RESCUE] Failed to process lead ${leadData.id}:`, error.message);
-            await GlobalLogger.error(leadData.tenant_id, 'RESCUE', `Failed to process rescue: ${error.message}`, { leadId: leadData.id, error });
+            const tenantId = (leadData as unknown as { tenant_id: string }).tenant_id;
+            const leadId = (leadData as unknown as { id: string }).id;
+            console.error(`[RESCUE] Failed to process lead ${leadId}:`, error.message);
+            await GlobalLogger.error(tenantId, 'RESCUE', `Failed to process rescue: ${error.message}`, { leadId, error });
         }
     }
 }
