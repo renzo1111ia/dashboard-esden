@@ -27,9 +27,9 @@ export async function runLaboratoryInjection(tenantId: string) {
 
         // Phase 1: Campaign
         console.log("[DEMO] Paso 1: Creando campaña...");
-        const { error: errCamp } = await internalSupabase
+        const { error: errCamp } = await (internalSupabase
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .from('campanas' as any)
+            .from('campanas' as any) as any)
             .insert({
                 tenant_id: tenantId,
                 nombre: campaignName,
@@ -45,7 +45,7 @@ export async function runLaboratoryInjection(tenantId: string) {
         // Phase 2: Lead
         console.log("[DEMO] Paso 2: Creando lead...");
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: lead, error: lError } = await internalSupabase.from('lead' as any).insert({
+        const { data: lead, error: lError } = await (internalSupabase.from('lead' as any) as any).insert({
             tenant_id: tenantId,
             nombre: "Prospecto",
             apellido: "Laboratorio",
@@ -104,7 +104,7 @@ export async function runLaboratoryInjection(tenantId: string) {
 }
 
 export async function clearDemoData(tenantId: string) {
-    console.log(`[DEMO] 🧹 Limpiando datos demo para: ${tenantId}`);
+    console.log(`[DEMO] 🧹 Limpiando datos demo para: ${${tenantId}}`);
 
     try {
         const internalSupabase = await getAdminSupabaseClient();
