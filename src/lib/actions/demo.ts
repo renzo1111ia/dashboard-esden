@@ -104,7 +104,7 @@ export async function runLaboratoryInjection(tenantId: string) {
 }
 
 export async function clearDemoData(tenantId: string) {
-    console.log(`[DEMO] 🧹 Limpiando datos demo para: ${${tenantId}}`);
+    console.log(`[DEMO] 🧹 Limpiando datos demo para: ${tenantId}`);
 
     try {
         const internalSupabase = await getAdminSupabaseClient();
