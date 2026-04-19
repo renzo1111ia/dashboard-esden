@@ -2,6 +2,10 @@
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { TraceabilityEvent } from "@/components/historial/LeadTraceability";
+import { Database, Llamada } from "@/types/database";
+
+type ChatMessage = Database["public"]["Tables"]["chat_messages"]["Row"];
+type OrchestrationLog = Database["public"]["Tables"]["orchestration_logs"]["Row"];
 
 /**
  * FETCH LEAD EVENTS
@@ -12,36 +16,35 @@ export async function fetchLeadEvents(leadId: string): Promise<TraceabilityEvent
     const events: TraceabilityEvent[] = [];
 
     // 1. Fetch Calls
-    const { data: calls } = await (supabase
-        .from("llamadas" as any) as any)
+    const { data: calls } = await supabase
+        .from("llamadas")
         .select("*")
         .eq("id_lead", leadId)
         .order("fecha_inicio", { ascending: false });
 
     if (calls) {
-        calls.forEach((c: any) => {
+        (calls as Llamada[]).forEach((c) => {
             events.push({
                 id: c.id,
                 type: 'CALL',
                 title: `Llamada ${c.tipo_agente || ''}`,
                 description: c.resumen || `Llamada finalizada: ${c.estado_llamada}. Duración: ${c.duracion_segundos}s`,
-                timestamp: new Date(c.fecha_inicio).toLocaleString(),
+                timestamp: c.fecha_inicio ? new Date(c.fecha_inicio).toLocaleString() : '---',
                 status: c.estado_llamada === 'COMPLETED' ? 'SUCCESS' : 'FAILURE'
             });
         });
     }
 
     // 2. Fetch WhatsApp Messages (from chat_messages table if exists)
-    // For now, let's look at conversations_whatsapp as a proxy or existing messages
-    const { data: messages } = await (supabase
-        .from("chat_messages" as any) as any)
+    const { data: messages } = await supabase
+        .from("chat_messages")
         .select("*")
         .eq("lead_id", leadId)
         .order("created_at", { ascending: false })
         .limit(20);
 
     if (messages) {
-        messages.forEach((m: any) => {
+        (messages as ChatMessage[]).forEach((m) => {
             events.push({
                 id: m.id,
                 type: 'WHATSAPP',
@@ -54,20 +57,20 @@ export async function fetchLeadEvents(leadId: string): Promise<TraceabilityEvent
     }
 
     // 3. Fetch Orchestration Logs (The "Brain" decisions)
-    const { data: logs } = await (supabase
-        .from("orchestration_logs" as any) as any)
+    const { data: logs } = await supabase
+        .from("orchestration_logs")
         .select("*")
         .eq("lead_id", leadId)
         .order("executed_at", { ascending: false });
 
     if (logs) {
-        logs.forEach((l: any) => {
+        (logs as OrchestrationLog[]).forEach((l) => {
             events.push({
                 id: l.id,
                 type: 'CRM',
                 title: 'Decisión Orquestador',
                 description: `${l.action_type}: ${l.result}. ${l.error_message || ''}`,
-                timestamp: new Date(l.executed_at).toLocaleString(),
+                timestamp: l.executed_at ? new Date(l.executed_at).toLocaleString() : '---',
                 status: l.result === 'SUCCESS' ? 'SUCCESS' : 'FAILURE'
             });
         });
