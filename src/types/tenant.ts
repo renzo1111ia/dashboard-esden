@@ -9,6 +9,7 @@ export interface Tenant {
     auth_user_id?: string;
     api_type?: 'internal' | 'client';
     config: Record<string, unknown>;
+    api_key?: string | null;
     created_at?: string;
     updated_at?: string;
 }

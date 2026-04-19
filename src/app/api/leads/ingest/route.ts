@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { orchestrator } from "@/lib/core/orchestrator";
+import { ClientConfig } from "@/types/database";
 
 /**
  * UNIVERSAL INGEST ENDPOINT
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
         const { data: tenant, error: tenantErr } = await supabase
             .from("tenants")
             .select("id, config")
-            .eq("api_key", apiKey) // Assuming api_key exists in tenants table
+            .eq("api_key", apiKey)
             .single();
 
         if (tenantErr || !tenant) {
@@ -29,24 +30,25 @@ export async function POST(req: NextRequest) {
         }
 
         // 2. Fetch Client Config for Routing Rules
-        const { data: clientConfig } = await (supabase
-            .from("client_configs" as any) as any)
+        const { data: clientConfig } = await supabase
+            .from("client_configs")
             .select("*")
             .eq("tenant_id", tenant.id)
             .single();
 
         // 3. GATEKEEPER: Business Rules Validation
-        const rules = (clientConfig as any)?.routing_rules || {};
+        const typedConfig = clientConfig as ClientConfig | null;
+        const rules = typedConfig?.routing_rules || { };
         
         // Rule: Allowed Campaigns
-        if (rules.allowed_campaigns?.length > 0 && payload.campana) {
+        if (rules.allowed_campaigns && rules.allowed_campaigns.length > 0 && payload.campana) {
             if (!rules.allowed_campaigns.includes(payload.campana)) {
                 return NextResponse.json({ success: true, status: "DROPPED", reason: "Campaign not white-listed" });
             }
         }
 
         // Rule: Allowed Origins
-        if (rules.allowed_origins?.length > 0 && payload.origen) {
+        if (rules.allowed_origins && rules.allowed_origins.length > 0 && payload.origen) {
             if (!rules.allowed_origins.includes(payload.origen)) {
                 return NextResponse.json({ success: true, status: "DROPPED", reason: "Origin not white-listed" });
             }
@@ -68,9 +70,9 @@ export async function POST(req: NextRequest) {
             last_interaction_at: new Date().toISOString()
         };
 
-        const { data: lead, error: leadErr } = await (supabase
-            .from("lead" as any) as any)
-            .insert(leadData as any)
+        const { data: lead, error: leadErr } = await supabase
+            .from("lead")
+            .insert(leadData)
             .select()
             .single();
 
@@ -79,14 +81,13 @@ export async function POST(req: NextRequest) {
         }
 
         // 5. TRIGGER ORCHESTRATION
-        // We use waitMs: 0 for immediate execution (compliance check happens inside)
         if (lead) {
-            await orchestrator.handleNewLead((lead as any).id, tenant.id);
+            await orchestrator.handleNewLead(lead.id, tenant.id);
         }
 
         return NextResponse.json({ 
             success: true, 
-            leadId: lead.id, 
+            leadId: lead?.id, 
             status: "INGESTED",
             message: "Lead processed and orchestration started" 
         });
