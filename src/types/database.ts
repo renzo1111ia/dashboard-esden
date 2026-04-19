@@ -419,6 +419,10 @@ export interface HistorialRow {
     opt_in_whatsapp?: boolean | null;
     notificaciones_status?: string | null;
 
+    // v2.0 Memory Fields
+    current_stage?: string | null;
+    metadata?: Record<string, any> | null;
+
     // ── Computed ──
     tiempo_respuesta_minutos?: number | null;  // primera llamada - fecha_ingreso_crm
     fecha_primer_contacto?: string | null;     // MIN(llamada, whatsapp)

@@ -3,8 +3,8 @@
 import { useState, useCallback, useTransition, useEffect, useRef, useMemo } from "react";
 import { fetchCalls, type FetchCallsResult } from "@/lib/actions/calls";
 import { DuplicateLeadDialog } from "@/components/historial/DuplicateLeadDialog";
-import { AudioPlayer } from "@/components/historial/AudioPlayer";
-import { LeadTraceability, TraceabilityEvent } from "@/components/historial/LeadTraceability";
+// import { AudioPlayer } from "@/components/historial/AudioPlayer";
+import { LeadTraceabilitySidebar, TraceabilityEvent } from "@/components/historial/LeadTraceability";
 import { fetchLeadEvents } from "@/lib/actions/lead-events";
 import { cn } from "@/lib/utils";
 import type { HistorialRow } from "@/types/database";
@@ -14,13 +14,7 @@ import {
   User, 
   Target, 
   MapPin, 
-  Clock, 
-  Calendar,
-  AlertCircle,
-  TrendingUp,
-  MessageSquare,
-  PhoneCall,
-  CheckCircle2
+  Clock
 } from 'lucide-react';
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
@@ -138,15 +132,19 @@ export function HistorialTable({ initialData, fromDate, toDate, columns }: Props
 
     useEffect(() => {
         if (popoverRow) {
-            setLoadingEvents(true);
+            // Loading is now triggered by the click handler to avoid cascading renders
             fetchLeadEvents(popoverRow.id).then(evs => {
                 setLeadEvents(evs);
                 setLoadingEvents(false);
             });
-        } else {
-            setLeadEvents([]);
         }
     }, [popoverRow]);
+
+    const closePopover = () => {
+        setPopoverRow(null);
+        setLeadEvents([]);
+        setLoadingEvents(false);
+    };
 
     const load = useCallback((
         p: number, search: string, status: string,
@@ -259,7 +257,7 @@ export function HistorialTable({ initialData, fromDate, toDate, columns }: Props
 
             {popoverRow && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-md px-4 py-10"
-                    onClick={() => setPopoverRow(null)}>
+                    onClick={closePopover}>
                     <div className="max-w-4xl w-full max-h-full overflow-hidden flex flex-col rounded-[2.5rem] border border-border bg-card shadow-2xl animate-in fade-in zoom-in duration-200"
                         onClick={(e) => e.stopPropagation()}>
                         
@@ -273,7 +271,7 @@ export function HistorialTable({ initialData, fromDate, toDate, columns }: Props
                                     <span className="font-mono text-sm font-bold text-primary">{popoverRow.telefono}</span>
                                 </div>
                             </div>
-                            <button onClick={() => setPopoverRow(null)} className="h-12 w-12 rounded-2xl bg-card border border-border text-muted-foreground hover:text-destructive">✕</button>
+                            <button onClick={closePopover} className="h-12 w-12 rounded-2xl bg-card border border-border text-muted-foreground hover:text-destructive">✕</button>
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-10">
@@ -298,17 +296,17 @@ export function HistorialTable({ initialData, fromDate, toDate, columns }: Props
                                         Analizando interacciones omnicanal...
                                     </div>
                                 ) : (
-                                    <LeadTraceability 
-                                        currentStage={(popoverRow as any).current_stage || 'QUALIFICATION'}
+                                    <LeadTraceabilitySidebar 
+                                        currentStage={popoverRow.current_stage || 'QUALIFICATION'}
                                         events={leadEvents}
-                                        leadMetadata={(popoverRow as any).metadata || {}}
+                                        leadMetadata={popoverRow.metadata || {}}
                                     />
                                 )}
                             </section>
                         </div>
 
                         <div className="p-6 border-t border-border bg-muted/30 flex justify-end">
-                            <button onClick={() => setPopoverRow(null)} className="px-8 py-3 rounded-2xl bg-card border border-border text-sm font-black text-muted-foreground hover:bg-muted transition-all">
+                            <button onClick={closePopover} className="px-8 py-3 rounded-2xl bg-card border border-border text-sm font-black text-muted-foreground hover:bg-muted transition-all">
                                 Cerrar Detalle
                             </button>
                         </div>
@@ -346,10 +344,17 @@ export function HistorialTable({ initialData, fromDate, toDate, columns }: Props
                             </tr>
                         ) : (
                             result.data.map((row) => (
-                                <tr key={row.id} className="group hover:bg-primary/5 transition-all cursor-pointer" onClick={() => setPopoverRow(row)}>
+                                <tr 
+                                    key={row.id} 
+                                    className="group hover:bg-primary/5 transition-all cursor-pointer" 
+                                    onClick={() => {
+                                        setLoadingEvents(true);
+                                        setPopoverRow(row);
+                                    }}
+                                >
                                     {activeColumns.map((col) => (
                                         <td key={col.key} className="px-6 py-5 whitespace-nowrap">
-                                            {renderCell(row, col.key, setDupPhone)}
+                                            {renderCell(row, col.key)}
                                         </td>
                                     ))}
                                 </tr>
@@ -374,7 +379,7 @@ export function HistorialTable({ initialData, fromDate, toDate, columns }: Props
     );
 }
 
-function renderCell(row: HistorialRow, key: string, setDupPhone: (p: string) => void) {
+function renderCell(row: HistorialRow, key: string) {
     switch (key) {
         case "lead":
             return (
