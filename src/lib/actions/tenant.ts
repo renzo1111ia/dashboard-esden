@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { AUTH_SUPABASE_URL, AUTH_SUPABASE_ANON_KEY } from "@/lib/auth-config";
 import { requireEnvAny } from "@/lib/env";
 import { Tenant } from "@/types/tenant";
@@ -97,13 +98,10 @@ async function getServiceSupabase() {
   ]);
   const url = requireEnvAny(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_URL"]);
 
-  const cookieStore = await cookies();
-  return createServerClient(url, serviceKey, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll();
-      },
-      setAll() {},
+  return createAdminClient(url, serviceKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
     },
   });
 }
@@ -123,13 +121,10 @@ export async function getTenants(): Promise<Tenant[]> {
     ]);
     const url = requireEnvAny(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_URL"]);
 
-    const cookieStore = await cookies();
-    const supabase = createServerClient(url, serviceKey, {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll() {},
+    const supabase = createAdminClient(url, serviceKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
       },
     });
 

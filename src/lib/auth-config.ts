@@ -19,7 +19,8 @@ const PUBLIC_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const PUBLIC_SUPABASE_ANON_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-  process.env.SUPABASE_ANON_KEY;
+  process.env.SUPABASE_ANON_KEY ||
+  process.env.SUPABASE_PUBLISHABLE_KEY;
 // Server-only URL: en Node runtime está disponible en runtime; en Edge
 // runtime sólo si se declara en next.config.js `env: {}`. Acceso directo igual.
 // SUPABASE_SERVICE_ROLE_KEY ya NO se lee aquí — usar getAuthServiceRoleKey()
