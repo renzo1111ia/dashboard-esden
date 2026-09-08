@@ -99,7 +99,7 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  output: "standalone",
+  output: process.env.VERCEL ? undefined : "standalone",
   // Incluir en la imagen `output: standalone` los ficheros que algunas rutas leen
   // en runtime con `fs` desde process.cwd(). Sin esto, la imagen Docker NO copia
   // estas carpetas (solo el bundle traced) → 404/500 en VPS aunque funcione en local.
