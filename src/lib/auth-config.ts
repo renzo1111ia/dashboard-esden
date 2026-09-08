@@ -16,7 +16,10 @@
 // Acceso DIRECTO (Next.js sustituye en build time para NEXT_PUBLIC_* en
 // cualquier runtime — Node, Edge, browser).
 const PUBLIC_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const PUBLIC_SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const PUBLIC_SUPABASE_ANON_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+  process.env.SUPABASE_ANON_KEY;
 // Server-only URL: en Node runtime está disponible en runtime; en Edge
 // runtime sólo si se declara en next.config.js `env: {}`. Acceso directo igual.
 // SUPABASE_SERVICE_ROLE_KEY ya NO se lee aquí — usar getAuthServiceRoleKey()
@@ -48,6 +51,10 @@ export const AUTH_SUPABASE_ANON_KEY: string = (() => {
  * Lazy getter para el service role key.
  */
 export function getAuthServiceRoleKey(): string {
-  const v = pickFirstNonEmpty(process.env.SUPABASE_SERVICE_ROLE_KEY, process.env.SERVICE_ROLE_KEY);
+  const v = pickFirstNonEmpty(
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    process.env.SERVICE_ROLE_KEY,
+    process.env.SUPABASE_SECRET_KEY
+  );
   return v || "placeholder-service-role-key";
 }
