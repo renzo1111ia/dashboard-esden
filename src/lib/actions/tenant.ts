@@ -90,7 +90,11 @@ async function getAdminSupabase() {
  */
 async function getServiceSupabase() {
   // Sprint 0 tarea 1-04: sin fallback hardcoded. Si la env var falta, falla explícitamente.
-  const serviceKey = requireEnvAny(["SUPABASE_SERVICE_ROLE_KEY", "SERVICE_ROLE_KEY"]);
+  const serviceKey = requireEnvAny([
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "SERVICE_ROLE_KEY",
+    "SUPABASE_SECRET_KEY",
+  ]);
   const url = requireEnvAny(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_URL"]);
 
   const cookieStore = await cookies();
@@ -112,7 +116,11 @@ export async function getTenants(): Promise<Tenant[]> {
     if (!adminGate.ok) return [];
 
     // Sprint 0 tarea 1-04: sin fallback hardcoded.
-    const serviceKey = requireEnvAny(["SUPABASE_SERVICE_ROLE_KEY", "SERVICE_ROLE_KEY"]);
+    const serviceKey = requireEnvAny([
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SERVICE_ROLE_KEY",
+      "SUPABASE_SECRET_KEY",
+    ]);
     const url = requireEnvAny(["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_URL"]);
 
     const cookieStore = await cookies();

@@ -31,7 +31,11 @@ export async function getSupabaseServerClient() {
  */
 export async function getAdminSupabaseClient() {
   const url = requireEnvAny(["SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL"]);
-  const key = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+  const key = requireEnvAny([
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "SERVICE_ROLE_KEY",
+    "SUPABASE_SECRET_KEY",
+  ]);
 
   return createClient<Database>(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
