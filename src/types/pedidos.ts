@@ -65,3 +65,21 @@ export interface Reservation {
   totalAmount: number;
   createdVia: ReservationSource;
 }
+
+export interface DeliveryOrder {
+  id: string;
+  customer: CustomerInfo & { address: string };
+  items: OrderItem[];
+  totalAmount: number;
+  status: OrderStatus;
+  createdAt: string;
+  source: ReservationSource;
+  notes?: string;
+}
+
+export interface RestaurantState {
+  zones: Zone[];
+  tables: Table[];
+  reservations: Record<string, Reservation>;
+  orders: DeliveryOrder[];
+}

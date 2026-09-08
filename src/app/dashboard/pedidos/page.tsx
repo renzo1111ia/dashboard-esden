@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { INITIAL_TABLES, INITIAL_RESERVATIONS, INITIAL_ZONES, formatCLP } from "@/lib/mock-pedidos-data";
 import { Table, Reservation, TableStatus, Zone } from "@/types/pedidos";
 import { TablesCanvas } from "@/components/pedidos/TablesCanvas";
@@ -10,6 +10,7 @@ import { SimulationModal } from "@/components/pedidos/SimulationModal";
 import { EditTableModal } from "@/components/pedidos/EditTableModal";
 import { ZoneManagerModal } from "@/components/pedidos/ZoneManagerModal";
 
+import { useTenantStore } from "@/store/tenant";
 import {
   Utensils,
   LayoutGrid,
@@ -24,13 +25,17 @@ import {
   Plus,
   Layers,
   Check,
+  RefreshCw,
+  RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function PedidosPage() {
+  const { tenantId } = useTenantStore();
   const [zones, setZones] = useState<Zone[]>(INITIAL_ZONES);
   const [tables, setTables] = useState<Table[]>(INITIAL_TABLES);
   const [reservations, setReservations] = useState<Record<string, Reservation>>(INITIAL_RESERVATIONS);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
   const [selectedZone, setSelectedZone] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"canvas" | "list">("canvas");
@@ -42,6 +47,55 @@ export default function PedidosPage() {
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
   const [isZoneManagerOpen, setIsZoneManagerOpen] = useState<boolean>(false);
 
+  // Sincronización en vivo con el servidor / WhatsApp
+  const loadRestaurantData = async () => {
+    if (!tenantId) return;
+    try {
+      const res = await fetch(`/api/restaurant/state?tenantId=${tenantId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.tables) setTables(data.tables);
+        if (data.reservations) setReservations(data.reservations);
+        if (data.zones) setZones(data.zones);
+      }
+    } catch (e) {
+      console.warn("[PedidosPage] Error loading state:", e);
+    }
+  };
+
+  useEffect(() => {
+    loadRestaurantData();
+    const interval = setInterval(loadRestaurantData, 6000);
+    return () => clearInterval(interval);
+  }, [tenantId]);
+
+  const persistServerState = async (
+    updatedTables?: Table[],
+    updatedReservations?: Record<string, Reservation>,
+    updatedZones?: Zone[]
+  ) => {
+    if (!tenantId) return;
+    setIsSyncing(true);
+    try {
+      await fetch(`/api/restaurant/state`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenantId,
+          state: {
+            tables: updatedTables || tables,
+            reservations: updatedReservations || reservations,
+            zones: updatedZones || zones,
+          },
+        }),
+      });
+    } catch (e) {
+      console.error("[PedidosPage] Error persisting state:", e);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   // Stats KPIs
   const totalTables = tables.length;
   const occupiedTables = tables.filter((t) => t.status === "ocupada").length;
@@ -52,68 +106,90 @@ export default function PedidosPage() {
 
   // Table Status update
   const handleUpdateStatus = (tableId: string, newStatus: TableStatus) => {
-    setTables((prev) =>
-      prev.map((t) => (t.id === tableId ? { ...t, status: newStatus } : t))
-    );
+    const updated = tables.map((t) => (t.id === tableId ? { ...t, status: newStatus } : t));
+    setTables(updated);
     if (activeTable && activeTable.id === tableId) {
       setActiveTable((prev) => (prev ? { ...prev, status: newStatus } : null));
     }
+    persistServerState(updated);
   };
 
   const handleSaveReservation = (updatedRes: Reservation) => {
-    setReservations((prev) => ({
-      ...prev,
+    const updated = {
+      ...reservations,
       [updatedRes.id]: updatedRes,
-    }));
+    };
+    setReservations(updated);
+    persistServerState(undefined, updated);
   };
 
   const handleSimulateReservation = (newRes: Reservation, targetTableId: string) => {
-    setReservations((prev) => ({
-      ...prev,
+    const updatedRes = {
+      ...reservations,
       [newRes.id]: newRes,
-    }));
+    };
+    setReservations(updatedRes);
 
-    setTables((prev) =>
-      prev.map((t) =>
-        t.id === targetTableId
-          ? { ...t, status: "reservada", currentReservationId: newRes.id }
-          : t
-      )
+    const updatedTables = tables.map((t) =>
+      t.id === targetTableId
+        ? { ...t, status: "reservada" as const, currentReservationId: newRes.id }
+        : t
     );
+    setTables(updatedTables);
+    persistServerState(updatedTables, updatedRes);
+  };
+
+  const handleResetToZero = async () => {
+    if (!confirm("¿Deseas reiniciar todas las mesas a 'Disponible' y vaciar las reservas para empezar desde cero?")) return;
+    const cleanTables = INITIAL_TABLES.map((t) => ({
+      ...t,
+      status: "disponible" as const,
+      currentReservationId: undefined,
+    }));
+    setTables(cleanTables);
+    setReservations({});
+    await persistServerState(cleanTables, {});
   };
 
   // Table CRUD
   const handleSaveTableData = (tableData: Partial<Table>) => {
     if (!tableData.id) return;
 
-    setTables((prev) => {
-      const exists = prev.some((t) => t.id === tableData.id);
-      if (exists) {
-        return prev.map((t) => (t.id === tableData.id ? ({ ...t, ...tableData } as Table) : t));
-      } else {
-        return [...prev, tableData as Table];
-      }
-    });
+    let updated: Table[];
+    const exists = tables.some((t) => t.id === tableData.id);
+    if (exists) {
+      updated = tables.map((t) => (t.id === tableData.id ? ({ ...t, ...tableData } as Table) : t));
+    } else {
+      updated = [...tables, tableData as Table];
+    }
+    setTables(updated);
+    persistServerState(updated);
   };
 
   const handleDeleteTable = (tableId: string) => {
-    setTables((prev) => prev.filter((t) => t.id !== tableId));
+    const updated = tables.filter((t) => t.id !== tableId);
+    setTables(updated);
+    persistServerState(updated);
   };
 
   const handleUpdateTablePosition = (tableId: string, position: { x: number; y: number }) => {
-    setTables((prev) =>
-      prev.map((t) => (t.id === tableId ? { ...t, position } : t))
-    );
+    const updated = tables.map((t) => (t.id === tableId ? { ...t, position } : t));
+    setTables(updated);
+    persistServerState(updated);
   };
 
   // Zone CRUD
   const handleAddZone = (newZone: Zone) => {
-    setZones((prev) => [...prev, newZone]);
+    const updated = [...zones, newZone];
+    setZones(updated);
+    persistServerState(undefined, undefined, updated);
   };
 
   const handleDeleteZone = (zoneId: string) => {
-    setZones((prev) => prev.filter((z) => z.id !== zoneId));
+    const updated = zones.filter((z) => z.id !== zoneId);
+    setZones(updated);
     if (selectedZone === zoneId) setSelectedZone("all");
+    persistServerState(undefined, undefined, updated);
   };
 
   const currentReservation = activeTable?.currentReservationId
@@ -177,14 +253,36 @@ export default function PedidosPage() {
             </>
           )}
 
-          {/* Simulate AI reservation button */}
+          {/* Simulate AI reservation & Live Sync buttons */}
           {!isEditMode && (
-            <button
-              onClick={() => setIsSimulating(true)}
-              className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2"
-            >
-              <Sparkles className="h-4 w-4" /> Simular Reserva IA
-            </button>
+            <>
+              <button
+                onClick={loadRestaurantData}
+                disabled={isSyncing}
+                className="px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 hover:text-white font-bold text-xs shadow-lg transition-all flex items-center gap-2"
+                title="Actualizar mesas y reservas en vivo desde WhatsApp"
+              >
+                <RefreshCw className={cn("h-4 w-4 text-emerald-400", isSyncing && "animate-spin")} />
+                <span>{isSyncing ? "Sincronizando..." : "Sincronizar"}</span>
+              </button>
+
+              <button
+                onClick={handleResetToZero}
+                disabled={isSyncing}
+                className="px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 hover:text-amber-300 font-bold text-xs shadow-lg transition-all flex items-center gap-2"
+                title="Reiniciar todas las mesas a 'Disponible' y vaciar reservas para empezar completamente de cero"
+              >
+                <RotateCcw className="h-4 w-4 text-amber-400" />
+                <span>Empezar de Cero</span>
+              </button>
+
+              <button
+                onClick={() => setIsSimulating(true)}
+                className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2"
+              >
+                <Sparkles className="h-4 w-4" /> Simular Reserva IA
+              </button>
+            </>
           )}
 
           {/* View Mode Switcher (Canvas vs List) */}

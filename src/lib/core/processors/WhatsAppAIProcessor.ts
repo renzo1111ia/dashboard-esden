@@ -170,9 +170,25 @@ export async function generateAIWhatsAppResponse(
       (async () => {
         try {
           const openai = new OpenAI({ apiKey });
+          let searchQuery = incomingMessage;
+          const lowerMsg = incomingMessage.toLowerCase();
+          if (
+            lowerMsg.includes("delivery") ||
+            lowerMsg.includes("carta") ||
+            lowerMsg.includes("menu") ||
+            lowerMsg.includes("menú") ||
+            lowerMsg.includes("pedir") ||
+            lowerMsg.includes("precio") ||
+            lowerMsg.includes("plato") ||
+            lowerMsg.includes("comida") ||
+            lowerMsg.includes("reserva")
+          ) {
+            searchQuery = `${incomingMessage} carta menú precios platos bebidas delivery`;
+          }
+
           const embedRes = await openai.embeddings.create({
             model: "text-embedding-3-small",
-            input: incomingMessage,
+            input: searchQuery,
           });
           const embedding = embedRes.data[0].embedding;
           const kbIds =
@@ -187,7 +203,7 @@ export async function generateAIWhatsAppResponse(
                 model_name?: string;
               }
             ).knowledge_base_ids || [];
-          const kbResults = await KnowledgeBaseService.search(tenantId, embedding, 0.4, 3, kbIds);
+          const kbResults = await KnowledgeBaseService.search(tenantId, embedding, 0.25, 6, kbIds);
           return kbResults.map((r) => `- ${r.content}`).join("\n");
         } catch (kbErr) {
           console.warn("[AI PROCESSOR] KB search skipped/failed:", kbErr);
@@ -512,6 +528,63 @@ export async function generateAIWhatsAppResponse(
           },
         },
       },
+      {
+        type: "function",
+        function: {
+          name: "book_restaurant_table",
+          description:
+            "Crear y confirmar una reserva de mesa en el restaurante. Úsala cuando el cliente desee reservar. Solicita día, hora, cantidad de comensales, nombre y teléfono.",
+          parameters: {
+            type: "object",
+            properties: {
+              date: { type: "string", description: "Fecha de la reserva (ej: YYYY-MM-DD o 'Hoy' / 'Mañana')" },
+              time: { type: "string", description: "Hora de la reserva (ej: 21:00)" },
+              guests: { type: "number", description: "Número de comensales / personas" },
+              customerName: { type: "string", description: "Nombre del cliente para la reserva" },
+              customerPhone: { type: "string", description: "Teléfono de contacto del cliente" },
+              zonePreference: {
+                type: "string",
+                description: "Zona preferida opcional: 'terraza', 'salon_principal', 'pub_bar', 'vip'",
+              },
+              notes: { type: "string", description: "Notas adicionales, ocasión especial o peticiones" },
+            },
+            required: ["date", "time", "guests", "customerName", "customerPhone"],
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "create_delivery_order",
+          description:
+            "Registrar un pedido a domicilio / delivery. Requiere los platos pedidos, nombre, teléfono y dirección de entrega. Calcula el total según los precios de la carta en la base de conocimientos.",
+          parameters: {
+            type: "object",
+            properties: {
+              customerName: { type: "string", description: "Nombre completo del cliente" },
+              customerPhone: { type: "string", description: "Teléfono de contacto" },
+              deliveryAddress: { type: "string", description: "Dirección completa de entrega del pedido" },
+              items: {
+                type: "array",
+                description: "Lista de platos o productos pedidos",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string", description: "Nombre del plato o bebida según la carta" },
+                    quantity: { type: "number", description: "Cantidad pedida" },
+                    unitPrice: { type: "number", description: "Precio unitario según la carta" },
+                    notes: { type: "string", description: "Modificaciones o notas especiales" },
+                  },
+                  required: ["name", "quantity", "unitPrice"],
+                },
+              },
+              totalAmount: { type: "number", description: "Total a pagar según los precios de la carta" },
+              notes: { type: "string", description: "Notas adicionales de entrega o pago" },
+            },
+            required: ["customerName", "customerPhone", "deliveryAddress", "items", "totalAmount"],
+          },
+        },
+      },
     ];
 
     // 8. Build System Prompt
@@ -569,6 +642,26 @@ ${
         .join("\n")
     : "No hay citas programadas activas para este lead."
 }
+
+### PROTOCOLO DE ATENCIÓN DE RESTAURANTE (RESERVAS & DELIVERY):
+1. **SI EL CLIENTE DESEA HACER UNA RESERVA DE MESA:**
+   - DEBES solicitar los siguientes 4 datos indispensables:
+     1. **Día y Hora** de la reserva (ej: hoy a las 21:00, sábado 14:00).
+     2. **Cantidad de personas / comensales**.
+     3. **Nombre completo** de quien reserva.
+     4. **Número de teléfono** de contacto.
+   - En cuanto tengas estos datos, llama OBLIGATORIAMENTE a la herramienta **'book_restaurant_table'**.
+   - Confírmale la reserva al cliente indicando la mesa asignada, fecha, hora y comensales.
+
+2. **SI EL CLIENTE DESEA UN PEDIDO DE DELIVERY / A DOMICILIO:**
+   - DEBES solicitar los siguientes datos indispensables:
+     1. **Qué platos, bebidas o productos desea pedir** de la carta.
+     2. **Nombre de quien recibe**.
+     3. **Teléfono de contacto**.
+     4. **Dirección exacta de entrega**.
+   - Consulta los precios en la **CARTA / MENÚ** que aparece en la sección 'INFORMACIÓN ADICIONAL (CEREBRO)'.
+   - Calcula el total y DEBES informarle al cliente el desglose de productos y el **TOTAL EXACTO a pagar**.
+   - Llama OBLIGATORIAMENTE a la herramienta **'create_delivery_order'** para registrar el pedido.
 `;
 
     // 9. Call OpenAI with Tools
@@ -710,6 +803,32 @@ ${
               args.date,
               leadTimezone
             );
+            result = JSON.stringify(res);
+          } else if (name === "book_restaurant_table") {
+            const { RestaurantService } = await import("@/lib/services/restaurant-service");
+            const res = await RestaurantService.bookTableReservation(tenantId, {
+              date: args.date,
+              time: args.time,
+              guests: Number(args.guests) || 1,
+              customerName: args.customerName || (lead as any)?.nombre || "Cliente",
+              customerPhone: args.customerPhone || (lead as any)?.telefono || "",
+              customerEmail: (lead as any)?.email,
+              zonePreference: args.zonePreference,
+              notes: args.notes,
+              source: "whatsapp",
+            });
+            result = JSON.stringify(res);
+          } else if (name === "create_delivery_order") {
+            const { RestaurantService } = await import("@/lib/services/restaurant-service");
+            const res = await RestaurantService.createDeliveryOrder(tenantId, {
+              customerName: args.customerName || (lead as any)?.nombre || "Cliente",
+              customerPhone: args.customerPhone || (lead as any)?.telefono || "",
+              deliveryAddress: args.deliveryAddress,
+              items: args.items,
+              totalAmount: Number(args.totalAmount) || 0,
+              notes: args.notes,
+              source: "whatsapp",
+            });
             result = JSON.stringify(res);
           }
         } catch (e) {
